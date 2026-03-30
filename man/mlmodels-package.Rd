@@ -6,7 +6,7 @@
 \alias{mlmodels-package}
 \title{mlmodels: Maximum Likelihood Models and Tools for Estimation, Prediction, and Testing}
 \description{
-A collection of tools for estimating statistical models via maximum likelihood estimation (MLE). The package provides flexible model specifications, methods for generating predictions, and tools for hypothesis testing and inference. It builds on established optimization routines while offering a consistent, user-friendly interface for custom and standard maximum likelihood models.
+A collection of maximum-likelihood estimators with a consistent S3/S4 interface. Currently includes Gaussian linear models (homoskedastic and heteroskedastic) with full support for log-transformed outcomes and parametric retransformation. Provides unified predict(), multiple variance-covariance estimators (OIM, OPG, robust, cluster, bootstrap), and a full suite of hypothesis tests. Fully compatible with marginaleffects.
 }
 \author{
 \strong{Maintainer}: Alfonso Sanchez-Penalver \email{oneiros_spain@yahoo.com} (\href{https://orcid.org/0000-0001-8491-4632}{ORCID})
