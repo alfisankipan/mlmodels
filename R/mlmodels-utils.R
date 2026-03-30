@@ -1,3 +1,7 @@
+# =============================================================================
+# mlmodels: Exported utility functions for all mlmodel objects
+# =============================================================================
+
 ## NULL DEFAULT ----------------------------------------------------------------
 #' Null default operator
 #'
@@ -17,7 +21,6 @@
 `%||%` <- rlang::`%||%`
 
 ## PREDICT GENERIC -----------------------------------------------------------
-
 #' Predictions for mlmodel objects
 #'
 #' Generic method for computing predictions from models fitted with the
@@ -45,12 +48,10 @@ predict.mlmodel <- function(object, ...) {
 #'
 #' @method coef mlmodel
 #' @export
-coef.mlmodel <- function(object,
-                         ...)
-{
-  if(!inherits(object, "mlmodel"))
+coef.mlmodel <- function(object, ...) {
+  if (!inherits(object, "mlmodel"))
     cli::cli_abort("`object` must be a model of class 'mlmodel'.",
-         call = NULL)
+                   call = NULL)
   object$estimate
 }
 
@@ -61,32 +62,18 @@ coef.mlmodel <- function(object,
 #'
 #' @param object An object of class `"mlmodel"` or any model that inherits
 #'   from it (e.g. `"ml_lm"`).
-#'
-#' @param vcov An optional variance-covariance matrix supplied by the user.
-#'   If provided, it will be used instead of computing one internally.
-#'
-#' @param vcov Optional user-supplied variance-covariance matrix.
-#'   If provided, it will be used instead of computing one internally.
-#'   Must be a square matrix with dimensions matching the number of
-#'   coefficients in the model. Useful when you have pre-computed a
-#'   bootstrap or clustered variance and want to reuse it.
-#'
+#' @param vcov An optional user-supplied variance-covariance matrix.
 #' @param vcov.type Character string specifying the type of variance-covariance
 #'   matrix to use. One of `"oim"` (default), `"robust"`, `"opg"`, `"cluster"`,
-#'   or `"boot"`. See [vcov.mlmodel()] for details.
-#'
+#'   or `"boot"`.
 #' @param cl_var Character string or vector. Name of the clustering variable
 #'   or the vector itself. Only used when `vcov.type = "cluster"`.
-#'
 #' @param repetitions Integer. Number of bootstrap replications to use when
 #'   `vcov.type = "boot"`. Default is 999.
-#'
 #' @param seed Integer. Random seed for reproducibility when `vcov.type = "boot"`.
 #'   If `NULL`, a random seed is generated.
-#'
 #' @param progress Logical. Should a progress bar be displayed during
 #'   bootstrapping? Default is `FALSE` (silent) when called from `summary()`.
-#'
 #' @param ... Not currently used.
 #'
 #' @return A named numeric vector of standard errors.
@@ -98,7 +85,7 @@ coef.mlmodel <- function(object,
 #' @rdname se
 #' @export
 se.mlmodel <- function(object,
-                       vcov = NULL,           # User-supplied variance matrix
+                       vcov = NULL,
                        vcov.type = "oim",
                        cl_var = NULL,
                        repetitions = 999,
@@ -106,17 +93,18 @@ se.mlmodel <- function(object,
                        progress = FALSE,
                        ...)
 {
-  if(!inherits(object, "mlmodel"))
-    cli::cli_abort("`object` must be of `'mlmodel'` class.")
+  if (!inherits(object, "mlmodel"))
+    cli::cli_abort("`object` must be of 'mlmodel' class.")
+
   var <- get_vcov(object,
                   vcov        = vcov,
                   vcov.type   = vcov.type,
                   cl_var      = cl_var,
                   repetitions = repetitions,
-                  seed        = seed)
+                  seed        = seed,
+                  progress    = progress)
   se <- sqrt(diag(var))
   names(se) <- colnames(var)
-
   return(se)
 }
 
@@ -140,28 +128,18 @@ se <- function(object, ...) {
 #'
 #' @param object An object of class `"mlmodel"` or a model inheriting from it
 #'   (e.g. `"ml_lm"`).
-#'
 #' @param type Character string specifying the type of variance-covariance
 #'   matrix. One of `"oim"` (default), `"robust"`, `"opg"`, `"cluster"`,
 #'   or `"boot"`.
-#'
 #' @param cl_var Character string or vector. Name of the clustering variable
 #'   in the data, or the vector itself.
-#'   - When `type = "robust"` or `type = "cluster"`, returns the cluster-robust
-#'     (clustered sandwich) variance-covariance matrix.
-#'   - When `type = "boot"`, performs a clustered bootstrap (resampling whole clusters).
-#'   Only relevant when `type` is `"robust"`, `"cluster"`, or `"boot"`.
-#'
 #' @param repetitions Integer. Number of bootstrap replications to use when
 #'   `type = "boot"`. Default is 999.
-#'
 #' @param seed Integer. Random seed for reproducibility when `type = "boot"`.
 #'   If `NULL`, a random seed is generated.
-#'
 #' @param progress Logical. Should a progress bar be displayed during
 #'   bootstrapping? Default is `TRUE`. Only relevant when `type = "boot"`.
-#'
-#' @param ... Further arguments passed to methods (currently not used).
+#' @param ... Further arguments passed to methods.
 #'
 #' @return A symmetric variance-covariance matrix with coefficient names
 #'   on the rows and columns.
@@ -351,16 +329,14 @@ vcov.mlmodel <- function(object,
 #' @export
 logLik.mlmodel <- function(object, ...)
 {
-  if(!inherits(object, c("mlmodel", "summary.mlmodel")))
+  if (!inherits(object, c("mlmodel", "summary.mlmodel")))
     cli::cli_abort("`object` must be of either 'mlmodel' or 'summary.mlmodel' class.",
                    call = NULL)
   ll <- NextMethod("logLik", object, ...)
-
-  if(inherits(object, "mlmodel"))
-    if(!is.null(object$model$n_used))
+  if (inherits(object, "mlmodel"))
+    if (!is.null(object$model$n_used))
       attr(ll, "nobs") <- object$model$n_used
   else
     attr(ll, "nobs") <- object$nobs
-
   return(ll)
 }
