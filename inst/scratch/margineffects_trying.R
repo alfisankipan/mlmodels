@@ -18,9 +18,11 @@ fit <- ml_lm(log(mpg) ~ wt + hp,
              scale = ~ hp,
              data = mtcars)
 
-insight::get_data(fit)                  # should return the full mtcars data.frame
-dy <- marginaleffects::avg_slopes(fit, variables = "hp")        # no newdata argument needed anymore!
-pred <- predict(fit)
+print(summary(fit))
+
+# insight::get_data(fit)                  # should return the full mtcars data.frame
+# dy <- marginaleffects::avg_slopes(fit, variables = "hp")        # no newdata argument needed anymore!
+# pred <- predict(fit)
 
 # # Original coefficients
 # coef_original <- coef(fit)

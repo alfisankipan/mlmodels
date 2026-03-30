@@ -19,7 +19,7 @@
   # Starting values for beta (value equation)
   fit_beta <- .lm.fit(x, y)
   b0 <- fit_beta$coefficients
-  names(b0) <- colnames(x)
+  names(b0) <- paste0("value::", colnames(x))
 
   # Starting values for scale parameters (if heteroskedastic)
   if (!is.null(z)) {
@@ -29,6 +29,7 @@
     names(g0) <- paste0("scale::", colnames(z))
     start <- c(b0, g0)
   } else {
+    # Homoskedastic case: only value equation coefficients
     start <- b0
   }
 
@@ -41,7 +42,6 @@
                        w = w,
                        control = control,
                        ...)
-
   ml
 }
 

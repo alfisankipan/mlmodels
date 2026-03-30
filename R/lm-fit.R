@@ -315,7 +315,7 @@ new_ml_lm <- function(object, ...) {
   # Beta starting values using low-level lm.fit()
   fit_beta <- .lm.fit(x, y)
   b0 <- fit_beta$coefficients
-  names(b0) <- colnames(x)
+  names(b0) <- paste0("value::", colnames(x))
 
   # Residuals
   resid <- y - x %*% b0
@@ -323,17 +323,18 @@ new_ml_lm <- function(object, ...) {
   # Scale starting values
   if (ncol(z) == 1 && colnames(z)[1] == "lnsigma") {
     # Homoskedastic case → exact MLE
-    n  <- length(resid)
+    n <- length(resid)
     rss <- sum(resid^2)
-    g0  <- 0.5 * (log(rss) - log(n))
-    names(g0) <- "lnsigma"
+    g0 <- 0.5 * (log(rss) - log(n))
   } else {
     # Heteroskedastic case → auxiliary regression on log(resid²)
     ln_res2 <- log(resid^2)
     fit_aux <- .lm.fit(z, ln_res2)
     g0 <- fit_aux$coefficients / 2
-    names(g0) <- paste0("scale::", colnames(z))
   }
+
+  # Apply scale:: prefix to all scale coefficients
+  names(g0) <- paste0("scale::", colnames(z))
 
   # Final estimation
   maxLik::maxLik(ml_lm_ll,

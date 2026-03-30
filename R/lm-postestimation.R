@@ -488,24 +488,23 @@ print.summary.ml_lm <- function(x, digits = max(3L, getOption("digits") - 3L), .
   if (x$converged) {
     cat("Log-Likelihood:", format(x$logLik, nsmall = 2, digits = digits + 1), "\n\n")
     cat("Joint significance tests:\n")
-
     w <- x$significance$all
     p_str <- if (isTRUE(w$singular)) "<singular>" else
       if (w$pval < 1e-8) "< 1e-8" else sprintf("%.4f", w$pval)
-    cat(sprintf("  Overall: Chisq(%d) = %.3f, Pr(>Chisq) = %s\n",
+    cat(sprintf(" Overall: Chisq(%d) = %.3f, Pr(>Chisq) = %s\n",
                 w$df, w$waldstat, p_str))
 
     if (!is.null(x$significance$mean)) {
       w <- x$significance$mean
       p_str <- if (isTRUE(w$singular)) "<singular>" else
         if (w$pval < 1e-8) "< 1e-8" else sprintf("%.4f", w$pval)
-      cat(sprintf("  Mean:    Chisq(%d) = %.3f, Pr(>Chisq) = %s\n",
+      cat(sprintf(" Mean: Chisq(%d) = %.3f, Pr(>Chisq) = %s\n",
                   w$df, w$waldstat, p_str))
 
       w <- x$significance$scale
       p_str <- if (isTRUE(w$singular)) "<singular>" else
         if (w$pval < 1e-8) "< 1e-8" else sprintf("%.4f", w$pval)
-      cat(sprintf("  Scale:   Chisq(%d) = %.3f, Pr(>Chisq) = %s\n",
+      cat(sprintf(" Scale: Chisq(%d) = %.3f, Pr(>Chisq) = %s\n",
                   w$df, w$waldstat, p_str))
     }
   }
@@ -521,7 +520,32 @@ print.summary.ml_lm <- function(x, digits = max(3L, getOption("digits") - 3L), .
   old_pen <- getOption("scipen")
   options(scipen = 2)
 
-  printCoefmat(x$coefficients, digits = digits, signif.legend = TRUE)
+  # ── Split coefficients into Value and Scale equations ─────────────────────
+  value_coefficients <- x$coefficients[grepl("^value::", rownames(x$coefficients)), , drop = FALSE]
+  scale_coefficients <- x$coefficients[grepl("^scale::", rownames(x$coefficients)), , drop = FALSE]
+
+  # Strip prefixes for clean display
+  # rownames(value_coefficients) <- sub("^value::", "", rownames(value_coefficients))
+  # rownames(scale_coefficients) <- sub("^scale::", "", rownames(scale_coefficients))
+
+  # Print Value equation
+  cat("Value equation:\n")
+  cat("----------------\n")
+  cat("  ")
+  cat(capture.output(printCoefmat(value_coefficients,
+                                  digits = digits,
+                                  signif.legend = TRUE)),
+      sep = "\n  ")
+  # printCoefmat(value_coefficients, digits = digits, signif.legend = TRUE)
+
+  # Print Scale equation
+  cat("\nScale equation:\n")
+  cat("----------------\n")
+  cat("  ")
+  cat(capture.output(printCoefmat(scale_coefficients,
+                                  digits = digits,
+                                  signif.legend = TRUE)),
+      sep = "\n  ")
 
   options(scipen = old_pen)
 
@@ -530,15 +554,12 @@ print.summary.ml_lm <- function(x, digits = max(3L, getOption("digits") - 3L), .
     cat("Number of observations:", x$nobs, "\n")
     if (!is.null(x$df.residual))
       cat("Residual degrees of freedom:", x$df.residual, "\n")
-
     if (!is.null(x$sigma))
       cat("Residual standard error (sigma):", format(x$sigma, digits = digits), "\n")
-
     cat("Multiple R-squared: ", format(x$r.squared, digits = digits),
-        "  Adjusted R-squared: ", format(x$adj.r.squared, digits = digits), "\n", sep = "")
-
+        " Adjusted R-squared: ", format(x$adj.r.squared, digits = digits), "\n", sep = "")
     cat("AIC:", format(x$AIC, nsmall = 2, digits = digits + 1),
-        "  BIC:", format(x$BIC, nsmall = 2, digits = digits + 1), "\n")
+        " BIC:", format(x$BIC, nsmall = 2, digits = digits + 1), "\n")
   } else {
     cat("\nGoodness-of-fit statistics not available (model did not converge).\n")
   }
