@@ -72,3 +72,10 @@ get_modeldata.mlmodel <- get_data.mlmodel
   }
   invisible(NULL)
 }
+
+
+usethis::use_git_remote(
+  name = "origin",
+  url  = "https://github.com/alfisankipan/mlmodels.git",
+  overwrite = TRUE
+)
