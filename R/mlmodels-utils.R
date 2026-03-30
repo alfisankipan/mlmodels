@@ -176,31 +176,33 @@ vcov.mlmodel <- function(object,
       call = NULL
     )
 
-  # 4. Process clustering variable if provided (used by both robust and boot)
-  if (!is.null(cl_var))
-  {
-    if (is.character(cl_var))
-    {
-      if (object$model$data == "<unknown data>")
-        cli::cli_abort("Dataset name not stored; cannot retrieve clustering variable.",
+  # 4. Process clustering variable if provided
+  if (!is.null(cl_var)) {
+    if (is.character(cl_var)) {
+      # Retrieve data (new primary path first, then old d_name fallback)
+      if (!is.null(object$model$data) && is.data.frame(object$model$data)) {
+        d <- object$model$data
+      } else if (!is.null(object$model$d_name) && object$model$d_name != "<unknown data>") {
+        d <- tryCatch(get(object$model$d_name), error = function(e) {
+          cli::cli_abort("Cannot retrieve the dataset to get the clustering variable.",
+                         call = NULL)
+        })
+      } else {
+        cli::cli_abort("Dataset and its name not stored; cannot retrieve clustering variable.",
                        call = NULL)
-
-      d <- get(object$model$data)
+      }
       cl_var <- d[[cl_var]][object$model$sample]
-    }
-    else
-    {
+    } else {
+      # User passed a vector directly
       n_var  <- length(cl_var)
       n_orig <- object$model$n_orig
       n_used <- object$model$n_used
-
       if (n_var != n_orig && n_var != n_used)
         cli::cli_abort(
           c("The clustering vector has the wrong number of observations.",
             "It should have either {.val {n_orig}} (original) or {.val {n_used}} (used in estimation) observations."),
           call = NULL
         )
-
       if (n_var == n_orig)
         cl_var <- cl_var[object$model$sample]
     }

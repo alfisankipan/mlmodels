@@ -27,7 +27,17 @@ vcov_cluster_info <- function(object, cl_var)
   if (is.character(cl_var))
   {
     # User passed variable name
-    d <- get(object$model$data)
+    if (!is.null(object$model$data) && is.data.frame(object$model$data)) {
+      d <- object$model$data
+    } else if (!is.null(object$model$d_name) && object$model$d_name != "<unknown data>") {
+      d <- tryCatch(get(object$model$d_name), error = function(e) {
+        cli::cli_abort("Cannot retrieve the dataset to get the clustering variable.",
+                       call = NULL)
+      })
+    } else {
+      cli::cli_abort("Dataset and its name not stored; cannot retrieve clustering variable.",
+                     call = NULL)
+    }
     cl_vec <- d[[cl_var]][object$model$sample]
     vcov.cluster <- list(var_name = cl_var,
                          n_cluster = length(unique(cl_vec)),
@@ -168,14 +178,15 @@ vcov_boot.mlmodel <- function(object,
   if (is.null(seed)) seed <- sample.int(1e6, 1)
   set.seed(seed)
 
-  # Recover original data
-  original_data <- tryCatch({
-    if (!is.null(object$call$data)) {
-      eval(object$call$data, envir = parent.frame(2))
-    } else if (!is.null(object$model$data) && object$model$data != "<unknown data>") {
-      get(object$model$data, envir = .GlobalEnv)
+  if(!is.null(object$model$data) && is.data.frame(object$model$data))
+    original_data <- object$model$data
+  else tryCatch({
+    if (!is.null(object$call$d_name)) {
+      eval(object$call$d_name, envir = parent.frame(2))
+    } else if (!is.null(object$model$d_name) && object$model$d_name != "<unknown data>") {
+      get(object$model$d_name, envir = .GlobalEnv)
     } else {
-      stop("Could not recover original data", call. = FALSE)
+      cli::cli_abort("Could not recover original data", call = NULL)
     }
   }, error = function(e) {
     cli::cli_abort("Could not recover the original data for bootstrapping.", call = NULL)

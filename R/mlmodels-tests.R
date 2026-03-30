@@ -210,17 +210,17 @@ IMtest.mlmodel <- function(object,
 
       w <- object$model$weights
 
-      orig_data <- tryCatch({
-        if (!is.null(object$call$data)) {
-          eval(object$call$data, envir = parent.frame(2))
-        } else if (!is.null(object$model$data) && object$model$data != "<unknown data>") {
-          get(object$model$data, envir = .GlobalEnv)
-        } else {
-          stop("Could not recover original data", call. = FALSE)
-        }
-      }, error = function(e) NULL)
-
-      if (is.null(orig_data)) cli::cli_abort("Could not recover original data.", call = NULL)
+      if (!is.null(object$model$data) && is.data.frame(object$model$data)) {
+        orig_data <- object$model$data
+      } else if (!is.null(object$model$d_name) && object$model$d_name != "<unknown data>") {
+        orig_data <- tryCatch(get(object$model$d_name), error = function(e) {
+          cli::cli_abort("Cannot retrieve the dataset to get the clustering variable.",
+                         call = NULL)
+        })
+      } else {
+        cli::cli_abort("Dataset and its name not stored; cannot retrieve clustering variable.",
+                       call = NULL)
+      }
 
       for (r in seq_len(repetitions)) {
         idx <- sample.int(n, n, replace = TRUE)
