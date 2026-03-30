@@ -1,50 +1,3 @@
-
-#' Stripped down function to estimate a binary logit model.
-#'
-#' @param y Vector with the value equation's outcome variable.
-#' @param x Matrix with the predictors of the value equation.
-#' @param z Matrix with the predictors of the scale equation. Defaults to
-#'          NULL. Only for heteroskedastic Logit.
-#' @param w vector with the weights.
-#'
-#' @keywords internal
-.ml_logit.fit <- function(y, x, z = NULL, w,
-                          control = list(tol = -1,
-                                         reltol = 1e-12,
-                                         gradtol = 1e-12,
-                                         lambdatol = 1e-20,
-                                         qac = "marquardt"),
-                          ...)
-{
-  # Starting values for beta (value equation)
-  fit_beta <- .lm.fit(x, y)
-  b0 <- fit_beta$coefficients
-  names(b0) <- paste0("value::", colnames(x))
-
-  # Starting values for scale parameters (if heteroskedastic)
-  if (!is.null(z)) {
-    ln_res2 <- log((y - x %*% b0)^2)
-    fit_aux <- .lm.fit(z, ln_res2)
-    g0 <- fit_aux$coefficients / 2
-    names(g0) <- paste0("scale::", colnames(z))
-    start <- c(b0, g0)
-  } else {
-    # Homoskedastic case: only value equation coefficients
-    start <- b0
-  }
-
-  # Final estimation
-  ml <- maxLik::maxLik(ml_logit_ll,
-                       start = start,
-                       y = y,
-                       x = x,
-                       z = z,
-                       w = w,
-                       control = control,
-                       ...)
-  ml
-}
-
 #' Fit Binary Logit Model by Maximum Likelihood
 #'
 #' @param value Two-sided formula for the probability equation.
@@ -78,6 +31,7 @@ ml_logit <- function(value,
                      data,
                      subset = NULL,
                      noint_value = FALSE,
+                     constraints = NULL,
                      control = list(tol = -1,
                                     reltol = 1e-12,
                                     gradtol = 1e-12,
@@ -212,15 +166,40 @@ ml_logit <- function(value,
   # -- 7. Map factor variables in relevant equations ------------------
   factor_mapping <- build_factor_mapping(molds)
 
-  # -- 8. Fitting the model with maxLik ----------------------
+  # -- 8. Managing control and constraints -------------------
+  # Default control lists
+  default_NR <- list(tol = -1,
+                     reltol = 1e-12,
+                     gradtol = 1e-12,
+                     lambdatol = 1e-20,
+                     qac = "marquardt")
+
+  default_BFGS <- list(tol = -1,
+                       reltol = 1e-8,
+                       gradtol = 1e-6,
+                       lambdatol = 1e-6,
+                       qac = "bfgs")          # or "none" if you prefer
+
+  # Set control list if user did not provide one
+  if (is.null(control)) {
+    control <- if (is.null(constraints)) default_NR else default_BFGS
+  }
+
+  # Future: Parse constraints here (we'll add this later)
+  if (!is.null(constraints)) {
+    # constraints <- parse_constraints(constraints, coef_names = names(start), ...)
+  }
+
+  # -- 9. Fitting the model with maxLik ----------------------
   ml <- .ml_logit.fit(y = y,
                       x = x,
                       z = z,
                       w = wts_clean,
+                      constraints = constraints,
                       control = control,
                       ...)
 
-  # -- 9. Forming the dataset name ------------------------------
+  # -- 10. Forming the dataset name ------------------------------
   # Safely get a readable name for the dataset (for printing/storage)
   d_name <- tryCatch(
     deparse(substitute(data)),
@@ -231,7 +210,7 @@ ml_logit <- function(value,
     d_name <- "<unknown data>"
   }
 
-  # -- 10. Internal safety check(s) (for development/testing) --------
+  # -- 11. Internal safety check(s) (for development/testing) --------
   # They should be the same value, since we never indexed sample (that i can remember),
   # so if we get an alert, we must check the code.
   if (length(sample) != n_orig) {
@@ -240,9 +219,9 @@ ml_logit <- function(value,
     )
   }
 
-  # -- 11. Forming the the model list --------------------------------
+  # -- 12. Forming the the model list --------------------------------
 
-  # -- 11.a. The functions list --------------------------------------
+  # -- 12.a. The functions list --------------------------------------
 
   functions <- list(
     # predict        = predict.ml_logit,
@@ -290,11 +269,11 @@ ml_logit <- function(value,
 
   model_list$fitted.values <- yhat
 
-  # -- 11. Add the model to the maxLik object ----------------------
+  # -- 13. Add the model to the maxLik object ----------------------
   ml$model <- model_list
   ml$call <- cl
 
-  # -- 12. Call the function to create tge class and return  ----------
+  # -- 14. Call the function to create tge class and return  ----------
   new_ml_logit(ml)
 }
 
@@ -305,4 +284,51 @@ new_ml_logit <- function(object, ...) {
     object,
     class = unique(c("ml_logit", "mlmodel", class(object)))
   )
+}
+
+#' Stripped down function to estimate a binary logit model.
+#'
+#' @param y Vector with the value equation's outcome variable.
+#' @param x Matrix with the predictors of the value equation.
+#' @param z Matrix with the predictors of the scale equation. Defaults to
+#'          NULL. Only for heteroskedastic Logit.
+#' @param w vector with the weights.
+#'
+#' @keywords internal
+.ml_logit.fit <- function(y, x, z = NULL, w,
+                          constraints = NULL,
+                          control = list(tol = -1,
+                                         reltol = 1e-12,
+                                         gradtol = 1e-12,
+                                         lambdatol = 1e-20,
+                                         qac = "marquardt"),
+                          ...)
+{
+  # Starting values for beta (value equation)
+  fit_beta <- .lm.fit(x, y)
+  b0 <- fit_beta$coefficients
+  names(b0) <- paste0("value::", colnames(x))
+
+  # Starting values for scale parameters (if heteroskedastic)
+  if (!is.null(z)) {
+    ln_res2 <- log((y - x %*% b0)^2)
+    fit_aux <- .lm.fit(z, ln_res2)
+    g0 <- fit_aux$coefficients / 2
+    names(g0) <- paste0("scale::", colnames(z))
+    start <- c(b0, g0)
+  } else {
+    # Homoskedastic case: only value equation coefficients
+    start <- b0
+  }
+
+  # Final estimation
+  ml <- maxLik::maxLik(ml_logit_ll,
+                       start = start,
+                       y = y,
+                       x = x,
+                       z = z,
+                       w = w,
+                       control = control,
+                       ...)
+  ml
 }

@@ -50,11 +50,8 @@ ml_lm <- function(value,
                   subset = NULL,
                   noint_value = FALSE,
                   noint_scale = FALSE,
-                  control = list(tol = -1,
-                                 reltol = 1e-12,
-                                 gradtol = 1e-12,
-                                 lambdatol = 1e-20,
-                                 qac = "marquardt"),
+                  constraints = NULL,
+                  control = NULL,
                   ...)
 {
   # -- Basic input validation ------------------------------------------
@@ -202,18 +199,43 @@ ml_lm <- function(value,
     )
   }
 
-  # -- 7. Map factor variables in relevant equations ------------------
+  # -- 7. Map factor variables in relevant equations ---------
   factor_mapping <- build_factor_mapping(molds)
 
-  # -- 8. Fitting the model with maxLik ----------------------
+  # -- 8. Managing control and constraints -------------------
+  # Default control lists
+  default_NR <- list(tol = -1,
+                     reltol = 1e-12,
+                     gradtol = 1e-12,
+                     lambdatol = 1e-20,
+                     qac = "marquardt")
+
+  default_BFGS <- list(tol = -1,
+                       reltol = 1e-8,
+                       gradtol = 1e-6,
+                       lambdatol = 1e-6,
+                       qac = "bfgs")          # or "none" if you prefer
+
+  # Set control list if user did not provide one
+  if (is.null(control)) {
+    control <- if (is.null(constraints)) default_NR else default_BFGS
+  }
+
+  # Future: Parse constraints here (we'll add this later)
+  if (!is.null(constraints)) {
+    # constraints <- parse_constraints(constraints, coef_names = names(start), ...)
+  }
+
+  # -- 9. Fitting the model with maxLik ----------------------
   ml <- .ml_lm.fit(y = y,
                    x = x,
                    z = z,
                    w = wts_clean,
+                   constraints = constraints,
                    control = control,
                    ...)
 
-  # -- 9. Forming the dataset name ------------------------------
+  # -- 10. Forming the dataset name ------------------------------
   # Safely get a readable name for the dataset (for printing/storage)
   d_name <- tryCatch(
     deparse(substitute(data)),
@@ -224,7 +246,7 @@ ml_lm <- function(value,
     d_name <- "<unknown data>"
   }
 
-  # -- 10. Internal safety check(s) (for development/testing) --------
+  # -- 11. Internal safety check(s) (for development/testing) --------
   # They should be the same value, since we never indexed sample (that i can remember),
   # so if we get an alert, we must check the code.
   if (length(sample) != n_orig) {
@@ -233,9 +255,9 @@ ml_lm <- function(value,
     )
   }
 
-  # -- 11. Forming the the model list --------------------------------
+  # -- 12. Forming the the model list --------------------------------
 
-  # -- 11.a. The functions list --------------------------------------
+  # -- 12.a. The functions list --------------------------------------
 
   functions <- list(
     predict        = predict.ml_lm,
@@ -245,7 +267,7 @@ ml_lm <- function(value,
     fit            = .ml_lm.fit
   )
 
-  # Common model list structure
+  # -- 12.b. The common structure --------------------------------------
   model_list <- list(
     value         = model_value,
     scale         = model_scale,
@@ -279,6 +301,7 @@ ml_lm <- function(value,
     return(ml)
   }
 
+  # -- 12.c. The fitted values and residuals ------------------------
   # Converged: compute fitted/residuals
   beta <- coef(ml)[1:ncol(x)]
   yhat <- as.vector(x %*% beta)
@@ -286,11 +309,11 @@ ml_lm <- function(value,
   model_list$fitted.values <- yhat
   model_list$residuals     <- y - yhat
 
-  # -- 11. Add the model to the maxLik object ----------------------
+  # -- 13. Add the model to the maxLik object ----------------------
   ml$model <- model_list
   ml$call <- cl
 
-  # -- 12. Call the function to create tge class and return  ----------
+  # -- 14. Call the function to create tge class and return  ----------
   new_ml_lm(ml)
 }
 
@@ -305,6 +328,7 @@ new_ml_lm <- function(object, ...) {
 
 # ML_LM FIT --------------------------------------------------------------
 .ml_lm.fit <- function(y, x, z, w,
+                       constraints = NULL,
                        control = list(tol = -1,
                                       reltol = 1e-12,
                                       gradtol = 1e-12,
