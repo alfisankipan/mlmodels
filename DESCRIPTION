@@ -1,0 +1,28 @@
+Package: mlmodels
+Title: Maximum Likelihood Models and Tools for Estimation, Prediction, and Testing
+Version: 0.1.0
+Authors@R: 
+    person(given = "Alfonso",
+    family = "Sanchez-Penalver",
+    email = "oneiros_spain@yahoo.com", 
+           role = c("aut", "cre"),
+    comment = c(ORCID = "0000-0001-8491-4632"))
+Description: A collection of tools for estimating statistical models via maximum likelihood estimation (MLE). The package provides flexible model specifications, methods for generating predictions, and tools for hypothesis testing and inference. It builds on established optimization routines while offering a consistent, user-friendly interface for custom and standard maximum likelihood models.
+License: MIT + file LICENSE
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.3
+Imports:
+    cli,
+    hardhat,
+    MASS,
+    matrixcalc,
+    maxLik,
+    rlang,
+    tibble
+Suggests: 
+    insight,
+    marginaleffects,
+    testthat (>= 3.0.0),
+    wooldridge
+Config/testthat/edition: 3
