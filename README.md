@@ -10,7 +10,7 @@ All models share the same `mlmodel` class and support:
 - Flexible formulas (including heteroskedasticity in the scale equation)
 - Rich `predict()` methods (response, mean, median, sigma, variance, etc.)
 - Multiple variance-covariance estimators (OIM, OPG, robust, cluster-robust, bootstrap, cluster-bootstrap)
-- Wald, LR, and Information-Matrix tests
+- Own testing functionality (Wald, LR, and Information-Matrix for now)
 - Full **marginaleffects** compatibility (`avg_slopes()`, `avg_predictions()`, etc.)
 
 ## Installation
