@@ -1,4 +1,9 @@
+# =============================================================================
+# mlmodels: Hypothesis testing functions (exported)
+# =============================================================================
+
 ## LR TEST ---------------------------------------------------------------------
+
 #' Likelihood Ratio Test
 #'
 #' Performs a likelihood ratio test for comparing two nested models fitted
@@ -25,13 +30,12 @@
 #'
 #' @return An object of class `"lrtest.mlmodel"`.
 #'
-#' @seealso [waldtest()]
+#' @seealso [waldtest()], [IMtest()]
 #'
 #' @examples
 #' \dontrun{
 #' fit_small <- ml_lm(mpg ~ wt, data = mtcars)
 #' fit_large <- ml_lm(mpg ~ wt + hp + qsec, data = mtcars)
-#'
 #' lrtest(fit_small, fit_large)
 #' }
 #'
@@ -338,21 +342,6 @@ print.IMtest <- function(x, digits = 3, ...)
 }
 
 ## WALDTEST --------------------------------------------------------------------
-#' Wald Test
-#'
-#' Performs a Wald test of linear restrictions on model parameters.
-#'
-#' @param object An object of class `"mlmodel"` or any model that inherits
-#'   from it (e.g. `"ml_lm"`, `"ml_logit"`, etc.).
-#' @param ... Further arguments passed to specific methods.
-#'
-#' @export
-waldtest <- function(object,
-                     ...)
-{
-  UseMethod("waldtest")
-}
-
 #' Wald Test for mlmodel objects
 #'
 #' Performs a Wald test of linear restrictions on the parameters.
@@ -381,6 +370,14 @@ waldtest <- function(object,
 #'   bootstrapping? Default is `FALSE`.
 #' @param ... Further arguments passed to methods.
 #'
+#' @export
+waldtest <- function(object,
+                     ...)
+{
+  UseMethod("waldtest")
+}
+
+
 #' @rdname waldtest
 #' @export
 waldtest.mlmodel <- function(object,
@@ -547,24 +544,6 @@ waldtest.mlmodel <- function(object,
 }
 
 ## PRINT WALDTEST --------------------------------------------------------------
-#' Print method for Wald test results
-#'
-#' Prints a nicely formatted summary of the results from a Wald test
-#' performed with [`waldtest()`][mlmodels::waldtest].
-#'
-#' @param x An object of class `"waldtest.mlmodel"`, usually the output of
-#'   [`waldtest()`][mlmodels::waldtest].
-#'
-#' @param digits Integer. Number of significant digits to display for the
-#'   Wald statistic. Default is 3.
-#'
-#' @param ... Further arguments passed to or from other methods (currently
-#'   not used).
-#'
-#' @return The input object `x` (invisibly).
-#'
-#' @seealso [waldtest()]
-#'
 #' @export
 print.waldtest.mlmodel <- function(x, digits = 3, ...)
 {
