@@ -251,13 +251,15 @@ predict.ml_lm <- function(object,
 }
 
 ## FITTED VALUES ---------------------------------------------------------------
-#' Get the fitted value from a linear model estimated with [mlmodels::ml_lm].
+#' Extract Fitted Values from ml_lm objects
 #'
-#' @param object A model class `ml_lm`, estimated by [mlmodels::ml_lm].
+#' Returns the fitted values (predicted conditional mean) from the value equation.
 #'
-#' @param ... Currently not used.
+#' @param object A fitted `ml_lm` object.
+#' @param ... Not currently used.
 #'
-#' @returns A vector with the fitted values.
+#' @return A numeric vector of fitted values with length equal to the number of
+#'   observations used in estimation.
 #'
 #' @author Alfonso Sanchez-Penalver
 #'
@@ -277,11 +279,15 @@ fitted.ml_lm <- function(object, ...)
 }
 
 ## RESIDUALS -------------------------------------------------------------------
-#' Get the residuals from a linear model estimated with [mlmodels::ml_lm].
+#' Extract Residuals from ml_lm objects
 #'
-#' @param object A `ml_lm` object, from an estimation with [mlmodels::ml_lm].
+#' Returns the residuals (observed minus fitted values) from the value equation.
 #'
-#' @param ... Currently not used.
+#' @param object A fitted `ml_lm` object.
+#' @param ... Not currently used.
+#'
+#' @return A numeric vector of residuals with length equal to the number of
+#'   observations used in estimation.
 #'
 #' @author Alfonso Sanchez-Penalver
 #'

@@ -2,20 +2,21 @@
 % Please edit documentation in R/lm-postestimation.R
 \name{fitted.ml_lm}
 \alias{fitted.ml_lm}
-\title{Get the fitted value from a linear model estimated with \link{ml_lm}.}
+\title{Extract Fitted Values from ml_lm objects}
 \usage{
 \method{fitted}{ml_lm}(object, ...)
 }
 \arguments{
-\item{object}{A model class \code{ml_lm}, estimated by \link{ml_lm}.}
+\item{object}{A fitted \code{ml_lm} object.}
 
-\item{...}{Currently not used.}
+\item{...}{Not currently used.}
 }
 \value{
-A vector with the fitted values.
+A numeric vector of fitted values with length equal to the number of
+observations used in estimation.
 }
 \description{
-Get the fitted value from a linear model estimated with \link{ml_lm}.
+Returns the fitted values (predicted conditional mean) from the value equation.
 }
 \author{
 Alfonso Sanchez-Penalver

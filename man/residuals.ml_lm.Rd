@@ -2,17 +2,21 @@
 % Please edit documentation in R/lm-postestimation.R
 \name{residuals.ml_lm}
 \alias{residuals.ml_lm}
-\title{Get the residuals from a linear model estimated with \link{ml_lm}.}
+\title{Extract Residuals from ml_lm objects}
 \usage{
 \method{residuals}{ml_lm}(object, ...)
 }
 \arguments{
-\item{object}{A \code{ml_lm} object, from an estimation with \link{ml_lm}.}
+\item{object}{A fitted \code{ml_lm} object.}
 
-\item{...}{Currently not used.}
+\item{...}{Not currently used.}
+}
+\value{
+A numeric vector of residuals with length equal to the number of
+observations used in estimation.
 }
 \description{
-Get the residuals from a linear model estimated with \link{ml_lm}.
+Returns the residuals (observed minus fitted values) from the value equation.
 }
 \author{
 Alfonso Sanchez-Penalver
