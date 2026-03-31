@@ -13,6 +13,8 @@ ml_lm(
   noint_value = FALSE,
   noint_scale = FALSE,
   constraints = NULL,
+  start = NULL,
+  method = "NR",
   control = NULL,
   ...
 )
@@ -39,12 +41,16 @@ Default is \code{FALSE}.}
 Default is \code{FALSE}.}
 
 \item{constraints}{Optional constraints on the parameters. Can be a character
-vector of string constraints (e.g. \code{c("value::wt = 0", "scale::wt >= 0.01")})
-or \code{NULL} (default).}
+vector of string constraints, a named list of string constraints, or a raw
+maxLik constraints list. See \strong{Details}.}
+
+\item{start}{Numeric vector of starting values for the coefficients. Required
+if constraints are being supplied. If supplied without constraints they
+will be ignored. See \strong{Details}.}
 
 \item{control}{A list of control parameters passed to \code{\link[maxLik:maxLik]{maxLik::maxLik()}}.
 If \code{NULL} (default), a sensible set of options is chosen automatically
-depending on whether constraints are used.}
+depending on whether constraints are used. See \link[maxLik:maxControl]{maxLik::maxControl}.}
 
 \item{...}{Additional arguments passed to \code{\link[maxLik:maxLik]{maxLik::maxLik()}}.}
 }
@@ -55,31 +61,25 @@ An object of class \code{ml_lm} that extends \code{mlmodel}.
 Fit linear model by Maximum Likelihood
 }
 \details{
-\strong{Important:} Do not use the usual R syntax to remove the intercept in the
-formulas (\code{- 1} or \code{+ 0}). Use the dedicated arguments \code{noint_value} and
-\code{noint_scale} instead.
+Coefficient names in the fitted object use the prefixes \verb{value::} and
+\verb{scale::} to identify to which equation they belong to, and to avoid
+confusion when the same variable(s) appear(s) in both the value and scale
+equations.
 
-Coefficient names in the fitted object now include prefixes:
+Either inequality or equality linear constraints are accepted, but not both.
+A constraint cannot have a linear combination of more than two coefficients.
+
+\strong{Important}: When \code{constraints} are supplied, \code{start} cannot be \code{NULL}.
+You \strong{must} provide initial values that yield a feasible log-likelihood.
+If no constraints are used, any supplied \code{start} is ignored.
+
+When constraints are used, \code{ml_lm} automatically chooses the optimizer:
 \itemize{
-\item Value equation: \code{value::varname}
-\item Scale equation: \code{scale::varname} (or \code{scale::lnsigma} in homoskedastic case)
-}
-}
-\examples{
-if (requireNamespace("wooldridge", quietly = TRUE)) {
-
-  # Homoskedastic model
-  linm <- ml_lm(cigs ~ log(income) + age + I(age^2) + educ + restaurn,
-                data = wooldridge::smoke)
-  summary(linm)
-
-  # Heteroskedastic model
-  linm_het <- ml_lm(value = cigs ~ log(income) + age + I(age^2) + educ + restaurn,
-                    scale = ~ age + I(age^2) + restaurn,
-                    data = wooldridge::smoke)
-  summary(linm_het, vcov.type = "robust")
+\item Equality constraints → Nelder-Mead (\code{"NM"})
+\item Inequality constraints → BFGS
 }
 
+In these cases your supplied \code{method} argument (if any) is ignored.
 }
 \author{
 Alfonso Sanchez-Penalver

@@ -4,11 +4,20 @@
 \alias{.ml_lm.fit}
 \title{Internal fitting function for ml_lm}
 \usage{
-.ml_lm.fit(...)
+.ml_lm.fit(
+  y,
+  x,
+  z,
+  w,
+  constraints = NULL,
+  method = "NR",
+  start = NULL,
+  control = list(tol = -1, reltol = 1e-12, gradtol = 1e-12, lambdatol = 1e-20, qac =
+    "marquardt"),
+  ...
+)
 }
 \arguments{
-\item{...}{Further arguments passed to \code{\link[maxLik:maxLik]{maxLik::maxLik()}}.}
-
 \item{y}{Numeric vector of outcomes.}
 
 \item{x}{Design matrix for the value equation.}
@@ -19,7 +28,11 @@
 
 \item{constraints}{Parsed constraints (internal use).}
 
+\item{start}{Numeric vector of initial values.}
+
 \item{control}{Control list passed to \code{\link[maxLik:maxLik]{maxLik::maxLik()}}.}
+
+\item{...}{Further arguments passed to \code{\link[maxLik:maxLik]{maxLik::maxLik()}}.}
 }
 \description{
 Internal fitting function for ml_lm

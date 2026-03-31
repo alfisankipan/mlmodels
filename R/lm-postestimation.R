@@ -357,7 +357,7 @@ summary.ml_lm <- function(object,
   if (!inherits(object, "ml_lm"))
     cli::cli_abort("`object` must be a model of class 'ml_lm'.")
 
-  converged <- object$code %in% c(1L, 2L, 8L)
+  converged <- object$code %in% c(0, 1, 2, 8)
   # Get variance-covariance matrix once
   vcov_mat <- get_vcov(object,
                        vcov = vcov,

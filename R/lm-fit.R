@@ -14,40 +14,38 @@
 #' @param noint_scale Logical. Should the scale equation omit the intercept?
 #'   Default is `FALSE`.
 #' @param constraints Optional constraints on the parameters. Can be a character
-#'   vector of string constraints (e.g. `c("value::wt = 0", "scale::wt >= 0.01")`)
-#'   or `NULL` (default).
+#'   vector of string constraints, a named list of string constraints, or a raw
+#'   maxLik constraints list. See **Details**.
+#' @param start Numeric vector of starting values for the coefficients. Required
+#'   if constraints are being supplied. If supplied without constraints they
+#'   will be ignored. See **Details**.
 #' @param control A list of control parameters passed to [maxLik::maxLik()].
 #'   If `NULL` (default), a sensible set of options is chosen automatically
-#'   depending on whether constraints are used.
+#'   depending on whether constraints are used. See [maxLik::maxControl].
 #' @param ... Additional arguments passed to [maxLik::maxLik()].
 #'
 #' @details
-#' **Important:** Do not use the usual R syntax to remove the intercept in the
-#' formulas (`- 1` or `+ 0`). Use the dedicated arguments `noint_value` and
-#' `noint_scale` instead.
+#' Coefficient names in the fitted object use the prefixes `value::` and
+#' `scale::` to identify to which equation they belong to, and to avoid
+#' confusion when the same variable(s) appear(s) in both the value and scale
+#' equations.
 #'
-#' Coefficient names in the fitted object now include prefixes:
-#' - Value equation: `value::varname`
-#' - Scale equation: `scale::varname` (or `scale::lnsigma` in homoskedastic case)
+#' Either inequality or equality linear constraints are accepted, but not both.
+#' A constraint cannot have a linear combination of more than two coefficients.
+#'
+#' **Important**: When `constraints` are supplied, `start` cannot be `NULL`.
+#' You **must** provide initial values that yield a feasible log-likelihood.
+#' If no constraints are used, any supplied `start` is ignored.
+#'
+#' When constraints are used, `ml_lm` automatically chooses the optimizer:
+#' - Equality constraints → Nelder-Mead (`"NM"`)
+#' - Inequality constraints → BFGS
+#'
+#' In these cases your supplied `method` argument (if any) is ignored.
 #'
 #' @return An object of class `ml_lm` that extends `mlmodel`.
 #'
 #' @author Alfonso Sanchez-Penalver
-#'
-#' @examples
-#' if (requireNamespace("wooldridge", quietly = TRUE)) {
-#'
-#'   # Homoskedastic model
-#'   linm <- ml_lm(cigs ~ log(income) + age + I(age^2) + educ + restaurn,
-#'                 data = wooldridge::smoke)
-#'   summary(linm)
-#'
-#'   # Heteroskedastic model
-#'   linm_het <- ml_lm(value = cigs ~ log(income) + age + I(age^2) + educ + restaurn,
-#'                     scale = ~ age + I(age^2) + restaurn,
-#'                     data = wooldridge::smoke)
-#'   summary(linm_het, vcov.type = "robust")
-#' }
 #'
 #' @export
 ml_lm <- function(value,
@@ -58,6 +56,8 @@ ml_lm <- function(value,
                   noint_value = FALSE,
                   noint_scale = FALSE,
                   constraints = NULL,
+                  start = NULL,
+                  method = "NR",
                   control = NULL,
                   ...)
 {
@@ -217,20 +217,51 @@ ml_lm <- function(value,
                      lambdatol = 1e-20,
                      qac = "marquardt")
 
-  default_BFGS <- list(tol = -1,
-                       reltol = 1e-8,
-                       gradtol = 1e-6,
-                       lambdatol = 1e-6,
-                       qac = "bfgs")          # or "none" if you prefer
+  default_BFGS <- list(reltol = 1e-8)
+  default_NM <- list(reltol = 1e-8,
+                     maxit = 1000)
 
-  # Set control list if user did not provide one
-  if (is.null(control)) {
-    control <- if (is.null(constraints)) default_NR else default_BFGS
-  }
-
-  # Future: Parse constraints here (we'll add this later)
+  # Parse constraints (if any)
   if (!is.null(constraints)) {
-    # constraints <- parse_constraints(constraints, coef_names = names(start), ...)
+    if (is.null(start))
+      cli::cli_abort("Constrained optimization requires a vector of initial values (`start`).",
+                     call = NULL)
+    if (any(!is.numeric(start)))
+      cli::cli_abort("Initial values must be numeric.", call = NULL)
+    if (length(start) != (ncol(x) + ncol(z)))
+      cli::cli_abort("The vector of initial values has the wrong dimension. It requires {.val {ncol(x) + ncol(z)}} values.")
+
+    coef_names <- c(paste0("value::", colnames(x)), paste0("scale::", colnames(z)))
+    parsed_constraints <- parse_constraints(constraints, coef_names)
+
+    if (!is.null(parsed_constraints$maxLik$eqA))
+    {
+      cli::cli_alert_info("Equality constraints detected → using Nelder-Mead optimizer.")
+      method <- "NM"
+      if (is.null(control))
+        control <- default_NM
+    }
+    else
+    {
+      method = "BFGS"
+      cli::cli_alert_info("Inequality constraints detected → using BFGS optimizer.")
+      if (is.null(control))
+        control <- default_BFGS
+    }
+  } else {
+    parsed_constraints <- list(names = NULL, strings = NULL, maxLik = NULL)
+    start <- NULL
+
+    # Unconstrained optimization
+    if (is.null(control)) {
+      if (method %in% c("NR", "BHHH")) {
+        control <- default_NR
+      } else if(method == "NM") {
+        control <- default_NM
+      } else {
+        control <- default_BFGS
+      }
+    }
   }
 
   # -- 9. Fitting the model with maxLik ----------------------
@@ -238,7 +269,9 @@ ml_lm <- function(value,
                    x = x,
                    z = z,
                    w = wts_clean,
-                   constraints = constraints,
+                   constraints = parsed_constraints$maxLik,
+                   start = start,
+                   method = method,
                    control = control,
                    ...)
 
@@ -294,9 +327,11 @@ ml_lm <- function(value,
     n_orig        = n_orig,
     log_info      = log_info,
     control       = control,
+    constraints   = parsed_constraints,
+    start         = start
   )
 
-  if (!(ml$code %in% c(1, 2, 8))) {
+  if (!(ml$code %in% c(0, 1, 2, 8))) {
     cli::cli_alert_warning(
       "Estimation did not converge (code {.strong {ml$code}}).\nMessage: {ml$message}"
     )
@@ -342,13 +377,15 @@ new_ml_lm <- function(object, ...) {
 #' @param z Design matrix for the scale equation (or single column of 1s).
 #' @param w Numeric vector of weights.
 #' @param constraints Parsed constraints (internal use).
+#' @param start Numeric vector of initial values.
 #' @param control Control list passed to [maxLik::maxLik()].
 #' @param ... Further arguments passed to [maxLik::maxLik()].
 #'
 #' @keywords internal
-.ml_lm.fit <- function(...)
 .ml_lm.fit <- function(y, x, z, w,
                        constraints = NULL,
+                       method = "NR",
+                       start = NULL,
                        control = list(tol = -1,
                                       reltol = 1e-12,
                                       gradtol = 1e-12,
@@ -356,37 +393,53 @@ new_ml_lm <- function(object, ...) {
                                       qac = "marquardt"),
                        ...)
 {
-  # Beta starting values using low-level lm.fit()
-  fit_beta <- .lm.fit(x, y)
-  b0 <- fit_beta$coefficients
-  names(b0) <- paste0("value::", colnames(x))
+  # At this point start has been checked and if supplied is numeric and
+  # has the right dimension.
+  if(!is.null(start))
+  {
+    ll <- ml_lm_ll(start,y,x,z,w)
 
-  # Residuals
-  resid <- y - x %*% b0
+    if(any(!is.finite(ll)))
+      cli::cli_abort("Infeasible log-likelihood value at supplied `start` vector.",
+                     call = NULL)
 
-  # Scale starting values
-  if (ncol(z) == 1 && colnames(z)[1] == "lnsigma") {
-    # Homoskedastic case → exact MLE
-    n <- length(resid)
-    rss <- sum(resid^2)
-    g0 <- 0.5 * (log(rss) - log(n))
-  } else {
-    # Heteroskedastic case → auxiliary regression on log(resid²)
-    ln_res2 <- log(resid^2)
-    fit_aux <- .lm.fit(z, ln_res2)
-    g0 <- fit_aux$coefficients / 2
+    names(start) <- c(paste0("value::", colnames(x)),
+                      paste0("scale::", colnames(z)))
   }
+  else
+  {
+    # Beta starting values using low-level lm.fit()
+    fit_beta <- .lm.fit(x, y)
+    b0 <- fit_beta$coefficients
+    names(b0) <- paste0("value::", colnames(x))
 
-  # Apply scale:: prefix to all scale coefficients
-  names(g0) <- paste0("scale::", colnames(z))
+    # Residuals
+    resid <- y - x %*% b0
+    # Scale starting values
+    if (ncol(z) == 1 && colnames(z)[1] == "lnsigma") {
+      # Homoskedastic case → exact MLE
+      n <- length(resid)
+      rss <- sum(resid^2)
+      g0 <- 0.5 * (log(rss) - log(n))
+    } else {
+      # Heteroskedastic case → auxiliary regression on log(resid²)
+      ln_res2 <- log(resid^2)
+      fit_aux <- .lm.fit(z, ln_res2)
+      g0 <- fit_aux$coefficients / 2
+    }
+    # Apply scale:: prefix to all scale coefficients
+    names(g0) <- paste0("scale::", colnames(z))
 
-  # Final estimation
+    start = c(b0, g0)
+  }
   maxLik::maxLik(ml_lm_ll,
-                 start = c(b0, g0),
+                 start = start,
                  y = y,
                  x = x,
                  z = z,
                  w = w,
+                 constraints = constraints,
+                 method = method,
                  control = control,
                  ...)
 }
