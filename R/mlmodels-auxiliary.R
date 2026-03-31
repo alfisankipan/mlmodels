@@ -6,7 +6,7 @@
 ## do a specific task.
 
 # ------------------------------------------------------------------------------
-# Cluster information helper
+# Cluster info -----------------------------------------------------------------
 # ------------------------------------------------------------------------------
 
 #' Internal helper to extract clustering information
@@ -59,7 +59,7 @@ vcov_cluster_info <- function(object, cl_var)
 }
 
 # ------------------------------------------------------------------------------
-# get_vcov helper
+# get_vcov ---------------------------------------------------------------------
 # ------------------------------------------------------------------------------
 
 #' Internal helper to obtain the variance-covariance matrix
@@ -135,17 +135,9 @@ get_vcov <- function(object,
 }
 
 
-# VCOV_BOOT --------------------------------------------------------------------
-# Generic
-#' @keywords internal
-vcov_boot <- function(object, ...) {
-  UseMethod("vcov_boot")
-}
-
 # ------------------------------------------------------------------------------
-# Bootstrap variance helpers
+# vcov_boot --------------------------------------------------------------------
 # ------------------------------------------------------------------------------
-
 #' Generic for bootstrap variance-covariance matrix
 #'
 #' @keywords internal
@@ -285,7 +277,9 @@ vcov_boot.mlmodel <- function(object,
 
 # POST-MOLD UTILITIES ==========================================================
 
-## Factor Mapping --------------------------------------------------------------
+# ------------------------------------------------------------------------------
+# Factor mapping ---------------------------------------------------------------
+# ------------------------------------------------------------------------------
 #' Build factor mapping for a single equation
 #'
 #' Internal function. Creates a mapping of factor variables to their
@@ -468,7 +462,9 @@ build_factor_mapping <- function(molds)
   mapping
 }
 
-## Invalid Predictors ----------------------------------------------------------
+# ------------------------------------------------------------------------------
+# Invalid predictors -----------------------------------------------------------
+# ------------------------------------------------------------------------------
 #' Check for invalid predictor columns after molding
 #'
 #' Internal helper that aborts with a clear error if any predictor
@@ -508,7 +504,9 @@ check_for_invalid_predictors <- function(mold, equation_name = "value")
 }
 
 
-## Log Transformations ---------------------------------------------------------
+# ------------------------------------------------------------------------------
+# Log transformations ----------------------------------------------------------
+# ------------------------------------------------------------------------------
 #' Detect log transformation on the outcome variable
 #'
 #' Returns a consistent list structure whether a log transformation is detected or not.
@@ -653,3 +651,220 @@ detect_log_transformations <- function(formulas_list, data) {
   })
 }
 
+
+# ------------------------------------------------------------------------------
+# Constraints parsing ----------------------------------------------------------
+# ------------------------------------------------------------------------------
+#' Parse user-friendly constraints into maxLik format
+#'
+#' @param constraints User input. Can be:
+#'   - NULL (no constraints)
+#'   - A character vector of string constraints
+#'   - A named list of string constraints (labels become names)
+#'   - A raw maxLik list with `eqA`/`eqB` or `ineqA`/`ineqB`
+#' @param coef_names Character vector of all coefficient names in the model
+#'
+#' @return A list with three elements:
+#'   - `names`: character vector of constraint labels (or NULL)
+#'   - `strings`: character vector of original string constraints (or NULL)
+#'   - `maxLik`: list ready for maxLik (eqA/eqB or ineqA/ineqB) or NULL
+#'
+#' @keywords internal
+parse_constraints <- function(constraints = NULL, coef_names)
+{
+  if (is.null(constraints) || length(constraints) == 0) {
+    return(list(names = NULL, strings = NULL, maxLik = NULL))
+  }
+
+  # Case 1: Raw maxLik format (user knows what they're doing)
+  if (is.list(constraints) &&
+      (all(c("eqA", "eqB") %in% names(constraints)) ||
+       all(c("ineqA", "ineqB") %in% names(constraints)))) {
+    return(list(names = NULL, strings = NULL, maxLik = constraints))
+  }
+
+  # Case 2: Named list of string constraints
+  if (is.list(constraints) && !is.null(names(constraints))) {
+    strings <- unlist(constraints, use.names = FALSE)
+    names_vec <- names(constraints)
+  }
+  # Case 3: Simple character vector
+  else if (is.character(constraints)) {
+    strings <- constraints
+    names_vec <- NULL
+  }
+  else {
+    cli::cli_abort("`constraints` must be NULL, a character vector, a named list, or a raw maxLik list.",
+                   call = NULL)
+  }
+
+  # Parse the string constraints into maxLik format
+  maxLik_list <- parse_string_constraints(strings, coef_names)
+
+  return(list(
+    names   = names_vec,
+    strings = strings,
+    maxLik  = maxLik_list
+  ))
+}
+
+#' Internal helper: parse string constraints into maxLik matrices
+#'
+#' @keywords internal
+parse_string_constraints <- function(strings, coef_names)
+{
+  eq_rows <- list()
+  ineq_rows <- list()
+
+  for (constr in strings) {
+    constr <- trimws(constr)
+
+    # Detect operator
+    if (grepl(">=", constr)) {
+      op <- ">="
+      parts <- strsplit(constr, ">=", fixed = TRUE)[[1]]
+    } else if (grepl("<=", constr)) {
+      op <- "<="
+      parts <- strsplit(constr, "<=", fixed = TRUE)[[1]]
+    } else if (grepl("=", constr)) {
+      op <- "="
+      parts <- strsplit(constr, "=", fixed = TRUE)[[1]]
+    } else {
+      cli::cli_abort("Constraint must contain =, >= or <= : {.val {constr}}", call = NULL)
+    }
+
+    if (length(parts) != 2) {
+      cli::cli_abort("Invalid constraint format: {.val {constr}}", call = NULL)
+    }
+
+    lhs <- trimws(parts[1])
+    rhs <- as.numeric(trimws(parts[2]))
+
+    if (is.na(rhs)) {
+      cli::cli_abort("Right-hand side must be numeric in constraint: {.val {constr}}",
+                     call = NULL)
+    }
+
+    row <- parse_linear_expression(lhs, coef_names)
+
+    if (op == "=") {
+      eq_rows[[length(eq_rows) + 1]] <- c(row, -rhs)
+    } else if (op == ">=") {
+      ineq_rows[[length(ineq_rows) + 1]] <- c(row, -rhs)
+    } else if (op == "<=") {
+      ineq_rows[[length(ineq_rows) + 1]] <- c(-row, rhs)
+    }
+  }
+
+  result <- list()
+
+  if (length(eq_rows) > 0) {
+    result$eqA <- do.call(rbind, lapply(eq_rows, function(r) r[-length(r)]))
+    result$eqB <- sapply(eq_rows, function(r) r[length(r)])
+  }
+
+  if (length(ineq_rows) > 0) {
+    result$ineqA <- do.call(rbind, lapply(ineq_rows, function(r) r[-length(r)]))
+    result$ineqB <- sapply(ineq_rows, function(r) r[length(r)])
+  }
+
+  result
+}
+
+#' Parse a linear expression on the left-hand side of a constraint
+#'
+#' Turns a string like "value::hp - 2*value::wt + value::(Intercept)/3"
+#' into a numeric vector of length = number of coefficients.
+#'
+#' @param expr Character string containing the left-hand side expression.
+#' @param coef_names Character vector of all coefficient names in the model.
+#'
+#' @return Numeric vector of length `length(coef_names)` with the multipliers
+#'   for each coefficient. Zeros for coefficients not present in the expression.
+#'
+#' @keywords internal
+parse_linear_expression <- function(expr, coef_names)
+{
+  if (!is.character(expr) || length(expr) != 1) {
+    cli::cli_abort("`expr` must be a single character string.", call = NULL)
+  }
+
+  # Remove all whitespace
+  expr <- gsub("\\s+", "", expr)
+
+  # Split by + and - while preserving the signs
+  # This is a simple tokenizer for linear expressions
+  terms <- unlist(regmatches(expr, gregexpr("[+-]?[^+-]+", expr)))
+
+  # Initialize coefficient vector with zeros
+  coef_vec <- setNames(rep(0, length(coef_names)), coef_names)
+
+  for (term in terms) {
+    term <- trimws(term)
+
+    # Extract sign
+    sign <- 1
+    if (substr(term, 1, 1) == "-") {
+      sign <- -1
+      term <- substr(term, 2, nchar(term))
+    } else if (substr(term, 1, 1) == "+") {
+      term <- substr(term, 2, nchar(term))
+    }
+
+    # Check if term contains * or /
+    if (grepl("[*/]", term)) {
+      # Split into parts
+      parts <- unlist(strsplit(term, "[*/]"))
+      if (length(parts) != 2) {
+        cli::cli_abort("Invalid term in constraint: {.val {term}}", call = NULL)
+      }
+
+      part1 <- trimws(parts[1])
+      part2 <- trimws(parts[2])
+
+      # Determine which is the coefficient and which is the constant
+      if (grepl("^value::|^scale::", part1)) {
+        coef_name <- part1
+        constant_str <- part2
+      } else if (grepl("^value::|^scale::", part2)) {
+        coef_name <- part2
+        constant_str <- part1
+      } else {
+        cli::cli_abort("Term must contain exactly one coefficient: {.val {term}}", call = NULL)
+      }
+
+      constant <- as.numeric(constant_str)
+      if (is.na(constant)) {
+        cli::cli_abort("Invalid constant in term: {.val {term}}", call = NULL)
+      }
+
+      # Apply multiplication or division
+      if (grepl("\\*", term)) {
+        multiplier <- sign * constant
+      } else { # division
+        multiplier <- sign / constant
+      }
+
+      if (!coef_name %in% coef_names) {
+        cli::cli_abort("Coefficient {.val {coef_name}} not found in model.", call = NULL)
+      }
+
+      coef_vec[coef_name] <- coef_vec[coef_name] + multiplier
+
+    } else {
+      # Simple term: either a coefficient or a constant (should not happen)
+      if (grepl("^value::|^scale::", term)) {
+        coef_name <- term
+        if (!coef_name %in% coef_names) {
+          cli::cli_abort("Coefficient {.val {coef_name}} not found in model.", call = NULL)
+        }
+        coef_vec[coef_name] <- coef_vec[coef_name] + sign
+      } else {
+        # Pure constant — ignore for now (can be used in more complex expressions later)
+        next
+      }
+    }
+  }
+
+  return(coef_vec)
+}
