@@ -41,11 +41,10 @@ and an error will be thrown.
 \dontrun{
 fit_small <- ml_lm(mpg ~ wt, data = mtcars)
 fit_large <- ml_lm(mpg ~ wt + hp + qsec, data = mtcars)
-
 lrtest(fit_small, fit_large)
 }
 
 }
 \seealso{
-\code{\link[=waldtest]{waldtest()}}
+\code{\link[=waldtest]{waldtest()}}, \code{\link[=IMtest]{IMtest()}}
 }

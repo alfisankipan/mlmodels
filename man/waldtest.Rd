@@ -3,7 +3,7 @@
 \name{waldtest}
 \alias{waldtest}
 \alias{waldtest.mlmodel}
-\title{Wald Test}
+\title{Wald Test for mlmodel objects}
 \usage{
 waldtest(object, ...)
 
@@ -59,7 +59,5 @@ Only used when \code{vcov.type = "cluster"} or \code{vcov.type = "boot"}.}
 bootstrapping? Default is \code{FALSE}.}
 }
 \description{
-Performs a Wald test of linear restrictions on model parameters.
-
 Performs a Wald test of linear restrictions on the parameters.
 }

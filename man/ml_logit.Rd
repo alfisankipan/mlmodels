@@ -11,6 +11,7 @@ ml_logit(
   data,
   subset = NULL,
   noint_value = FALSE,
+  constraints = NULL,
   control = list(tol = -1, reltol = 1e-12, gradtol = 1e-12, lambdatol = 1e-20, qac =
     "marquardt"),
   ...

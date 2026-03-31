@@ -23,13 +23,7 @@ matrix. One of \code{"oim"} (default), \code{"robust"}, \code{"opg"}, \code{"clu
 or \code{"boot"}.}
 
 \item{cl_var}{Character string or vector. Name of the clustering variable
-in the data, or the vector itself.
-\itemize{
-\item When \code{type = "robust"} or \code{type = "cluster"}, returns the cluster-robust
-(clustered sandwich) variance-covariance matrix.
-\item When \code{type = "boot"}, performs a clustered bootstrap (resampling whole clusters).
-Only relevant when \code{type} is \code{"robust"}, \code{"cluster"}, or \code{"boot"}.
-}}
+in the data, or the vector itself.}
 
 \item{repetitions}{Integer. Number of bootstrap replications to use when
 \code{type = "boot"}. Default is 999.}
@@ -40,7 +34,7 @@ If \code{NULL}, a random seed is generated.}
 \item{progress}{Logical. Should a progress bar be displayed during
 bootstrapping? Default is \code{TRUE}. Only relevant when \code{type = "boot"}.}
 
-\item{...}{Further arguments passed to methods (currently not used).}
+\item{...}{Further arguments passed to methods.}
 }
 \value{
 A symmetric variance-covariance matrix with coefficient names

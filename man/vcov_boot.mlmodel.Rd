@@ -2,7 +2,7 @@
 % Please edit documentation in R/mlmodels-auxiliary.R
 \name{vcov_boot.mlmodel}
 \alias{vcov_boot.mlmodel}
-\title{Bootstrap Variance-Covariance Matrix}
+\title{Bootstrap Variance-Covariance Matrix (mlmodel method)}
 \usage{
 \method{vcov_boot}{mlmodel}(
   object,

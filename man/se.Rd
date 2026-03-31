@@ -21,15 +21,11 @@ se(object, ...)
 \arguments{
 \item{object}{A fitted model object.}
 
-\item{vcov}{Optional user-supplied variance-covariance matrix.
-If provided, it will be used instead of computing one internally.
-Must be a square matrix with dimensions matching the number of
-coefficients in the model. Useful when you have pre-computed a
-bootstrap or clustered variance and want to reuse it.}
+\item{vcov}{An optional user-supplied variance-covariance matrix.}
 
 \item{vcov.type}{Character string specifying the type of variance-covariance
 matrix to use. One of \code{"oim"} (default), \code{"robust"}, \code{"opg"}, \code{"cluster"},
-or \code{"boot"}. See \code{\link[=vcov.mlmodel]{vcov.mlmodel()}} for details.}
+or \code{"boot"}.}
 
 \item{cl_var}{Character string or vector. Name of the clustering variable
 or the vector itself. Only used when \code{vcov.type = "cluster"}.}
