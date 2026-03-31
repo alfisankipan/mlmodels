@@ -1,6 +1,36 @@
+# RStudio files
 .Rproj.user
 .Rhistory
 .RData
-.httr-oauth
+.RDataTmp
+.Rapp.history
+
+# Session data and temporary files
+*.Rproj
+.Rbuildignore
+
+# knitr and R Markdown cache directories
+*_cache/
+cache/
+
+# Temporary directories created by devtools, roxygen2, etc.
+/revdep/
+/inst/doc/
+/Meta/
+/doc/
+
+# Compiled files and build artifacts
+/src/*.o
+/src/*.so
+/src/*.dll
+
+# Package build artifacts
+*.tar.gz
+*.zip
+
+# Specific to this project
+inst/scratch/
+
+# Hidden files and OS junk
 .DS_Store
-.quarto
+Thumbs.db
