@@ -1,7 +1,7 @@
 #' Fit linear model by Maximum Likelihood
 #'
 #' @param value Formula for the conditional mean (value) equation.
-#' @param scale Formula for log(sigma) (optional). If NULL, a homoskedastic
+#' @param scale Formula for log(sigma) (optional). If `NULL`, a homoskedastic
 #'   model is fitted.
 #' @param weights Optional weights variable. It can be either the name of the
 #'   variable in `data`, or a vector with the weights.
@@ -13,15 +13,22 @@
 #'   Default is `FALSE`.
 #' @param noint_scale Logical. Should the scale equation omit the intercept?
 #'   Default is `FALSE`.
+#' @param constraints Optional constraints on the parameters. Can be a character
+#'   vector of string constraints (e.g. `c("value::wt = 0", "scale::wt >= 0.01")`)
+#'   or `NULL` (default).
 #' @param control A list of control parameters passed to [maxLik::maxLik()].
-#'   The default values are chosen to work well with difficult likelihoods.
-#'   See [maxLik::maxLik()] for details.
+#'   If `NULL` (default), a sensible set of options is chosen automatically
+#'   depending on whether constraints are used.
 #' @param ... Additional arguments passed to [maxLik::maxLik()].
 #'
 #' @details
 #' **Important:** Do not use the usual R syntax to remove the intercept in the
 #' formulas (`- 1` or `+ 0`). Use the dedicated arguments `noint_value` and
 #' `noint_scale` instead.
+#'
+#' Coefficient names in the fitted object now include prefixes:
+#' - Value equation: `value::varname`
+#' - Scale equation: `scale::varname` (or `scale::lnsigma` in homoskedastic case)
 #'
 #' @return An object of class `ml_lm` that extends `mlmodel`.
 #'
@@ -328,6 +335,18 @@ new_ml_lm <- function(object, ...) {
 }
 
 # ML_LM FIT --------------------------------------------------------------
+#' Internal fitting function for ml_lm
+#'
+#' @param y Numeric vector of outcomes.
+#' @param x Design matrix for the value equation.
+#' @param z Design matrix for the scale equation (or single column of 1s).
+#' @param w Numeric vector of weights.
+#' @param constraints Parsed constraints (internal use).
+#' @param control Control list passed to [maxLik::maxLik()].
+#' @param ... Further arguments passed to [maxLik::maxLik()].
+#'
+#' @keywords internal
+.ml_lm.fit <- function(...)
 .ml_lm.fit <- function(y, x, z, w,
                        constraints = NULL,
                        control = list(tol = -1,

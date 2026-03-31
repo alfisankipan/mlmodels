@@ -1,10 +1,20 @@
 # ML EVALUATOR -----------------------------------------------------------------
-# Function to evaluate the log-likelihood, gradient and Hessian.
-# The first argument in these functions always has to be the vector with ALL
-# the coefficients (parameters) that we're estimating, because that's what
-# maxLik() requires. You can then add any quantity of other arguments you
-# may need for the function, and you will pass those arguments to maxLik(), so
-# that it can then pass them through to this function.
+#' Log-likelihood, gradient and Hessian evaluator for ml_lm models
+#'
+#' This is the function passed to [maxLik::maxLik()] for Gaussian linear models.
+#' It returns the log-likelihood and attaches the gradient and Hessian as
+#' attributes (required by maxLik when analytical derivatives are available).
+#'
+#' @param b Numeric vector of all coefficients (value + scale).
+#' @param y Numeric vector of outcomes.
+#' @param x Design matrix for the value equation.
+#' @param z Design matrix for the scale equation.
+#' @param w Numeric vector of weights (can be `NULL`).
+#'
+#' @return Numeric vector of log-likelihood values (one per observation).
+#'   The returned object has attributes `gradient` and `hessian`.
+#'
+#' @keywords internal
 ml_lm_ll <- function(b, y, x, z, w = NULL)
 {
   # The last coefficient in b is the coefficient for the natural log of sigma
@@ -79,10 +89,17 @@ ml_lm_ll <- function(b, y, x, z, w = NULL)
 }
 
 # HESSIANS ---------------------------------------------------------------------
-# Function to return the hessians of all observations of the linear model.
-# The must be a maxLik object where we've added a term called model
-# which is a list of two elements: value and scale. Each of them is the object
-# returned by hardhat's mold() function, for its respective equation.
+#' Observed Hessian by observation for ml_lm models
+#'
+#' Returns the Hessian matrix evaluated at each observation. Used internally
+#' by the Information Matrix test (`IMtest`).
+#'
+#' @param object A fitted `ml_lm` object.
+#'
+#' @return Matrix with one row per observation and columns corresponding to the
+#'   second derivatives with respect to all parameters.
+#'
+#' @keywords internal
 ml_lm_hessianObs <- function(object)
 {
   if (!inherits(object, "ml_lm"))
@@ -142,6 +159,20 @@ ml_lm_hessianObs <- function(object)
 }
 
 # VARIANCE BOOTSTRAP -----------------------------------------------------------
+#' Bootstrap variance-covariance matrix for ml_lm models
+#'
+#' Specialized (faster) bootstrap method for `ml_lm` objects. It calls
+#' `.ml_lm.fit()` directly instead of going through the generic `update()`
+#' method.
+#'
+#' @param object A fitted `ml_lm` object.
+#' @param repetitions Number of bootstrap replications.
+#' @param seed Random seed for reproducibility.
+#' @param cl_var Clustering variable (if doing clustered bootstrap).
+#' @param progress Logical. Whether to show a progress bar.
+#' @param ... Not currently used.
+#'
+#' @keywords internal
 #' @keywords internal
 vcov_boot.ml_lm <- function(object,
                             repetitions = 999,

@@ -17,16 +17,13 @@
 )
 }
 \arguments{
-\item{object}{An object of class \code{"ml_lm"}.}
+\item{object}{A fitted model object of class \code{"ml_lm"}.}
 
-\item{correlation}{Logical. Should the correlation matrix of the parameters be shown?
-Default is \code{FALSE}.}
+\item{correlation}{Logical. Should the correlation matrix of the estimated
+parameters be included in the output? Default is \code{FALSE}.}
 
-\item{vcov}{Optional user-supplied variance-covariance matrix.
-If provided, it will be used instead of computing one internally.
-Must be a square matrix with dimensions matching the number of
-coefficients in the model. Useful when you have pre-computed a
-bootstrap or clustered variance and want to reuse it.}
+\item{vcov}{Optional user-supplied variance-covariance matrix. If provided,
+it will be used instead of computing one internally.}
 
 \item{vcov.type}{Character string specifying the type of variance-covariance
 matrix to use. One of \code{"oim"} (default), \code{"robust"}, \code{"opg"}, \code{"cluster"},
@@ -48,8 +45,20 @@ bootstrapping? Default is \code{FALSE} (silent) when called from \code{summary()
 \item{...}{Further arguments passed to methods.}
 }
 \value{
-An object of class \code{"summary.ml_lm"}.
+An object of class \code{"summary.ml_lm"} containing:
+\itemize{
+\item \code{call}: the original call
+\item \code{coefficients}: coefficient table with Estimate, Std. Error, z value, Pr(>|z|)
+\item \code{vcov.type}: type of variance-covariance matrix used
+\item \code{vcov.cluster}: clustering information (if applicable)
+\item \code{logLik}, \code{AIC}, \code{BIC}, \code{r.squared}, \code{adj.r.squared} (if converged)
+\item \code{sigma} (if homoskedastic)
+\item \code{significance}: joint Wald tests for overall, mean, and scale equations
+}
 }
 \description{
 Summary for ml_lm objects
+}
+\author{
+Alfonso Sanchez-Penalver
 }

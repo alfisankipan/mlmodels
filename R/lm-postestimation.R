@@ -23,7 +23,7 @@
 #'
 #' ### Prediction types
 #'
-#' | Type | Normal (linear) case | Lognormal case (\code{log(y)}) | Notes |
+#' | Type | Normal (linear) case | Lognormal case (log(y)) | Notes |
 #' |---------------------|---------------------------------------|------------------------------------------------------|-------|
 #' | `link` | Linear predictor for scale (zd) | Linear predictor on log scale (μ_log) | Scale equation |
 #' | `fitted` | xb (mean predictor) | xb (original log-scale predictor) | Mean equation |
@@ -38,6 +38,8 @@
 #' When the outcome is log-transformed, `response` (or `mean`) returns the
 #' correct lognormal expected value on the original scale of y. The `median`
 #' is the simple exponential back-transform.
+#'
+#' Coefficient names in the object use the prefixes `value::` and `scale::`.
 #'
 #' @author Alfonso Sanchez-Penalver
 #'
@@ -248,17 +250,6 @@ predict.ml_lm <- function(object,
   list(fit = out, se.fit = se_fit)
 }
 
-
-
-
-
-
-
-
-
-
-
-
 ## FITTED VALUES ---------------------------------------------------------------
 #' Get the fitted value from a linear model estimated with [mlmodels::ml_lm].
 #'
@@ -316,14 +307,11 @@ residuals.ml_lm <- function(object, ...)
 ## SUMMARY ---------------------------------------------------------------------
 #' Summary for ml_lm objects
 #'
-#' @param object An object of class `"ml_lm"`.
-#' @param correlation Logical. Should the correlation matrix of the parameters be shown?
-#'   Default is `FALSE`.
-#' @param vcov Optional user-supplied variance-covariance matrix.
-#'   If provided, it will be used instead of computing one internally.
-#'   Must be a square matrix with dimensions matching the number of
-#'   coefficients in the model. Useful when you have pre-computed a
-#'   bootstrap or clustered variance and want to reuse it.
+#' @param object A fitted model object of class `"ml_lm"`.
+#' @param correlation Logical. Should the correlation matrix of the estimated
+#'   parameters be included in the output? Default is `FALSE`.
+#' @param vcov Optional user-supplied variance-covariance matrix. If provided,
+#'   it will be used instead of computing one internally.
 #' @param vcov.type Character string specifying the type of variance-covariance
 #'   matrix to use. One of `"oim"` (default), `"robust"`, `"opg"`, `"cluster"`,
 #'   or `"boot"`. See [vcov.mlmodel()] for details.
@@ -338,7 +326,16 @@ residuals.ml_lm <- function(object, ...)
 #'   bootstrapping? Default is `FALSE` (silent) when called from `summary()`.
 #' @param ... Further arguments passed to methods.
 #'
-#' @return An object of class `"summary.ml_lm"`.
+#' @return An object of class `"summary.ml_lm"` containing:
+#'   - `call`: the original call
+#'   - `coefficients`: coefficient table with Estimate, Std. Error, z value, Pr(>|z|)
+#'   - `vcov.type`: type of variance-covariance matrix used
+#'   - `vcov.cluster`: clustering information (if applicable)
+#'   - `logLik`, `AIC`, `BIC`, `r.squared`, `adj.r.squared` (if converged)
+#'   - `sigma` (if homoskedastic)
+#'   - `significance`: joint Wald tests for overall, mean, and scale equations
+#'
+#' @author Alfonso Sanchez-Penalver
 #'
 #' @export
 summary.ml_lm <- function(object,

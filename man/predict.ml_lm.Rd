@@ -53,7 +53,7 @@ Predictions for ml_lm objects
 The \code{type} argument controls what quantity is returned. Behavior differs
 depending on whether the outcome was modeled in logs (log(y)).
 \subsection{Prediction types}{\tabular{llll}{
-   Type \tab Normal (linear) case \tab Lognormal case (\code{log(y)}) \tab Notes \cr
+   Type \tab Normal (linear) case \tab Lognormal case (log(y)) \tab Notes \cr
    \code{link} \tab Linear predictor for scale (zd) \tab Linear predictor on log scale (μ_log) \tab Scale equation \cr
    \code{fitted} \tab xb (mean predictor) \tab xb (original log-scale predictor) \tab Mean equation \cr
    \code{response}, \code{mean} \tab xb (E\code{[y]}) \tab E\code{[y]} = exp(μ_log + σ²/2) - shift \tab Proper expected value on original scale \cr
@@ -69,6 +69,8 @@ depending on whether the outcome was modeled in logs (log(y)).
 When the outcome is log-transformed, \code{response} (or \code{mean}) returns the
 correct lognormal expected value on the original scale of y. The \code{median}
 is the simple exponential back-transform.
+
+Coefficient names in the object use the prefixes \verb{value::} and \verb{scale::}.
 }
 }
 \author{

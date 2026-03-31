@@ -20,7 +20,7 @@ ml_lm(
 \arguments{
 \item{value}{Formula for the conditional mean (value) equation.}
 
-\item{scale}{Formula for log(sigma) (optional). If NULL, a homoskedastic
+\item{scale}{Formula for log(sigma) (optional). If \code{NULL}, a homoskedastic
 model is fitted.}
 
 \item{weights}{Optional weights variable. It can be either the name of the
@@ -38,9 +38,13 @@ Default is \code{FALSE}.}
 \item{noint_scale}{Logical. Should the scale equation omit the intercept?
 Default is \code{FALSE}.}
 
+\item{constraints}{Optional constraints on the parameters. Can be a character
+vector of string constraints (e.g. \code{c("value::wt = 0", "scale::wt >= 0.01")})
+or \code{NULL} (default).}
+
 \item{control}{A list of control parameters passed to \code{\link[maxLik:maxLik]{maxLik::maxLik()}}.
-The default values are chosen to work well with difficult likelihoods.
-See \code{\link[maxLik:maxLik]{maxLik::maxLik()}} for details.}
+If \code{NULL} (default), a sensible set of options is chosen automatically
+depending on whether constraints are used.}
 
 \item{...}{Additional arguments passed to \code{\link[maxLik:maxLik]{maxLik::maxLik()}}.}
 }
@@ -54,6 +58,12 @@ Fit linear model by Maximum Likelihood
 \strong{Important:} Do not use the usual R syntax to remove the intercept in the
 formulas (\code{- 1} or \code{+ 0}). Use the dedicated arguments \code{noint_value} and
 \code{noint_scale} instead.
+
+Coefficient names in the fitted object now include prefixes:
+\itemize{
+\item Value equation: \code{value::varname}
+\item Scale equation: \code{scale::varname} (or \code{scale::lnsigma} in homoskedastic case)
+}
 }
 \examples{
 if (requireNamespace("wooldridge", quietly = TRUE)) {
