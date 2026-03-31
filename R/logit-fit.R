@@ -247,7 +247,8 @@ ml_logit <- function(value,
     functions     = functions,
     response_name = names(model_value$outcomes)[1],
     n_used        = sum(sample),
-    n_orig        = n_orig
+    n_orig        = n_orig,
+    control       = control,
   )
 
   if (!(ml$code %in% c(1, 2, 8))) {

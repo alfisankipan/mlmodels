@@ -285,7 +285,8 @@ ml_lm <- function(value,
     response_name = names(model_value$outcomes)[1],
     n_used        = sum(sample),
     n_orig        = n_orig,
-    log_info      = log_info
+    log_info      = log_info,
+    control       = control,
   )
 
   if (!(ml$code %in% c(1, 2, 8))) {

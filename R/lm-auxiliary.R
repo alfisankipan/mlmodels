@@ -217,7 +217,8 @@ vcov_boot.ml_lm <- function(object,
       updated <- .ml_lm.fit(y = y_boot,
                             x = x_boot,
                             z = z_boot,
-                            w = w_boot)
+                            w = w_boot,
+                            control = object$model$control)
 
       if (updated$code %in% c(1L, 2L, 8L)) {
         if (progress) cat(cli::col_green("."))
