@@ -223,6 +223,15 @@ vcov_boot.ml_lm <- function(object,
   success     <- logical(repetitions)
   coef_matrix <- matrix(NA_real_, nrow = repetitions, ncol = length(coef(object)))
 
+  if (!is.null(object$model$constraints$maxLik)) {
+    cli::cli_warn(
+      c("Bootstrap variance with constraints may be unreliable.",
+        "i" = "Different bootstrap samples often produce infeasible log-likelihoods at the supplied starting values.",
+        "i" = "Equality constraints in particular lead to very low convergence rates.",
+        "i" = "Consider using `type = 'robust'` or `type = 'cluster'` (with `cl_var`) instead.")
+    )
+  }
+
   for (i in seq_len(repetitions)) {
     if (progress && i %% 50 == 1 && i > 1) cat("\n ")
     else if(progress && i == 1) cat(" ")
@@ -249,7 +258,10 @@ vcov_boot.ml_lm <- function(object,
                             x = x_boot,
                             z = z_boot,
                             w = w_boot,
-                            control = object$model$control)
+                            constraints = object$model$constraints$maxLik,
+                            start       = object$model$start,
+                            method      = object$model$method,   # we'll store this
+                            control     = object$model$control)
 
       if (updated$code %in% c(1L, 2L, 8L)) {
         if (progress) cat(cli::col_green("."))

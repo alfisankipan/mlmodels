@@ -219,7 +219,7 @@ ml_lm <- function(value,
 
   default_BFGS <- list(reltol = 1e-8)
   default_NM <- list(reltol = 1e-8,
-                     maxit = 1000)
+                     iterlim = 1000)
 
   # Parse constraints (if any)
   if (!is.null(constraints)) {
@@ -328,7 +328,8 @@ ml_lm <- function(value,
     log_info      = log_info,
     control       = control,
     constraints   = parsed_constraints,
-    start         = start
+    start         = start,
+    method        = method
   )
 
   if (!(ml$code %in% c(0, 1, 2, 8))) {

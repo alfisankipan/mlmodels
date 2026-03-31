@@ -367,6 +367,28 @@ summary.ml_lm <- function(object,
                        seed        = seed,
                        progress    = progress)
 
+  # Check if the variance matrix is usable
+  usable_vcov <- TRUE
+  if (any(!is.finite(vcov_mat)) || any(is.na(vcov_mat))) {
+    usable_vcov <- FALSE
+    cli::cli_warn(
+      c("Variance matrix is not usable (contains NAs or non-finite values).",
+        "i" = "This usually happens with bootstrap when constraints are present.",
+        "i" = "Joint significance tests will be skipped.")
+    )
+  } else {
+    # Check singularity
+    eig <- eigen(vcov_mat, symmetric = TRUE, only.values = TRUE)$values
+    if (any(eig < sqrt(.Machine$double.eps))) {
+      usable_vcov <- FALSE
+      cli::cli_warn(
+        c("Variance matrix is singular or nearly singular.",
+          "i" = "Joint significance tests could not be computed.",
+          "i" = "Consider using `vcov.type = 'robust'` instead.")
+      )
+    }
+  }
+
   n <- object$model$n_used
   k_total <- length(coef(object))
   k_scale <- ncol(object$model$scale$predictors)
@@ -417,25 +439,38 @@ summary.ml_lm <- function(object,
       s$sigma <- exp(coef(object)[k_mean + 1])
     }
 
-    # Joint significance tests (reuse vcov_mat)
-    idx_mean <- if (object$model$value$blueprint$intercept) 2:k_mean else 1:k_mean
 
-    if (is_heteroskedastic) {
-      idx_scale <- if (object$model$scale$blueprint$intercept) (k_mean + 2):k_total
-      else (k_mean + 1):k_total
+    if(usable_vcov)
+    {
+      # Joint significance tests (reuse vcov_mat)
+      idx_mean <- if (object$model$value$blueprint$intercept) 2:k_mean else 1:k_mean
 
+      if (is_heteroskedastic) {
+        idx_scale <- if (object$model$scale$blueprint$intercept) (k_mean + 2):k_total
+        else (k_mean + 1):k_total
+
+        s$significance <- list(
+          all  = waldtest(object, indices = c(idx_mean, idx_scale), vcov = vcov_mat),
+          mean = waldtest(object, indices = idx_mean, vcov = vcov_mat),
+          scale = waldtest(object, indices = idx_scale, vcov = vcov_mat)
+        )
+      } else {
+        s$significance <- list(
+          all  = waldtest(object, indices = idx_mean, vcov = vcov_mat),
+          mean = NULL,
+          scale = NULL
+        )
+      }
+    }
+    else
+    {
       s$significance <- list(
-        all  = waldtest(object, indices = c(idx_mean, idx_scale), vcov = vcov_mat),
-        mean = waldtest(object, indices = idx_mean, vcov = vcov_mat),
-        scale = waldtest(object, indices = idx_scale, vcov = vcov_mat)
-      )
-    } else {
-      s$significance <- list(
-        all  = waldtest(object, indices = idx_mean, vcov = vcov_mat),
+        all  = NULL,
         mean = NULL,
         scale = NULL
       )
     }
+
   } else {
     s$r.squared <- s$adj.r.squared <- s$AIC <- s$BIC <- s$sigma <- s$significance <- NULL
   }
