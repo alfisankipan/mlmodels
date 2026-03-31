@@ -18,6 +18,9 @@ fit <- ml_lm(
   data = smoke
 )
 
+w <- waldtest(fit, coef_names = c("value::educ", "value::restaurn"))
+print(w)
+
 summary(fit)
 
 # Run the improved OPG bootstrap IM test

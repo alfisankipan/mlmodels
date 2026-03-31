@@ -18,7 +18,7 @@ test_that("waldtest works with coef_names", {
   data(mtcars)
   fit <- ml_lm(mpg ~ wt + hp + qsec, data = mtcars)
 
-  w <- waldtest(fit, coef_names = c("wt", "hp"))
+  w <- waldtest(fit, coef_names = c("value::wt", "value::hp"))
 
   expect_s3_class(w, "waldtest.mlmodel")
   expect_equal(w$df, 2)
