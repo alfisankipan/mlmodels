@@ -239,7 +239,18 @@ predict.ml_lm <- function(object,
                                                    if (is_heteroskedastic) Z else 1) # default for sigma, sd, etc.
   }
 
-  se_fit <- sqrt(rowSums(g * (g %*% full_vcov)))
+  # ── Check for unusable variance matrix ─────────────────────────────
+  if (any(!is.finite(full_vcov)) || any(is.na(full_vcov))) {
+    cli::cli_warn(
+      c("Variance matrix is unusable (contains NAs or non-finite values).",
+        "i" = "This usually happens with bootstrap when constraints are present.",
+        "i" = "Standard errors will be returned as NA.")
+    )
+    se_fit <- rep(NA_real_, length(out))
+  } else {
+    # ── Delta-method standard errors ─────────────────────────────────
+    se_fit <- sqrt(rowSums(g * (g %*% full_vcov)))
+  }
 
   # Align in-sample SEs
   if (is.null(newdata) && any(!sample_idx)) {
