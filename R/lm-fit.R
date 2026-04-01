@@ -301,9 +301,9 @@ ml_lm <- function(value,
 
   functions <- list(
     predict        = predict.ml_lm,
-    hessianObs     = ml_lm_hessianObs,
+    hessianObs     = .ml_lm_hessianObs,
     update         = update.ml_lm,
-    loglik         = ml_lm_ll,
+    loglik         = .ml_lm_ll,
     fit            = .ml_lm.fit
   )
 
@@ -398,7 +398,7 @@ new_ml_lm <- function(object, ...) {
   # has the right dimension.
   if(!is.null(start))
   {
-    ll <- ml_lm_ll(start,y,x,z,w)
+    ll <- .ml_lm_ll(start,y,x,z,w)
 
     if(any(!is.finite(ll)))
       cli::cli_abort("Infeasible log-likelihood value at supplied `start` vector.",
@@ -433,7 +433,7 @@ new_ml_lm <- function(object, ...) {
 
     start = c(b0, g0)
   }
-  maxLik::maxLik(ml_lm_ll,
+  maxLik::maxLik(.ml_lm_ll,
                  start = start,
                  y = y,
                  x = x,

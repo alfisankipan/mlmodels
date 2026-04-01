@@ -15,7 +15,7 @@
 #'   The returned object has attributes `gradient` and `hessian`.
 #'
 #' @keywords internal
-ml_lm_ll <- function(b, y, x, z, w = NULL)
+.ml_lm_ll <- function(b, y, x, z, w = NULL)
 {
   # The last coefficient in b is the coefficient for the natural log of sigma
   k1 <- ncol(x) # Number of coefficients for the mean.
@@ -100,7 +100,7 @@ ml_lm_ll <- function(b, y, x, z, w = NULL)
 #'   second derivatives with respect to all parameters.
 #'
 #' @keywords internal
-ml_lm_hessianObs <- function(object)
+.ml_lm_hessianObs <- function(object)
 {
   if (!inherits(object, "ml_lm"))
     cli::cli_abort("`object` must be a model of class 'ml_lm' (from ml_lm).",
