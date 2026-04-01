@@ -96,13 +96,13 @@ se.mlmodel <- function(object,
   if (!inherits(object, "mlmodel"))
     cli::cli_abort("`object` must be of 'mlmodel' class.")
 
-  var <- .get_vcov(object,
-                   vcov = vcov,
-                   vcov.type   = vcov.type,
-                   cl_var      = cl_var,
-                   repetitions = repetitions,
-                   seed        = seed,
-                   progress    = progress)
+  var <- .process_vcov(object,
+                       vcov = vcov,
+                       vcov.type   = vcov.type,
+                       cl_var      = cl_var,
+                       repetitions = repetitions,
+                       seed        = seed,
+                       progress    = progress)
   se <- sqrt(diag(var))
   names(se) <- colnames(var)
   return(se)
