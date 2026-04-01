@@ -59,6 +59,12 @@ An object of class \code{"summary.ml_lm"} containing:
 \description{
 Summary for ml_lm objects
 }
+\details{
+Coefficient names in the fitted object use the prefixes \verb{value::} and
+\verb{scale::} to identify to which equation they belong to, and to avoid
+confusion when the same variable(s) appear(s) in both the value and scale
+equations.
+}
 \author{
 Alfonso Sanchez-Penalver
 }

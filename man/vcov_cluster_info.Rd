@@ -15,6 +15,8 @@ vcov_cluster_info(object, cl_var)
 A list with \code{var_name}, \code{n_cluster}, and \code{ids}.
 }
 \description{
-Used by \code{vcov.mlmodel()} when \code{vcov.type = "cluster"} or \code{"cluster-boot"}.
+Used by several functions to that accept \code{cl_var} as an argument, to check the
+validity of the clustering variable, and get the number of clusters, as well
+as the name of the clustering variable if \code{cl_var} is a string.
 }
 \keyword{internal}

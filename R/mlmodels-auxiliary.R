@@ -1,17 +1,12 @@
-# =============================================================================
-# mlmodels: Internal helper functions for mlmodel objects
-# =============================================================================
-
 ## Private files that get called from several mlmodels top level functions to
 ## do a specific task.
 
-# ------------------------------------------------------------------------------
 # Cluster info -----------------------------------------------------------------
-# ------------------------------------------------------------------------------
-
 #' Internal helper to extract clustering information
 #'
-#' Used by `vcov.mlmodel()` when `vcov.type = "cluster"` or `"cluster-boot"`.
+#' Used by several functions to that accept `cl_var` as an argument, to check the
+#' validity of the clustering variable, and get the number of clusters, as well
+#' as the name of the clustering variable if `cl_var` is a string.
 #'
 #' @param object An `mlmodel` object.
 #' @param cl_var Character string or vector. The clustering variable.
@@ -58,9 +53,7 @@ vcov_cluster_info <- function(object, cl_var)
   return(vcov.cluster)
 }
 
-# ------------------------------------------------------------------------------
 # get_vcov ---------------------------------------------------------------------
-# ------------------------------------------------------------------------------
 
 #' Internal helper to obtain the variance-covariance matrix
 #'

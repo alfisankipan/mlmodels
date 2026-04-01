@@ -332,6 +332,12 @@ residuals.ml_lm <- function(object, ...)
 #'   bootstrapping? Default is `FALSE` (silent) when called from `summary()`.
 #' @param ... Further arguments passed to methods.
 #'
+#' @details
+#' Coefficient names in the fitted object use the prefixes `value::` and
+#' `scale::` to identify to which equation they belong to, and to avoid
+#' confusion when the same variable(s) appear(s) in both the value and scale
+#' equations.
+#'
 #' @return An object of class `"summary.ml_lm"` containing:
 #'   - `call`: the original call
 #'   - `coefficients`: coefficient table with Estimate, Std. Error, z value, Pr(>|z|)
@@ -408,7 +414,7 @@ summary.ml_lm <- function(object,
   s$vcov.type      <- vcov.type
   s$is_heteroskedastic <- is_heteroskedastic
 
-  if (vcov.type == "cluster" && !is.null(cl_var))
+  if (vcov.type %in% c("cluster", "robust") && !is.null(cl_var))
     s$vcov.cluster <- vcov_cluster_info(object, cl_var)
 
   # Coefficient table
@@ -520,34 +526,37 @@ print.summary.ml_lm <- function(x, digits = max(3L, getOption("digits") - 3L), .
   if (!x$converged) {
     cat("WARNING: Model did NOT converge!\n")
     cat("Convergence code:", x$code %||% "???", "-", x$message %||% "", "\n\n")
-  }
-
-  # Log-Likelihood + Joint tests
-  if (x$converged) {
+  } else {
+    # Log-Likelihood + Joint tests (only when converged)
     cat("Log-Likelihood:", format(x$logLik, nsmall = 2, digits = digits + 1), "\n\n")
     cat("Joint significance tests:\n")
-    w <- x$significance$all
-    p_str <- if (isTRUE(w$singular)) "<singular>" else
-      if (w$pval < 1e-8) "< 1e-8" else sprintf("%.4f", w$pval)
-    cat(sprintf(" Overall: Chisq(%d) = %.3f, Pr(>Chisq) = %s\n",
-                w$df, w$waldstat, p_str))
 
-    if (!is.null(x$significance$mean)) {
-      w <- x$significance$mean
-      p_str <- if (isTRUE(w$singular)) "<singular>" else
-        if (w$pval < 1e-8) "< 1e-8" else sprintf("%.4f", w$pval)
-      cat(sprintf(" Mean: Chisq(%d) = %.3f, Pr(>Chisq) = %s\n",
-                  w$df, w$waldstat, p_str))
+    any_test_printed <- FALSE
+    for (test in c("all", "mean", "scale")) {
+      w <- x$significance[[test]]
+      if (is.null(w) || isTRUE(w$singular) || !is.finite(w$pval)) {
+        next   # skip silently (happens in homoskedastic case or useless variance)
+      }
+      any_test_printed <- TRUE
+      p_str <- if (w$pval < 1e-8) "< 1e-8" else sprintf("%.4f", w$pval)
+      cat(sprintf(" %s: Chisq(%d) = %.3f, Pr(>Chisq) = %s\n",
+                  tools::toTitleCase(test), w$df, w$waldstat, p_str))
+    }
 
-      w <- x$significance$scale
-      p_str <- if (isTRUE(w$singular)) "<singular>" else
-        if (w$pval < 1e-8) "< 1e-8" else sprintf("%.4f", w$pval)
-      cat(sprintf(" Scale: Chisq(%d) = %.3f, Pr(>Chisq) = %s\n",
-                  w$df, w$waldstat, p_str))
+    if (!any_test_printed) {
+      cat(" Tests were not computable (singular or not finite variance).\n")
     }
   }
 
-  cat("\nVariance type:", x$vcov.type)
+  vcov_type <- switch (x$vcov.type,
+    "oim" = "Original Information Matrix",
+    "opg" = "Outer Product of Gradients (BHHH)",
+    "robust" = if(is.null(x$vcov.cluster)) "Robust" else "Cluster-Robust",
+    "boot" = if(is.null(x$vcov.cluster)) "Bootstrapped" else "Cluster Bootstrapped",
+    x$vcov.type
+  )
+
+  cat("\nVariance type:", vcov_type)
   if (!is.null(x$vcov.cluster)) {
     cat(" | Clusters:", x$vcov.cluster$n_cluster)
     if (!is.null(x$vcov.cluster$var_name))
