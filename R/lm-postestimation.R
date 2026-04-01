@@ -147,13 +147,6 @@ predict.ml_lm <- function(object,
 
   if (!se.fit) return(out)
   # ── Delta-method standard errors ───────────────────────────────────
-  full_vcov <- .process_vcov(object,
-                             vcov = vcov,
-                             vcov.type = vcov.type,
-                             cl_var = cl_var,
-                             repetitions = repetitions,
-                             seed = seed,
-                             progress = progress)
   n_obs   <- length(xb)
   n_beta  <- length(beta)
   n_delta <- length(delta)
@@ -238,6 +231,14 @@ predict.ml_lm <- function(object,
                                                    "variance" = if (is_heteroskedastic) Z else 1,
                                                    if (is_heteroskedastic) Z else 1) # default for sigma, sd, etc.
   }
+  
+  full_vcov <- .process_vcov(object,
+                             vcov = vcov,
+                             vcov.type = vcov.type,
+                             cl_var = cl_var,
+                             repetitions = repetitions,
+                             seed = seed,
+                             progress = progress)
 
   # ── Check for unusable variance matrix ─────────────────────────────
   if (any(!is.finite(full_vcov)) || any(is.na(full_vcov))) {
