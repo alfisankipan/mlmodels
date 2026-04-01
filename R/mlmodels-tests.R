@@ -555,7 +555,7 @@ waldtest.mlmodel <- function(object,
 
   # Store cluster information (if applicable)
   if (vcov.type == "cluster" && !is.null(cl_var))
-    res$vcov.cluster <- vcov_cluster_info(object, cl_var)
+    res$vcov.cluster <- .vcov_cluster_info(object, cl_var)
   else
     res$vcov.cluster <- NULL
 

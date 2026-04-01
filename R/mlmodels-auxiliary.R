@@ -14,7 +14,7 @@
 #' @return A list with `var_name`, `n_cluster`, and `ids`.
 #'
 #' @keywords internal
-vcov_cluster_info <- function(object, cl_var)
+.vcov_cluster_info <- function(object, cl_var)
 {
   if(!inherits(object, "mlmodel"))
     cli::cli_abort("`object` needs to be of class `'mlmodel'`",
@@ -860,4 +860,122 @@ parse_linear_expression <- function(expr, coef_names)
   }
 
   return(coef_vec)
+}
+
+# Initial Values ---------------------------------------------------------------
+#' Search for feasible initial values
+#'
+#' Internal helper used by `.ml_*.fit()` functions when default starting values
+#' produce an infeasible log-likelihood. It first tries adjusting the intercepts,
+#' then sets all coefficients to zero if needed, and finally tries scaling the
+#' vector to improve the log-likelihood.
+#'
+#' @param fn The log-likelihood function (e.g. `ml_lm_ll` or `ml_logit_ll`).
+#' @param b Numeric vector of starting values.
+#' @param ... Further arguments passed to `fn`.
+#'
+#' @return A numeric vector of initial values. It has an attribute `feasible`
+#'   (`TRUE` if a feasible vector was found, `FALSE` otherwise).
+#'
+#' @keywords internal
+.initial_values.mlmodel <- function(fn, b, ...)
+{
+  ll <- fn(b, ...)
+
+  # Make a working copy
+  b1 <- b
+  attr(b1, "feasible") <- FALSE
+
+  # Check feasibility
+  if (any(!is.finite(ll))) {
+    cli::cli_alert_info("Log-likelihood infeasible at initial values. Searching for feasible start...")
+
+    # Identify intercept positions
+    is_intercept <- grepl("(Intercept)", names(b), fixed = TRUE)
+
+    # Only attempt intercept search if there are any intercepts
+    if (any(is_intercept)) {
+      for (g in seq(0, 10, by = 0.25)) {
+        # Try negative
+        b1[is_intercept] <- -g
+        if (all(is.finite(fn(b1, ...)))) {
+          attr(b1, "feasible") <- TRUE
+          cli::cli_alert_info("Found feasible initial values.")
+          break
+        }
+        # Try positive
+        b1[is_intercept] <- g
+        if (all(is.finite(fn(b1, ...)))) {
+          attr(b1, "feasible") <- TRUE
+          cli::cli_alert_info("Found feasible initial values.")
+          break
+        }
+      }
+
+      # If still infeasible, set all coefficients to zero and try again
+      if (!attr(b1, "feasible")) {
+        b1 <- rep(0, length(b))
+        names(b1) <- names(b)
+        for (g in seq(0, 10, by = 0.25)) {
+          b1[is_intercept] <- -g
+          if (all(is.finite(fn(b1, ...)))) {
+            attr(b1, "feasible") <- TRUE
+            cli::cli_alert_info("Found feasible initial values.")
+            break
+          }
+          b1[is_intercept] <- g
+          if (all(is.finite(fn(b1, ...)))) {
+            attr(b1, "feasible") <- TRUE
+            cli::cli_alert_info("Found feasible initial values.")
+            break
+          }
+        }
+      }
+    } else {
+      # No intercepts — set everything to zero and check
+      b1 <- rep(0, length(b))
+      names(b1) <- names(b)
+      if (all(is.finite(fn(b1, ...)))) {
+        attr(b1, "feasible") <- TRUE
+        cli::cli_alert_info("Found feasible initial values (all zero).")
+      }
+    }
+  } else {
+    # Original vector was already feasible
+    b1 <- b
+    attr(b1, "feasible") <- TRUE
+  }
+
+  # If we have feasible values, try scaling to improve log-likelihood
+  if (attr(b1, "feasible")) {
+    ll0 <- sum(fn(b1, ...))
+    scale <- 1
+
+    # Try halving
+    ll_half <- fn(b1 / 2, ...)
+    if (all(is.finite(ll_half)) && sum(ll_half) > ll0) {
+      scale <- 0.5
+    } else {
+      # Try doubling
+      ll_double <- fn(b1 * 2, ...)
+      if (all(is.finite(ll_double)) && sum(ll_double) > ll0) {
+        scale <- 2
+      }
+    }
+
+    # Apply scaling iteratively if it improves the likelihood
+    if (scale != 1) {
+      cli::cli_alert_info("Improving initial values by scaling (factor = {scale}).")
+      for (i in 1:20) {   # safety limit
+        b2 <- b1 * scale
+        ll2 <- sum(fn(b2, ...))
+        if (!is.finite(ll2) || (ll2 - ll0) <= 0.1) break
+        b1 <- b2
+        ll0 <- ll2
+      }
+      cli::cli_alert_info("Final scaled log-likelihood: {round(ll0, 3)}")
+    }
+  }
+
+  b1
 }

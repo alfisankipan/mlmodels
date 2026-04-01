@@ -426,7 +426,7 @@ summary.ml_lm <- function(object,
   s$is_heteroskedastic <- is_heteroskedastic
 
   if (vcov.type %in% c("cluster", "robust") && !is.null(cl_var))
-    s$vcov.cluster <- vcov_cluster_info(object, cl_var)
+    s$vcov.cluster <- .vcov_cluster_info(object, cl_var)
 
   # Coefficient table
   se <- se.mlmodel(object,
