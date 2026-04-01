@@ -584,18 +584,26 @@ print.waldtest.mlmodel <- function(x, digits = 3, ...)
 
   cat("\nWald Test of Linear Restrictions\n")
 
-  # --- Smart variance type printing ---
-  cat(" ",
-    switch (x$vcov.type,
-            "oim" = "Variance type: OIM",
-            "robust" = "Variance type: Robust (sandwich)",
-            "opg" = "Variance type: Outer Product of Gradients (OPG)",
-            "cluster" = paste("Variance type: Cluster-robust   |  Clusters:",
-                              x$vcov.cluster.n_cluster)    )
-  )
-  cat("\n")
+  # Get the right variance string
+  if(!is.null(x$vcov.type))
+    vcov_type <- switch (x$vcov.type,
+                         "oim" = "Original Information Matrix",
+                         "opg" = "Outer Product of Gradients (BHHH)",
+                         "robust" = if(is.null(x$vcov.cluster)) "Robust" else "Cluster-Robust",
+                         "boot" = if(is.null(x$vcov.cluster)) "Bootstrapped" else "Cluster Bootstrapped",
+                         x$vcov.type
+    )
+  else
+    vcov_type <- "User Supplied (Unknown)"
 
-  cat("--------------------------------------------\n")
+  # --- Smart variance type printing ---
+  cat("\nVariance type:", vcov_type)
+  if (!is.null(x$vcov.cluster)) {
+    cat(" | Clusters:", x$vcov.cluster$n_cluster)
+    if (!is.null(x$vcov.cluster$var_name))
+      cat(" (", x$vcov.cluster$var_name, ")", sep = "")
+  }
+  cat("\n---------------------------------------\n")
 
   cat("Restrictions:\n")
   for (i in seq_along(x$restrictions)) {
