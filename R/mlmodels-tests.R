@@ -419,6 +419,27 @@ waldtest.mlmodel <- function(object,
                 progress    = progress,
               )
 
+  # ── Check for unusable variance ────────────────────────────────
+  if (any(!is.finite(V)) || any(is.na(V))) {
+    cli::cli_abort(
+      c("Cannot perform Wald test: variance matrix is unusable.",
+        "i" = "This usually happens when using bootstrap variance with constraints.",
+        "i" = "Consider using `vcov.type = 'robust'` or `vcov.type = 'oim'` instead."),
+      call = NULL
+    )
+  }
+
+  # ── Check singularity ──────────────────────────────────────────
+  eig <- eigen(V, symmetric = TRUE, only.values = TRUE)$values
+  if (any(eig < sqrt(.Machine$double.eps))) {
+    cli::cli_abort(
+      c("Cannot perform Wald test: variance matrix is singular or nearly singular.",
+        "i" = "This often occurs with cluster-robust standard errors when there are few clusters.",
+        "i" = "Consider using `vcov.type = 'robust'` instead."),
+      call = NULL
+    )
+  }
+
   # Build restriction matrix R
   if (!is.null(indices))
   {
