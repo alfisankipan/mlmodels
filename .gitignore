@@ -29,7 +29,7 @@ cache/
 *.zip
 
 # Specific to this project
-inst/scratch/
+dev/
 
 # Hidden files and OS junk
 .DS_Store
