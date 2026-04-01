@@ -315,7 +315,7 @@ vcov.mlmodel <- function(object,
   attr(vcov_mat, "vcov.type") <- type
   if (!is.null(cl_var)) {
     attr(vcov_mat, "clustered") <- TRUE
-    attr(vcov_mat, "cluster.var") <- if (is.character(cl_var)) cl_var else "<vector>"
+    attr(vcov_mat, "cluster.var") <- cl_var
   }
   dimnames(vcov_mat) <- list(names(coef(object)), names(coef(object)))
   return(vcov_mat)

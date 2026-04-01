@@ -384,8 +384,6 @@ summary.ml_lm <- function(object,
                         seed        = seed,
                         progress    = progress)
 
-  print(attr(vcov_mat, "vcov.type"))
-
   # Check if the variance matrix is usable
   usable_vcov <- TRUE
   if (any(!is.finite(vcov_mat)) || any(is.na(vcov_mat))) {
@@ -417,6 +415,19 @@ summary.ml_lm <- function(object,
   # Start building the summary object
   s <- list()
 
+  # Read metadata from attributes (preferred source)
+  s$vcov.type <- attr(vcov_mat, "vcov.type")
+
+  # Clustered variance handling
+  if (!is.null(attr(vcov_mat, "clustered")) && attr(vcov_mat, "clustered")) {
+    s$vcov.cluster <- .vcov_cluster_info(object, attr(vcov_mat, "cluster.var"))
+  } else if (vcov.type %in% c("cluster", "robust") && !is.null(cl_var)) {
+    # Fallback when attributes are missing (should rarely happen)
+    s$vcov.cluster <- .vcov_cluster_info(object, cl_var)
+  } else {
+    s$vcov.cluster <- NULL
+  }
+
   # Basic information
   s$call           <- object$call                    # ← Now using root-level call
   s$formula        <- object$model$formula
@@ -424,11 +435,7 @@ summary.ml_lm <- function(object,
   s$nobs           <- n
   s$df.residual    <- n - k_mean
   s$converged      <- converged
-  s$vcov.type      <- vcov.type
   s$is_heteroskedastic <- is_heteroskedastic
-
-  if (vcov.type %in% c("cluster", "robust") && !is.null(cl_var))
-    s$vcov.cluster <- .vcov_cluster_info(object, cl_var)
 
   # Coefficient table
   se <- se.mlmodel(object,
@@ -561,13 +568,16 @@ print.summary.ml_lm <- function(x, digits = max(3L, getOption("digits") - 3L), .
     }
   }
 
-  vcov_type <- switch (x$vcov.type,
-    "oim" = "Original Information Matrix",
-    "opg" = "Outer Product of Gradients (BHHH)",
-    "robust" = if(is.null(x$vcov.cluster)) "Robust" else "Cluster-Robust",
-    "boot" = if(is.null(x$vcov.cluster)) "Bootstrapped" else "Cluster Bootstrapped",
-    x$vcov.type
-  )
+  if(!is.null(x$vcov.type))
+    vcov_type <- switch (x$vcov.type,
+      "oim" = "Original Information Matrix",
+      "opg" = "Outer Product of Gradients (BHHH)",
+      "robust" = if(is.null(x$vcov.cluster)) "Robust" else "Cluster-Robust",
+      "boot" = if(is.null(x$vcov.cluster)) "Bootstrapped" else "Cluster Bootstrapped",
+      x$vcov.type
+    )
+  else
+    vcov_type <- "User Supplied (Unknown)"
 
   cat("\nVariance type:", vcov_type)
   if (!is.null(x$vcov.cluster)) {
