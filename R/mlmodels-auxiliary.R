@@ -82,7 +82,7 @@
 #' @return A variance-covariance matrix.
 #'
 #' @keywords internal
-get_vcov <- function(object,
+.get_vcov <- function(object,
                      vcov = NULL,           # User-supplied variance matrix
                      vcov.type = "oim",
                      cl_var = NULL,

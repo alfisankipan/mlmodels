@@ -410,14 +410,13 @@ waldtest.mlmodel <- function(object,
   k <- length(b)
 
   # Get variance-covariance matrix using our existing vcov method
-  V <- get_vcov(object,
-                vcov = vcov,
-                vcov.type   = vcov.type,
-                repetitions = repetitions,
-                seed        = seed,
-                cl_var      = cl_var,
-                progress    = progress,
-              )
+  V <- .get_vcov(object,
+                 vcov = vcov,
+                 vcov.type   = vcov.type,
+                 cl_var      = cl_var,
+                 repetitions = repetitions,
+                 seed        = seed,
+                 progress    = progress)
 
   # ── Check for unusable variance ────────────────────────────────
   if (any(!is.finite(V)) || any(is.na(V))) {

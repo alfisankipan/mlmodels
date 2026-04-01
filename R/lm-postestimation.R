@@ -147,13 +147,13 @@ predict.ml_lm <- function(object,
 
   if (!se.fit) return(out)
   # ── Delta-method standard errors ───────────────────────────────────
-  full_vcov <- get_vcov(object,
-                        vcov = vcov,
-                        vcov.type = vcov.type,
-                        cl_var = cl_var,
-                        repetitions = repetitions,
-                        seed = seed,
-                        progress = progress)
+  full_vcov <- .get_vcov(object,
+                         vcov = vcov,
+                         vcov.type = vcov.type,
+                         cl_var = cl_var,
+                         repetitions = repetitions,
+                         seed = seed,
+                         progress = progress)
   n_obs   <- length(xb)
   n_beta  <- length(beta)
   n_delta <- length(delta)
@@ -376,13 +376,15 @@ summary.ml_lm <- function(object,
 
   converged <- object$code %in% c(0, 1, 2, 8)
   # Get variance-covariance matrix once
-  vcov_mat <- get_vcov(object,
-                       vcov = vcov,
-                       vcov.type   = vcov.type,
-                       cl_var      = cl_var,
-                       repetitions = repetitions,
-                       seed        = seed,
-                       progress    = progress)
+  vcov_mat <- .get_vcov(object,
+                        vcov = vcov,
+                        vcov.type   = vcov.type,
+                        cl_var      = cl_var,
+                        repetitions = repetitions,
+                        seed        = seed,
+                        progress    = progress)
+
+  print(attr(vcov_mat, "vcov.type"))
 
   # Check if the variance matrix is usable
   usable_vcov <- TRUE

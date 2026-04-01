@@ -96,13 +96,13 @@ se.mlmodel <- function(object,
   if (!inherits(object, "mlmodel"))
     cli::cli_abort("`object` must be of 'mlmodel' class.")
 
-  var <- get_vcov(object,
-                  vcov        = vcov,
-                  vcov.type   = vcov.type,
-                  cl_var      = cl_var,
-                  repetitions = repetitions,
-                  seed        = seed,
-                  progress    = progress)
+  var <- .get_vcov(object,
+                   vcov = vcov,
+                   vcov.type   = vcov.type,
+                   cl_var      = cl_var,
+                   repetitions = repetitions,
+                   seed        = seed,
+                   progress    = progress)
   se <- sqrt(diag(var))
   names(se) <- colnames(var)
   return(se)
@@ -312,6 +312,11 @@ vcov.mlmodel <- function(object,
     vcov_mat <- V
   }
 
+  attr(vcov_mat, "vcov.type") <- type
+  if (!is.null(cl_var)) {
+    attr(vcov_mat, "clustered") <- TRUE
+    attr(vcov_mat, "cluster.var") <- if (is.character(cl_var)) cl_var else "<vector>"
+  }
   dimnames(vcov_mat) <- list(names(coef(object)), names(coef(object)))
   return(vcov_mat)
 }
