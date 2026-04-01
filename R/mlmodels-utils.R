@@ -220,12 +220,12 @@ vcov.mlmodel <- function(object,
 
   # -- 5. Now, we're ready to select the method.
   if (type == "boot")
-    return(vcov_boot(object,
-                     repetitions = repetitions,
-                     seed = seed,
-                     cl_var = cl_var,
-                     progress = progress,
-                     ...))
+    return(.vcov_boot(object,
+                      repetitions = repetitions,
+                      seed = seed,
+                      cl_var = cl_var,
+                      progress = progress,
+                      ...))
 
   # Regular (non-bootstrap) variance types
   H <- object$hessian

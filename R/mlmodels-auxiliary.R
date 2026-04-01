@@ -53,7 +53,7 @@
   return(vcov.cluster)
 }
 
-# get_vcov ---------------------------------------------------------------------
+# process_vcov ---------------------------------------------------------------------
 
 #' Internal helper to obtain the variance-covariance matrix
 #'
@@ -128,14 +128,13 @@
 }
 
 
-# ------------------------------------------------------------------------------
 # vcov_boot --------------------------------------------------------------------
 # ------------------------------------------------------------------------------
 #' Generic for bootstrap variance-covariance matrix
 #'
 #' @keywords internal
-vcov_boot <- function(object, ...) {
-  UseMethod("vcov_boot")
+.vcov_boot <- function(object, ...) {
+  UseMethod(".vcov_boot")
 }
 
 #' Bootstrap Variance-Covariance Matrix (mlmodel method)
@@ -151,7 +150,7 @@ vcov_boot <- function(object, ...) {
 #' @param ... Not currently used.
 #'
 #' @keywords internal
-vcov_boot.mlmodel <- function(object,
+.vcov_boot.mlmodel <- function(object,
                               repetitions = 999,
                               seed = NULL,
                               cl_var = NULL,

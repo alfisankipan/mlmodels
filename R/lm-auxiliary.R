@@ -174,12 +174,12 @@ ml_lm_hessianObs <- function(object)
 #'
 #' @keywords internal
 #' @keywords internal
-vcov_boot.ml_lm <- function(object,
-                            repetitions = 999,
-                            seed = NULL,
-                            cl_var = NULL,
-                            progress = TRUE,
-                            ...)
+.vcov_boot.ml_lm <- function(object,
+                             repetitions = 999,
+                             seed = NULL,
+                             cl_var = NULL,
+                             progress = TRUE,
+                             ...)
 {
   if(!inherits(object, "ml_lm"))
     cli::cli_abort("`object` needs to be of class 'ml_lm'.")
