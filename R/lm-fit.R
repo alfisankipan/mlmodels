@@ -300,7 +300,7 @@ ml_lm <- function(value,
   # -- 12.a. The functions list --------------------------------------
 
   functions <- list(
-    predict        = predict.ml_lm,
+    # predict        = predict.ml_lm,
     hessianObs     = ml_lm_hessianObs,
     update         = update.ml_lm,
     loglik         = ml_lm_ll,

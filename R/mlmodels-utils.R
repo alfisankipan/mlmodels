@@ -26,7 +26,7 @@
 #' Generic method for computing predictions from models fitted with the
 #' `mlmodels` package.
 #'
-#' @param object A model object inheriting from `"mlmodel"`.
+#' @param object A model object inheriting from `'mlmodel'`.
 #' @param ... Further arguments passed to specific methods.
 #'
 #' @method predict mlmodel

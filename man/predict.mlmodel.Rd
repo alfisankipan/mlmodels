@@ -7,7 +7,7 @@
 \method{predict}{mlmodel}(object, ...)
 }
 \arguments{
-\item{object}{A model object inheriting from \code{"mlmodel"}.}
+\item{object}{A model object inheriting from \code{'mlmodel'}.}
 
 \item{...}{Further arguments passed to specific methods.}
 }
