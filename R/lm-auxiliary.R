@@ -231,54 +231,49 @@ ml_lm_hessianObs <- function(object)
         "i" = "Consider using `type = 'robust'` or `type = 'cluster'` (with `cl_var`) instead.")
     )
   }
-
+  
   for (i in seq_len(repetitions)) {
     if (progress && i %% 50 == 1 && i > 1) cat("\n ")
     else if(progress && i == 1) cat(" ")
 
-    res <- tryCatch({
+    tryCatch({
       if (is_clustered) {
-        # Clustered bootstrap - sample whole clusters
         sampled_clusters <- sample(cluster_ids, size = n_cluster, replace = TRUE)
         boot_idx <- unlist(lapply(sampled_clusters, function(cid) {
           which(cl_var[object$model$sample] == cid)
         }))
       } else {
-        # Regular (individual) bootstrap
-        boot_idx <- sample(nrow(used_data), nrow(used_data), replace = TRUE)
+        boot_idx <- sample(n, n, replace = TRUE)
       }
-
-      y_boot    <- y[boot_idx]
-      x_boot    <- x[boot_idx, , drop = FALSE]
-      z_boot    <- z[boot_idx, , drop = FALSE]
-      w_boot    <- w[boot_idx]                     # subset weights to bootstrap sample
-
-      # Pass weights to update()
+      
+      y_boot <- y[boot_idx]
+      x_boot <- x[boot_idx, , drop = FALSE]
+      z_boot <- z[boot_idx, , drop = FALSE]
+      w_boot <- w[boot_idx]
+      
       updated <- .ml_lm.fit(y = y_boot,
                             x = x_boot,
                             z = z_boot,
                             w = w_boot,
                             constraints = object$model$constraints$maxLik,
                             start       = object$model$start,
-                            method      = object$model$method,   # we'll store this
+                            method      = object$model$method,
                             control     = object$model$control)
-
-      if (updated$code %in% c(1L, 2L, 8L)) {
+      
+      if (updated$code %in% c(0L, 1L, 2L, 8L)) {
         if (progress) cat(cli::col_green("."))
         success[i] <- TRUE
-        coef(updated)
+        coef_matrix[i, ] <- coef(updated)
       } else {
         if (progress) cat(cli::col_red("x"))
         success[i] <- FALSE
-        rep(NA_real_, length(coef(object)))
+        coef_matrix[i, ] <- NA_real_
       }
     }, error = function(e) {
       if (progress) cat(cli::col_red("x"))
       success[i] <- FALSE
-      rep(NA_real_, length(coef(object)))
+      coef_matrix[i, ] <- NA_real_
     })
-
-    coef_matrix[i, ] <- res
   }
 
   if (progress) {

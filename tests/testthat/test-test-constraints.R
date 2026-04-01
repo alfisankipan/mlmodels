@@ -12,7 +12,7 @@ test_that("parse_constraints works with simple equality constraints", {
             "scale::(Intercept) = -2.5",
             "value::hp + value::wt = 0")
 
-  result <- parse_constraints(cons, coef_names)
+  result <- .parse_constraints(cons, coef_names)
 
   expect_type(result, "list")
   expect_true("eqA" %in% names(result))
@@ -31,7 +31,7 @@ test_that("parse_constraints handles scaled coefficients", {
   cons <- c("value::hp * 2 = 0",
             "value::wt / 5 >= 0.1")
 
-  result <- parse_constraints(cons, coef_names)
+  result <- .parse_constraints(cons, coef_names)
 
   expect_true("eqA" %in% names(result))
   expect_true("ineqA" %in% names(result))
@@ -43,12 +43,12 @@ test_that("parse_constraints throws nice error on invalid input", {
   coef_names <- names(coef(fit))
 
   expect_error(
-    parse_constraints("value::wt = abc", coef_names),
+    .parse_constraints("value::wt = abc", coef_names),
     "Right-hand side must be a number"
   )
 
   expect_error(
-    parse_constraints("value::wt = value::hp", coef_names),
+    .parse_constraints("value::wt = value::hp", coef_names),
     "Right-hand side must be a number"
   )
 })

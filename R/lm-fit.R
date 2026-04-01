@@ -146,8 +146,8 @@ ml_lm <- function(value,
 
   # -- 5. Detect log transformation ------------------------------
   # We evaluate on the full data so invalid_idx has length = n_orig
-  log_info <- detect_log_transformations(list(value = value),
-                                        data)
+  log_info <- .detect_log_transformations(list(value = value),
+                                          data)
 
   # Count how many *additional* observations are invalid due to the log
   # (only among those that survived subset + NAs)
@@ -207,7 +207,7 @@ ml_lm <- function(value,
   }
 
   # -- 7. Map factor variables in relevant equations ---------
-  factor_mapping <- build_factor_mapping(molds)
+  factor_mapping <- .build_factor_mapping(molds)
 
   # -- 8. Managing control and constraints -------------------
   # Default control lists
@@ -232,7 +232,7 @@ ml_lm <- function(value,
       cli::cli_abort("The vector of initial values has the wrong dimension. It requires {.val {ncol(x) + ncol(z)}} values.")
 
     coef_names <- c(paste0("value::", colnames(x)), paste0("scale::", colnames(z)))
-    parsed_constraints <- parse_constraints(constraints, coef_names)
+    parsed_constraints <- .parse_constraints(constraints, coef_names)
 
     if (!is.null(parsed_constraints$maxLik$eqA))
     {
@@ -300,7 +300,7 @@ ml_lm <- function(value,
   # -- 12.a. The functions list --------------------------------------
 
   functions <- list(
-    # predict        = predict.ml_lm,
+    predict        = predict.ml_lm,
     hessianObs     = ml_lm_hessianObs,
     update         = update.ml_lm,
     loglik         = ml_lm_ll,

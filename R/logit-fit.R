@@ -164,7 +164,7 @@ ml_logit <- function(value,
     model_scale <- z <- NULL
 
   # -- 7. Map factor variables in relevant equations ------------------
-  factor_mapping <- build_factor_mapping(molds)
+  factor_mapping <- .build_factor_mapping(molds)
 
   # -- 8. Managing control and constraints -------------------
   # Default control lists
@@ -187,7 +187,7 @@ ml_logit <- function(value,
 
   # Future: Parse constraints here (we'll add this later)
   if (!is.null(constraints)) {
-    # constraints <- parse_constraints(constraints, coef_names = names(start), ...)
+    constraints <- .parse_constraints(constraints, coef_names = names(start), ...)
   }
 
   # -- 9. Fitting the model with maxLik ----------------------

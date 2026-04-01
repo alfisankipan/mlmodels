@@ -129,7 +129,6 @@
 
 
 # vcov_boot --------------------------------------------------------------------
-# ------------------------------------------------------------------------------
 #' Generic for bootstrap variance-covariance matrix
 #'
 #' @keywords internal
@@ -178,9 +177,7 @@
 
   # Use only the observations actually used in estimation
   used_data <- original_data[object$model$sample, , drop = FALSE]
-
-  # Recover the final weights vector (always exists, length = n_used)
-  w <- object$model$weights
+  w <- object$model$weights %||% rep(1, nrow(used_data))
 
   # ── Prepare for clustered bootstrap if requested ─────────────────────
   is_clustered <- !is.null(cl_var)
@@ -208,41 +205,37 @@
   for (i in seq_len(repetitions)) {
     if (progress && i %% 50 == 1 && i > 1) cat("\n ")
     else if(progress && i == 1) cat(" ")
-
-    res <- tryCatch({
+    
+    tryCatch({
       if (is_clustered) {
-        # Clustered bootstrap - sample whole clusters
         sampled_clusters <- sample(cluster_ids, size = n_cluster, replace = TRUE)
         boot_idx <- unlist(lapply(sampled_clusters, function(cid) {
           which(cl_var[object$model$sample] == cid)
         }))
       } else {
-        # Regular (individual) bootstrap
         boot_idx <- sample(nrow(used_data), nrow(used_data), replace = TRUE)
       }
-
+      
       boot_data <- used_data[boot_idx, , drop = FALSE]
-      w_boot    <- w[boot_idx]                     # subset weights to bootstrap sample
-
-      # Pass weights to update()
+      w_boot    <- w[boot_idx]
+      
+      # Use update() for the general case
       updated <- update(object, data = boot_data, weights = w_boot, evaluate = TRUE)
-
-      if (updated$code %in% c(1L, 2L, 8L)) {
+      
+      if (updated$code %in% c(0L, 1L, 2L, 8L)) {
         if (progress) cat(cli::col_green("."))
         success[i] <- TRUE
-        coef(updated)
+        coef_matrix[i, ] <- coef(updated)
       } else {
         if (progress) cat(cli::col_red("x"))
         success[i] <- FALSE
-        rep(NA_real_, length(coef(object)))
+        coef_matrix[i, ] <- NA_real_
       }
     }, error = function(e) {
       if (progress) cat(cli::col_red("x"))
       success[i] <- FALSE
-      rep(NA_real_, length(coef(object)))
+      coef_matrix[i, ] <- NA_real_
     })
-
-    coef_matrix[i, ] <- res
   }
 
   if (progress) {
@@ -269,9 +262,7 @@
 
 # POST-MOLD UTILITIES ==========================================================
 
-# ------------------------------------------------------------------------------
 # Factor mapping ---------------------------------------------------------------
-# ------------------------------------------------------------------------------
 #' Build factor mapping for a single equation
 #'
 #' Internal function. Creates a mapping of factor variables to their
@@ -284,7 +275,7 @@
 #' @return A named list containing the factor mapping for this equation.
 #'
 #' @keywords internal
-build_factor_map <- function(mold, equation_name = "value")
+.build_factor_map <- function(mold, equation_name = "value")
 {
   if (is.null(mold) || is.null(mold$predictors) || ncol(mold$predictors) == 0)
     return(list())
@@ -432,7 +423,7 @@ build_factor_map <- function(mold, equation_name = "value")
 #'   the factor mapping for that equation.
 #'
 #' @keywords internal
-build_factor_mapping <- function(molds)
+.build_factor_mapping <- function(molds)
 {
   if (!is.list(molds) || is.null(names(molds))) {
     cli::cli_abort("`molds` must be a named list of mold objects.",
@@ -445,18 +436,16 @@ build_factor_mapping <- function(molds)
     mold <- molds[[eq_name]]
 
     # Check for all-NA columns first (fail fast)
-    check_for_invalid_predictors(mold, equation_name = eq_name)
+    .check_for_invalid_predictors(mold, equation_name = eq_name)
 
     # Only map factors if we passed the check
-    mapping[[eq_name]] <- build_factor_map(mold, equation_name = eq_name)
+    mapping[[eq_name]] <- .build_factor_map(mold, equation_name = eq_name)
   }
 
   mapping
 }
 
-# ------------------------------------------------------------------------------
 # Invalid predictors -----------------------------------------------------------
-# ------------------------------------------------------------------------------
 #' Check for invalid predictor columns after molding
 #'
 #' Internal helper that aborts with a clear error if any predictor
@@ -469,7 +458,7 @@ build_factor_mapping <- function(molds)
 #' @return Invisibly returns `TRUE` if the check passes.
 #'
 #' @keywords internal
-check_for_invalid_predictors <- function(mold, equation_name = "value")
+.check_for_invalid_predictors <- function(mold, equation_name = "value")
 {
   if (is.null(mold) || is.null(mold$predictors) || ncol(mold$predictors) == 0) {
     return(invisible(TRUE))
@@ -495,10 +484,7 @@ check_for_invalid_predictors <- function(mold, equation_name = "value")
   invisible(TRUE)
 }
 
-
-# ------------------------------------------------------------------------------
 # Log transformations ----------------------------------------------------------
-# ------------------------------------------------------------------------------
 #' Detect log transformation on the outcome variable
 #'
 #' Returns a consistent list structure whether a log transformation is detected or not.
@@ -509,7 +495,7 @@ check_for_invalid_predictors <- function(mold, equation_name = "value")
 #' @returns A list with all the information of a log transformation.
 #'
 #' @keywords internal
-detect_log_transformation <- function(formula, data) {
+.detect_log_transformation <- function(formula, data) {
 
   lhs_expr <- rlang::f_lhs(formula)
 
@@ -631,7 +617,7 @@ detect_log_transformation <- function(formula, data) {
 #' the respective equation.
 #'
 #' @keywords internal
-detect_log_transformations <- function(formulas_list, data) {
+.detect_log_transformations <- function(formulas_list, data) {
   if (!is.list(formulas_list) || is.null(names(formulas_list))) {
     cli::cli_abort("`formulas_list` must be a named list of formulas.",
                    call = NULL)
@@ -639,14 +625,11 @@ detect_log_transformations <- function(formulas_list, data) {
 
   lapply(formulas_list, function(f) {
     if (is.null(f)) return(list(is_log = FALSE))
-    detect_log_transformation(f, data)
+    .detect_log_transformation(f, data)
   })
 }
 
-
-# ------------------------------------------------------------------------------
 # Constraints parsing ----------------------------------------------------------
-# ------------------------------------------------------------------------------
 #' Parse user-friendly constraints into maxLik format
 #'
 #' @param constraints User input. Can be:
@@ -662,7 +645,7 @@ detect_log_transformations <- function(formulas_list, data) {
 #'   - `maxLik`: list ready for maxLik (eqA/eqB or ineqA/ineqB) or NULL
 #'
 #' @keywords internal
-parse_constraints <- function(constraints = NULL, coef_names)
+.parse_constraints <- function(constraints = NULL, coef_names)
 {
   if (is.null(constraints) || length(constraints) == 0) {
     return(list(names = NULL, strings = NULL, maxLik = NULL))
@@ -691,7 +674,7 @@ parse_constraints <- function(constraints = NULL, coef_names)
   }
 
   # Parse the string constraints into maxLik format
-  maxLik_list <- parse_string_constraints(strings, coef_names)
+  maxLik_list <- .parse_string_constraints(strings, coef_names)
 
   return(list(
     names   = names_vec,
@@ -703,7 +686,7 @@ parse_constraints <- function(constraints = NULL, coef_names)
 #' Internal helper: parse string constraints into maxLik matrices
 #'
 #' @keywords internal
-parse_string_constraints <- function(strings, coef_names)
+.parse_string_constraints <- function(strings, coef_names)
 {
   eq_rows <- list()
   ineq_rows <- list()
@@ -737,7 +720,7 @@ parse_string_constraints <- function(strings, coef_names)
                      call = NULL)
     }
 
-    row <- parse_linear_expression(lhs, coef_names)
+    row <- .parse_linear_expression(lhs, coef_names)
 
     if (op == "=") {
       eq_rows[[length(eq_rows) + 1]] <- c(row, -rhs)
@@ -775,7 +758,7 @@ parse_string_constraints <- function(strings, coef_names)
 #'   for each coefficient. Zeros for coefficients not present in the expression.
 #'
 #' @keywords internal
-parse_linear_expression <- function(expr, coef_names)
+.parse_linear_expression <- function(expr, coef_names)
 {
   if (!is.character(expr) || length(expr) != 1) {
     cli::cli_abort("`expr` must be a single character string.", call = NULL)
