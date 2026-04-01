@@ -439,6 +439,22 @@ waldtest.mlmodel <- function(object,
     )
   }
 
+  # Create a list for the variance info
+  s <- list()
+
+  # Read metadata from attributes (preferred source)
+  s$vcov.type <- attr(V, "vcov.type")
+
+  # Clustered variance handling
+  if (!is.null(attr(V, "clustered")) && attr(V, "clustered")) {
+    s$vcov.cluster <- .vcov_cluster_info(object, attr(V, "cluster.var"))
+  } else if (vcov.type %in% c("cluster", "robust") && !is.null(cl_var)) {
+    # Fallback when attributes are missing (should rarely happen)
+    s$vcov.cluster <- .vcov_cluster_info(object, cl_var)
+  } else {
+    s$vcov.cluster <- NULL
+  }
+
   # Build restriction matrix R
   if (!is.null(indices))
   {
@@ -534,7 +550,8 @@ waldtest.mlmodel <- function(object,
       df           = q,
       pval         = NA_real_,
       restrictions = restrictions,
-      vcov.type    = vcov.type,
+      vcov.type    = s$vcov.type,
+      vcov.cluster = s$vcov.cluster,
       singular     = TRUE,
       error_msg    = wald_result$message
     )
@@ -548,15 +565,10 @@ waldtest.mlmodel <- function(object,
     df           = q,
     pval         = pchisq(wald_result$W, q, lower.tail = FALSE),
     restrictions = restrictions,
-    vcov.type    = vcov.type,
+    vcov.type    = s$vcov.type,
+    vcov.cluster = s$vcov.cluster,
     singular     = FALSE
   )
-
-  # Store cluster information (if applicable)
-  if (vcov.type == "cluster" && !is.null(cl_var))
-    res$vcov.cluster <- .vcov_cluster_info(object, cl_var)
-  else
-    res$vcov.cluster <- NULL
 
   class(res) <- "waldtest.mlmodel"
 
