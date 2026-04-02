@@ -12,8 +12,9 @@ ml_logit(
   subset = NULL,
   noint_value = FALSE,
   constraints = NULL,
-  control = list(tol = -1, reltol = 1e-12, gradtol = 1e-12, lambdatol = 1e-20, qac =
-    "marquardt"),
+  start = NULL,
+  method = "NR",
+  control = NULL,
   ...
 )
 }
@@ -22,7 +23,8 @@ ml_logit(
 
 \item{scale}{Optional one-sided formula for heteroskedasticity.}
 
-\item{weights}{Optional weights.}
+\item{weights}{Optional weights variable. It can be either the name of the
+variable in \code{data}, or a vector with the weights.}
 
 \item{data}{Data frame.}
 
@@ -33,9 +35,17 @@ a logical vector or an expression (e.g. \code{subset = age > 30}).}
 \item{noint_value}{Logical. Should the value equation omit the intercept?
 Default is \code{FALSE}.}
 
+\item{constraints}{Optional constraints on the parameters. Can be a character
+vector of string constraints, a named list of string constraints, or a raw
+maxLik constraints list. See \strong{Details}.}
+
+\item{start}{Numeric vector of starting values for the coefficients. Required
+if constraints are being supplied. If supplied without constraints they
+will be ignored. See \strong{Details}.}
+
 \item{control}{A list of control parameters passed to \code{\link[maxLik:maxLik]{maxLik::maxLik()}}.
-The default values are chosen to work well with difficult likelihoods.
-See \code{\link[maxLik:maxLik]{maxLik::maxLik()}} for details.}
+If \code{NULL} (default), a sensible set of options is chosen automatically
+depending on whether constraints are used. See \link[maxLik:maxControl]{maxLik::maxControl}.}
 
 \item{...}{Additional arguments passed to \code{\link[maxLik:maxLik]{maxLik::maxLik()}}.}
 }
@@ -48,8 +58,29 @@ Fit Binary Logit Model by Maximum Likelihood
 \details{
 \strong{Important:} Do not use the usual R syntax to remove the intercept in the
 formula (\code{- 1} or \code{+ 0}) for the value equation. Use the dedicated argument
-\code{noint_value} instead. Remember that for the scale, we need a formula with
-only the right hand side part.
+\code{noint_value} instead. For the scale equation (if modeling heteroskedasticity),
+the formula must contain only the predictors (right-hand side).
+
+The dependent variable must be binary (0/1 or TRUE/FALSE).
+
+Coefficient names in the fitted object use the prefixes \verb{value::} and
+\verb{scale::} (when heteroskedasticity is modeled) to clearly identify which
+equation each coefficient belongs to.
+
+Either inequality or equality linear constraints are accepted, but not both.
+A constraint cannot have a linear combination of more than two coefficients.
+
+\strong{Important}: When \code{constraints} are supplied, \code{start} cannot be \code{NULL}.
+You \strong{must} provide initial values that yield a feasible log-likelihood.
+If no constraints are used, any supplied \code{start} is ignored.
+
+When constraints are used, \code{ml_logit} automatically chooses the optimizer:
+\itemize{
+\item Equality constraints → Nelder-Mead (\code{"NM"})
+\item Inequality constraints → BFGS
+}
+
+In these cases your supplied \code{method} argument (if any) is ignored.
 }
 \author{
 Alfonso Sanchez-Penalver

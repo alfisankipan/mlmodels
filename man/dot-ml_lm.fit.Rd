@@ -8,10 +8,10 @@
   y,
   x,
   z,
-  w,
-  constraints = NULL,
+  w = NULL,
   method = "NR",
   start = NULL,
+  constraints = NULL,
   control = list(tol = -1, reltol = 1e-12, gradtol = 1e-12, lambdatol = 1e-20, qac =
     "marquardt"),
   ...
@@ -26,9 +26,9 @@
 
 \item{w}{Numeric vector of weights.}
 
-\item{constraints}{Parsed constraints (internal use).}
-
 \item{start}{Numeric vector of initial values.}
+
+\item{constraints}{Parsed constraints (internal use).}
 
 \item{control}{Control list passed to \code{\link[maxLik:maxLik]{maxLik::maxLik()}}.}
 

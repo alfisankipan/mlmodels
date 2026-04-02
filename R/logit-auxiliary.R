@@ -1,5 +1,7 @@
 .ml_logit_ll <- function(b, y, x, z = NULL, w)
 {
+  if(is.null(w))
+    w <- rep(1, nrow(x))
   if (is.null(z)) {
     # ── Homoskedastic binary logit ─────────────────────────────────────
     xb <- as.vector(x %*% cbind(b))

@@ -25,10 +25,14 @@
 #' @param ... Additional arguments passed to [maxLik::maxLik()].
 #'
 #' @details
+#' **Important:** Do not use the usual R syntax to remove the intercept in the
+#' formula (`- 1` or `+ 0`) for the value or scale equations. Use the dedicated
+#' arguments `noint_value` and `noint_scale` instead.
+#'
 #' Coefficient names in the fitted object use the prefixes `value::` and
-#' `scale::` to identify to which equation they belong to, and to avoid
-#' confusion when the same variable(s) appear(s) in both the value and scale
-#' equations.
+#' `scale::` to clearly identify to which equation each coefficient belongs to,
+#' and to avoid confusion when the same variable(s) appear(s) in both the value
+#' and scale equations.
 #'
 #' Either inequality or equality linear constraints are accepted, but not both.
 #' A constraint cannot have a linear combination of more than two coefficients.
@@ -383,10 +387,10 @@ new_ml_lm <- function(object, ...) {
 #' @param ... Further arguments passed to [maxLik::maxLik()].
 #'
 #' @keywords internal
-.ml_lm.fit <- function(y, x, z, w,
-                       constraints = NULL,
+.ml_lm.fit <- function(y, x, z, w = NULL,
                        method = "NR",
                        start = NULL,
+                       constraints = NULL,
                        control = list(tol = -1,
                                       reltol = 1e-12,
                                       gradtol = 1e-12,

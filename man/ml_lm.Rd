@@ -61,10 +61,14 @@ An object of class \code{ml_lm} that extends \code{mlmodel}.
 Fit linear model by Maximum Likelihood
 }
 \details{
+\strong{Important:} Do not use the usual R syntax to remove the intercept in the
+formula (\code{- 1} or \code{+ 0}) for the value or scale equations. Use the dedicated
+arguments \code{noint_value} and \code{noint_scale} instead.
+
 Coefficient names in the fitted object use the prefixes \verb{value::} and
-\verb{scale::} to identify to which equation they belong to, and to avoid
-confusion when the same variable(s) appear(s) in both the value and scale
-equations.
+\verb{scale::} to clearly identify to which equation each coefficient belongs to,
+and to avoid confusion when the same variable(s) appear(s) in both the value
+and scale equations.
 
 Either inequality or equality linear constraints are accepted, but not both.
 A constraint cannot have a linear combination of more than two coefficients.
