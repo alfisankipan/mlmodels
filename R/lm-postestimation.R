@@ -416,7 +416,8 @@ summary.ml_lm <- function(object,
 
   # Start building the summary object
   s <- list()
-
+  # Store the response's variable name
+  s$response_name <- object$model$response_name
   # Read metadata from attributes (preferred source)
   s$vcov.type <- attr(vcov_mat, "vcov.type")
 
@@ -592,33 +593,33 @@ print.summary.ml_lm <- function(x, digits = max(3L, getOption("digits") - 3L), .
   old_pen <- getOption("scipen")
   options(scipen = 2)
 
-  # ── Split coefficients into Value and Scale equations ─────────────────────
-  value_coefficients <- x$coefficients[grepl("^value::", rownames(x$coefficients)), , drop = FALSE]
-  scale_coefficients <- x$coefficients[grepl("^scale::", rownames(x$coefficients)), , drop = FALSE]
-
-  # Strip prefixes for clean display
-  # rownames(value_coefficients) <- sub("^value::", "", rownames(value_coefficients))
-  # rownames(scale_coefficients) <- sub("^scale::", "", rownames(scale_coefficients))
-
-  # Print Value equation
-  cat("Value equation:\n")
-  cat("----------------\n")
-  cat("  ")
-  cat(capture.output(printCoefmat(value_coefficients,
-                                  digits = digits,
-                                  signif.legend = TRUE)),
+  # Capture the whole output of printCoefmat into a vector of strings.
+  captured <- capture.output(printCoefmat(x$coefficients,
+                                          digits = digits,
+                                          signif.legend = TRUE))
+  
+  # Get the number of coefficients in each equation.
+  k1 <- sum(grepl("^value::", rownames(x$coefficients)))
+  k2 <- sum(grepl("^scale::", rownames(x$coefficients)))
+  
+  # The first row is the header of the table, have to indent it to align it with
+  # the coefficients after.
+  cat("  ", captured[1],"\n")
+  # Value header. Depends if we have the dependent's variable name.
+  val_head <- if(!is.null(x$response_name))
+    paste0("Value (", x$response_name, "):") else "Value:"
+  cat(val_head)
+  cat("  ", captured[2:(k1+1)],
       sep = "\n  ")
-  # printCoefmat(value_coefficients, digits = digits, signif.legend = TRUE)
-
-  # Print Scale equation
-  cat("\nScale equation:\n")
-  cat("----------------\n")
-  cat("  ")
-  cat(capture.output(printCoefmat(scale_coefficients,
-                                  digits = digits,
-                                  signif.legend = TRUE)),
+  cat("Scale (log(sigma)):")
+  cat("  ", captured[(k1+2):(k1+k2+1)],
       sep = "\n  ")
-
+  # It seems as if there is an empty line between the coefficients and the legend
+  # so we need to add one more line and start at k1+k2+3, to avoid that empty one.
+  cat("---------------------------------------",
+      captured[(k1+k2+3):length(captured)],
+      sep = "\n")
+  
   options(scipen = old_pen)
 
   if (x$converged) {
