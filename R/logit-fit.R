@@ -225,9 +225,9 @@ ml_logit <- function(value,
 
   functions <- list(
     # predict        = predict.ml_logit,
-    hessianObs     = ml_logit_hessianObs,
+    hessianObs     = .ml_logit_hessianObs,
     # update         = update.ml_logit,
-    loglik         = ml_logit_ll,
+    loglik         = .ml_logit_ll,
     fit            = .ml_logit.fit
   )
 
@@ -323,7 +323,7 @@ new_ml_logit <- function(object, ...) {
   }
 
   # Final estimation
-  ml <- maxLik::maxLik(ml_logit_ll,
+  ml <- maxLik::maxLik(.ml_logit_ll,
                        start = start,
                        y = y,
                        x = x,

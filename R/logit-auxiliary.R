@@ -1,4 +1,4 @@
-ml_logit_ll <- function(b, y, x, z = NULL, w)
+.ml_logit_ll <- function(b, y, x, z = NULL, w)
 {
   if (is.null(z)) {
     # ── Homoskedastic binary logit ─────────────────────────────────────
@@ -66,7 +66,7 @@ ml_logit_ll <- function(b, y, x, z = NULL, w)
 
 
 # HESSIANS ---------------------------------------------------------------------
-ml_logit_hessianObs <- function(object)
+.ml_logit_hessianObs <- function(object)
 {
   if (!inherits(object, "ml_logit"))
     cli::cli_abort("`object` must be a model of class 'ml_logit' (from ml_logit).",
