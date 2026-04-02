@@ -8,7 +8,7 @@
     py <- exp(xb) / (1 + exp(xb))
 
     # Weighted log-likelihood
-    ll <- w * (y * xb - log(1 + exp(xb)))
+    ll <- y * xb - log(1 + exp(xb))
 
     # Gradient
     g <- w * as.vector(y - py) * x

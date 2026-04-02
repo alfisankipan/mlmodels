@@ -15,7 +15,7 @@
 #'   The returned object has attributes `gradient` and `hessian`.
 #'
 #' @keywords internal
-.ml_lm_ll <- function(b, y, x, z, w = NULL)
+.ml_lm_ll <- function(b, y, x, z, w = NULL, lognormal = FALSE)
 {
   # The last coefficient in b is the coefficient for the natural log of sigma
   k1 <- ncol(x) # Number of coefficients for the mean.
@@ -38,13 +38,15 @@
 
   ## LL
   ll <- dnorm(u / s, log = TRUE) - zd
+  if(lognormal) ll <- ll - y # y because it's already log-transformed
+  ll <- ll * w
 
   ## GRADIENT
   # Partial with respect to beta.
-  gb <- as.vector(u / s^2) * x
+  gb <- w * as.vector(u / s^2) * x
 
   # Partial with respect to delta.
-  gd <- as.vector((u / s)^2 - 1) * z
+  gd <- w * as.vector((u / s)^2 - 1) * z
 
   # Set the attribute in ll to pass it back to maxLik
   attr(ll, "gradient") <- cbind(gb, gd)
@@ -62,18 +64,19 @@
     zi <- cbind(z[i, ])
     si <- s[i]
     ui <- u[i]
+    wi <- w[i]
 
     # Second partial with respect both times to beta.
-    hbb <- -si^(-2) * tcrossprod(xi)
+    hbb <- - wi * si^(-2) * tcrossprod(xi)
 
     # Second partial first with respect to beta and then to s
-    hbs <- -2 * (ui / si^2) * tcrossprod(xi,zi)
+    hbs <- -2 * wi * (ui / si^2) * tcrossprod(xi,zi)
 
     # Transpose that.
     hsb <- t(hbs)
 
     # Second partial with respect both times to lnsigma.
-    hss <- -2 * (ui / si)^2 * tcrossprod(zi)
+    hss <- -2 * wi * (ui / si)^2 * tcrossprod(zi)
 
     # Form the observation's Hessian
     h <- rbind(cbind(hbb, hbs),
@@ -110,6 +113,10 @@
   y <- object$model$value$outcomes[[1]]
   x <- as.matrix(object$model$value$predictors)
   z <- as.matrix(object$model$scale$predictors)
+  w <- if(is.null(object$model$weights))
+    rep(1, nrow(x))
+  else
+    object$model$weights
   k1 <- ncol(x)
   k <- k1 + ncol(z)
 
@@ -136,18 +143,19 @@
     zi <- cbind(z[i, ])
     si <- s[i]
     ui <- u[i]
+    wi <- w[i]
 
     # Second partial with respect both times to beta.
-    hbb <- -si^(-2) * tcrossprod(xi)
+    hbb <- - wi * si^(-2) * tcrossprod(xi)
 
     # Second partial first with respect to beta and then to s
-    hbs <- -2 * (ui / si^2) * tcrossprod(xi,zi)
+    hbs <- -2 * wi * (ui / si^2) * tcrossprod(xi,zi)
 
     # Transpose that.
     hsb <- t(hbs)
 
     # Second partial with respect both times to lnsigma.
-    hss <- -2 * (ui / si)^2 * tcrossprod(zi)
+    hss <- -2 * wi * (ui / si)^2 * tcrossprod(zi)
 
     # Form the observation's Hessian
     h <- rbind(cbind(hbb, hbs),
@@ -255,6 +263,7 @@
                             x = x_boot,
                             z = z_boot,
                             w = w_boot,
+                            lognormal = object$log_info$value$is_log,
                             constraints = object$model$constraints$maxLik,
                             start       = object$model$start,
                             method      = object$model$method,

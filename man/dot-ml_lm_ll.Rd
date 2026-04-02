@@ -4,7 +4,7 @@
 \alias{.ml_lm_ll}
 \title{Log-likelihood, gradient and Hessian evaluator for ml_lm models}
 \usage{
-.ml_lm_ll(b, y, x, z, w = NULL)
+.ml_lm_ll(b, y, x, z, w = NULL, lognormal = FALSE)
 }
 \arguments{
 \item{b}{Numeric vector of all coefficients (value + scale).}

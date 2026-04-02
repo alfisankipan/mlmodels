@@ -12,6 +12,7 @@
   method = "NR",
   start = NULL,
   constraints = NULL,
+  lognormal = FALSE,
   control = list(tol = -1, reltol = 1e-12, gradtol = 1e-12, lambdatol = 1e-20, qac =
     "marquardt"),
   ...
