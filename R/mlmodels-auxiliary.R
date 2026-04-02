@@ -1,7 +1,9 @@
 ## Private files that get called from several mlmodels top level functions to
 ## do a specific task.
 
-# Cluster info -----------------------------------------------------------------
+# VARIANCE RELATED FUNCTIONS ===================================================
+
+## --- Cluster info ------------------------------------------------------------
 #' Internal helper to extract clustering information
 #'
 #' Used by several functions to that accept `cl_var` as an argument, to check the
@@ -53,8 +55,7 @@
   return(vcov.cluster)
 }
 
-# process_vcov ---------------------------------------------------------------------
-
+## --- process_vcov ------------------------------------------------------------
 #' Internal helper to obtain the variance-covariance matrix
 #'
 #' This helper is used by `summary.ml_lm()`, `waldtest.mlmodel()`,
@@ -128,7 +129,7 @@
 }
 
 
-# vcov_boot --------------------------------------------------------------------
+## --- vcov_boot ---------------------------------------------------------------
 #' Generic for bootstrap variance-covariance matrix
 #'
 #' @keywords internal
@@ -257,6 +258,16 @@
 
   dimnames(vcov_boot) <- list(names(coef(object)), names(coef(object)))
   vcov_boot
+}
+
+
+## --- Is invertible -----------------------------------------------------------
+#' @keywords internal
+.is_invertible <- function(V) {
+  tryCatch({
+    chol2inv(chol(V))
+    TRUE
+  }, error = function(e) FALSE)
 }
 
 

@@ -65,22 +65,18 @@ summary.ml_logit <- function(object,
   usable_vcov <- TRUE
   if (any(!is.finite(vcov_mat)) || any(is.na(vcov_mat))) {
     usable_vcov <- FALSE
-    cli::cli_warn(
-      c("Variance matrix is not usable (contains NAs or non-finite values).",
-        "i" = "This usually happens with bootstrap when constraints are present.",
-        "i" = "Joint significance tests and correlation matrix will be skipped.")
-    )
-  } else {
-    eig <- eigen(vcov_mat, symmetric = TRUE, only.values = TRUE)$values
-    if (any(eig < sqrt(.Machine$double.eps))) {
-      usable_vcov <- FALSE
-      cli::cli_warn(
-        c("Variance matrix is singular or nearly singular.",
-          "i" = "Joint significance tests and correlation matrix could not be computed.",
-          "i" = "Consider using `vcov.type = 'robust'` instead.")
-      )
-    }
+    warn_msg <- "Variance matrix is not usable (contains NAs or non-finite values)."
+  } else if (!.is_invertible(vcov_mat)) {
+    usable_vcov <- FALSE
+    warn_msg <- "Variance matrix is not invertible (likely singular or nearly singular)."
   }
+  if(!usable_vcov)
+    cli::cli_warn(
+      c(warn_msg,
+        "i" = "This can happen with bootstrap under constraints or in models with high collinearity.",
+        "i" = "Joint significance tests and correlation matrix will be skipped.",
+        "i" = "Consider using `vcov.type = 'robust'` for more stable results.")
+    )
   
   # Extract observations, and number of parameters.
   n <- object$model$n_used
@@ -100,6 +96,7 @@ summary.ml_logit <- function(object,
   s$converged     <- converged
   s$is_heteroskedastic <- is_heteroskedastic
   
+  s$vcov.type <- attr(vcov_mat, "vcov.type")
   # Clustered variance handling
   if (!is.null(attr(vcov_mat, "clustered")) && attr(vcov_mat, "clustered")) {
     s$vcov.cluster <- .vcov_cluster_info(object, attr(vcov_mat, "cluster.var"))
@@ -186,4 +183,124 @@ summary.ml_logit <- function(object,
   
   class(s) <- c("summary.ml_logit", "summary.mlmodel", "summary")
   s
+}
+
+# PRINT SUMMARY ----------------------------------------------------------------
+#' @export
+print.summary.ml_logit <- function(x, digits = max(3L, getOption("digits") - 3L), ...)
+{
+  if (!inherits(x, "summary.ml_logit"))
+    cli::cli_abort("`x` needs to be a `summary.ml_logit` object.")
+  
+  cat("\nMaximum Likelihood Model\n")
+  cat(" Type:", x$model_type, "\n")
+  cat("---------------------------------------\n")
+  
+  if (!is.null(x$call)) {
+    cat("Call:\n")
+    print(x$call)
+    cat("\n")
+  }
+  
+  if (!x$converged) {
+    cat("WARNING: Model did NOT converge!\n")
+    cat("Convergence code:", x$code %||% "???", "-", x$message %||% "", "\n\n")
+  } else {
+    # Log-Likelihood + Joint tests (only when converged)
+    cat("Log-Likelihood:", format(x$logLik, nsmall = 2, digits = digits + 1), "\n\n")
+    cat("Joint significance tests:\n")
+    
+    any_test_printed <- FALSE
+    for (test in c("all", "mean", "scale")) {
+      w <- x$significance[[test]]
+      if (is.null(w) || isTRUE(w$singular) || !is.finite(w$pval)) {
+        next   # skip silently (happens in homoskedastic case or useless variance)
+      }
+      any_test_printed <- TRUE
+      p_str <- if (w$pval < 1e-8) "< 1e-8" else sprintf("%.4f", w$pval)
+      cat(sprintf(" %s: Chisq(%d) = %.3f, Pr(>Chisq) = %s\n",
+                  tools::toTitleCase(test), w$df, w$waldstat, p_str))
+    }
+    
+    if (!any_test_printed) {
+      cat(" Tests were not computable (singular or not finite variance).\n")
+    }
+  }
+  
+  if(!is.null(x$vcov.type))
+    vcov_type <- switch (x$vcov.type,
+                         "oim" = "Original Information Matrix",
+                         "opg" = "Outer Product of Gradients (BHHH)",
+                         "robust" = if(is.null(x$vcov.cluster)) "Robust" else "Cluster-Robust",
+                         "boot" = if(is.null(x$vcov.cluster)) "Bootstrapped" else "Cluster Bootstrapped",
+                         x$vcov.type
+    )
+  else
+    vcov_type <- "User Supplied (Unknown)"
+  
+  cat("\nVariance type:", vcov_type)
+  if (!is.null(x$vcov.cluster)) {
+    cat(" | Clusters:", x$vcov.cluster$n_cluster)
+    if (!is.null(x$vcov.cluster$var_name))
+      cat(" (", x$vcov.cluster$var_name, ")", sep = "")
+  }
+  cat("\n---------------------------------------\n")
+  
+  old_pen <- getOption("scipen")
+  options(scipen = 2)
+  
+  # Capture the whole output of printCoefmat into a vector of strings.
+  captured <- capture.output(printCoefmat(x$coefficients,
+                                          digits = digits,
+                                          signif.legend = TRUE))
+  
+  # Get the number of coefficients in each equation.
+  k1 <- sum(grepl("^value::", rownames(x$coefficients)))
+  if(x$is_heteroskedastic)
+    k2 <- sum(grepl("^scale::", rownames(x$coefficients)))
+  else
+    k2 <- 0
+  
+  # The first row is the header of the table, have to indent it to align it with
+  # the coefficients after.
+  cat("  ", captured[1],"\n")
+  # Value header. Depends if we have the dependent's variable name.
+  val_head <- if (!is.null(x$response_name) && 
+                  nzchar(trimws(x$response_name))) {
+    paste0("Value (", trimws(x$response_name), "):")
+  } else {
+    "Value:"
+  }
+  cat(val_head)
+  cat("  ", captured[2:(k1+1)],
+      sep = "\n  ")
+  if(x$is_heteroskedastic)
+  {
+    cat("Scale (log(sigma)):")
+    cat("  ", captured[(k1+2):(k1+k2+1)],
+        sep = "\n  ")
+  }
+  # It seems as if there is an empty line between the coefficients and the legend
+  # so we need to add one more line and start at k1+k2+3, to avoid that empty one.
+  cat("---------------------------------------",
+      captured[(k1+k2+3):length(captured)],
+      sep = "\n")
+  
+  options(scipen = old_pen)
+  
+  if (x$converged) {
+    cat("---\n")
+    cat("Number of observations:", x$nobs, "\n")
+    cat("Pseudo R-squared - Cor.Sq.: ",
+        format(x$r.squared$cor, digits = digits),
+        " McFadden: ", format(x$r.squared$mcfadden, digits = digits),
+        "\n",
+        sep = "")
+    cat("AIC:", format(x$AIC, nsmall = 2, digits = digits + 1),
+        " BIC:", format(x$BIC, nsmall = 2, digits = digits + 1), "\n")
+  } else {
+    cat("\nGoodness-of-fit statistics not available (model did not converge).\n")
+  }
+  
+  invisible(x)
 }

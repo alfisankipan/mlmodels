@@ -428,17 +428,6 @@ waldtest.mlmodel <- function(object,
     )
   }
 
-  # ── Check singularity ──────────────────────────────────────────
-  eig <- eigen(V, symmetric = TRUE, only.values = TRUE)$values
-  if (any(eig < sqrt(.Machine$double.eps))) {
-    cli::cli_abort(
-      c("Cannot perform Wald test: variance matrix is singular or nearly singular.",
-        "i" = "This often occurs with cluster-robust standard errors when there are few clusters.",
-        "i" = "Consider using `vcov.type = 'robust'` instead."),
-      call = NULL
-    )
-  }
-
   # Create a list for the variance info
   s <- list()
 

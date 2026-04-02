@@ -385,22 +385,18 @@ summary.ml_lm <- function(object,
   usable_vcov <- TRUE
   if (any(!is.finite(vcov_mat)) || any(is.na(vcov_mat))) {
     usable_vcov <- FALSE
-    cli::cli_warn(
-      c("Variance matrix is not usable (contains NAs or non-finite values).",
-        "i" = "This usually happens with bootstrap when constraints are present.",
-        "i" = "Joint significance tests and correlation matrix will be skipped.")
-    )
-  } else {
-    eig <- eigen(vcov_mat, symmetric = TRUE, only.values = TRUE)$values
-    if (any(eig < sqrt(.Machine$double.eps))) {
-      usable_vcov <- FALSE
-      cli::cli_warn(
-        c("Variance matrix is singular or nearly singular.",
-          "i" = "Joint significance tests and correlation matrix could not be computed.",
-          "i" = "Consider using `vcov.type = 'robust'` instead.")
-      )
-    }
+    warn_msg <- "Variance matrix is not usable (contains NAs or non-finite values)."
+  } else if (!.is_invertible(vcov_mat)) {
+    usable_vcov <- FALSE
+    warn_msg <- "Variance matrix is not invertible (likely singular or nearly singular)."
   }
+  if(!usable_vcov)
+    cli::cli_warn(
+      c(warn_msg,
+        "i" = "This can happen with bootstrap under constraints or in models with high collinearity.",
+        "i" = "Joint significance tests and correlation matrix will be skipped.",
+        "i" = "Consider using `vcov.type = 'robust'` for more stable results.")
+    )
 
   n <- object$model$n_used
   k_total <- length(coef(object))
@@ -602,8 +598,12 @@ print.summary.ml_lm <- function(x, digits = max(3L, getOption("digits") - 3L), .
   # the coefficients after.
   cat("  ", captured[1],"\n")
   # Value header. Depends if we have the dependent's variable name.
-  val_head <- if(!is.null(x$response_name))
-    paste0("Value (", x$response_name, "):") else "Value:"
+  val_head <- if (!is.null(x$response_name) && 
+                  nzchar(trimws(x$response_name))) {
+    paste0("Value (", trimws(x$response_name), "):")
+  } else {
+    "Value:"
+  }
   cat(val_head)
   cat("  ", captured[2:(k1+1)],
       sep = "\n  ")
