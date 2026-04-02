@@ -1,9 +1,34 @@
 ## Private files that get called from several mlmodels top level functions to
 ## do a specific task.
 
-# VARIANCE RELATED FUNCTIONS ===================================================
 
-## --- Cluster info ------------------------------------------------------------
+## GLOBALS =====================================================================
+# Internal defaults and constants -----------------------------------------
+
+#' @keywords internal
+.mlmodels_defaults <- function() {
+  list(
+    scipen         = 2L,      # for coefficient tables
+    digits         = 3L,      # default digits in summary tables
+    signif_digits  = 4L,      # for p-values
+    repetitions    = 999L,    # default bootstrap repetitions
+    seed           = NULL
+  )
+}
+
+#' Get default value for mlmodels
+#'
+#' @param name Character. Name of the option.
+#' @keywords internal
+.mlmodels_get_default <- function(name) {
+  defaults <- .mlmodels_defaults()
+  defaults[[name]]
+}
+
+
+## VARIANCE RELATED FUNCTIONS ==================================================
+
+# --- Cluster info -------------------------------------------------------------
 #' Internal helper to extract clustering information
 #'
 #' Used by several functions to that accept `cl_var` as an argument, to check the
@@ -269,7 +294,6 @@
     TRUE
   }, error = function(e) FALSE)
 }
-
 
 # POST-MOLD UTILITIES ==========================================================
 

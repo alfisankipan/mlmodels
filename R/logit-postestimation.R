@@ -79,7 +79,11 @@ summary.ml_logit <- function(object,
     )
   
   # Extract observations, and number of parameters.
+  # We extract out here to calculate the number of success and failures
+  y <- object$model$value$outcomes[[1]]
   n <- object$model$n_used
+  n1 <- sum(y)
+  n0 <- n - n1
   k_total <- length(coef(object))
   k_scale <- if (!is.null(object$model$scale)) ncol(object$model$scale$predictors) else 0L
   is_heteroskedastic <- !is.null(object$model$scale)
@@ -94,6 +98,8 @@ summary.ml_logit <- function(object,
   s$formula       <- object$model$formula
   s$scale_formula <- object$model$scale_formula
   s$nobs          <- n
+  s$n_success     <- n1
+  s$n_failure     <- n0
   s$converged     <- converged
   s$is_heteroskedastic <- is_heteroskedastic
   
@@ -120,7 +126,9 @@ summary.ml_logit <- function(object,
   
   # Stats if converged
   if (converged) {
-    y <- object$model$value$outcomes[[1]]
+    # y was pulled at the beginning to calculate the number of successes and
+    # failures.
+    
     yhat <- object$model$fitted.values
     
     ll <- s$logLik
@@ -247,7 +255,7 @@ print.summary.ml_logit <- function(x, digits = max(3L, getOption("digits") - 3L)
   cat("\n---------------------------------------\n")
   
   old_pen <- getOption("scipen")
-  options(scipen = 2)
+  options(scipen = .mlmodels_get_default("scipen"))
   
   # Capture the whole output of printCoefmat into a vector of strings.
   captured <- capture.output(printCoefmat(x$coefficients,
@@ -291,6 +299,7 @@ print.summary.ml_logit <- function(x, digits = max(3L, getOption("digits") - 3L)
   if (x$converged) {
     cat("---\n")
     cat("Number of observations:", x$nobs, "\n")
+    cat("  -- Successes:", x$n_success, " Failures:", x$n_failure, "\n")
     cat("Pseudo R-squared - Cor.Sq.: ",
         format(x$r.squared$cor, digits = digits),
         " McFadden: ", format(x$r.squared$mcfadden, digits = digits),

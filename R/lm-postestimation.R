@@ -584,7 +584,7 @@ print.summary.ml_lm <- function(x, digits = max(3L, getOption("digits") - 3L), .
   cat("\n---------------------------------------\n")
 
   old_pen <- getOption("scipen")
-  options(scipen = 2)
+  options(scipen = .mlmodels_get_default("scipen"))
 
   # Capture the whole output of printCoefmat into a vector of strings.
   captured <- capture.output(printCoefmat(x$coefficients,
