@@ -186,10 +186,10 @@ ml_logit <- function(value,
   }
   else
     model_scale <- z <- NULL
-
+  
   # -- 7. Map factor variables in relevant equations ------------------
   factor_mapping <- .build_factor_mapping(molds)
-
+  
   # -- 8. Managing control and constraints -------------------
   # Default control lists
   default_NR <- list(tol = -1,
@@ -294,7 +294,7 @@ ml_logit <- function(value,
   model_list <- list(
     value         = model_value,
     scale         = model_scale,
-    factor_mapping = factor_mapping,
+    factor_mapping  = factor_mapping %||% list(value = list()),
     formula       = model_value$blueprint$formula,
     scale_formula = if(!is.null(scale)) model_scale$blueprint$formula else NULL,
     weights       = wts_clean,
@@ -302,15 +302,19 @@ ml_logit <- function(value,
     sample        = sample,
     subset_sample = keep,
     usable_sample = usable_obs,
-    data          = d_name,
+    data          = data,
+    data_name     = d_name,
     functions     = functions,
     response_name = names(model_value$outcomes)[1],
     n_used        = sum(sample),
     n_orig        = n_orig,
+    log_info      = NULL,
     control       = control,
+    constraints   = parsed_constraints,
+    start         = start
   )
 
-  if (!(ml$code %in% c(1, 2, 8))) {
+  if (!(ml$code %in% c(0, 1, 2, 8))) {
     cli::cli_alert_warning(
       "Estimation did not converge (code {.strong {ml$code}}).\nMessage: {ml$message}"
     )
@@ -348,66 +352,55 @@ new_ml_logit <- function(object, ...) {
 
 #' Stripped down function to estimate a binary logit model.
 #'
-#' @param y Vector with the value equation's outcome variable.
-#' @param x Matrix with the predictors of the value equation.
-#' @param z Matrix with the predictors of the scale equation. Defaults to
-#'          NULL. Only for heteroskedastic Logit.
-#' @param w vector with the weights.
-#'
 #' @keywords internal
 .ml_logit.fit <- function(y, x, z = NULL, w = NULL,
-                          method = "NR",
-                          start = NULL,
                           constraints = NULL,
-                          control = list(tol = -1,
-                                         reltol = 1e-12,
-                                         gradtol = 1e-12,
-                                         lambdatol = 1e-20,
-                                         qac = "marquardt"),
+                          start = NULL,
+                          method = NULL,
+                          control = NULL,
                           ...)
 {
+  n <- length(y)   # <<< This was missing — critical for heteroskedastic case
   
-  # At this point start has been checked and if supplied is numeric and
-  # has the right dimension.
-  if(!is.null(start))
-  {
-    ll <- .ml_lm_logit(start,y,x,z,w)
-    
-    if(any(!is.finite(ll)))
+  # Starting values
+  if (!is.null(start)) {
+    # User provided start (required when constraints are used)
+    ll <- .ml_logit_ll(start, y = y, x = x, z = z, w = w)
+    if (any(!is.finite(ll)))
       cli::cli_abort("Infeasible log-likelihood value at supplied `start` vector.",
                      call = NULL)
     
+    # Name the coefficients properly
     names(start) <- c(paste0("value::", colnames(x)),
-                      paste0("scale::", colnames(z)))
-  }
-  else
-  {
-    # Starting values for beta (value equation)
-    # fit_beta <- .lm.fit(x, y)
-    # b0 <- fit_beta$coefficients
-    # names(b0) <- paste0("value::", colnames(x))
+                      if (!is.null(z)) paste0("scale::", colnames(z)) else character(0))
+    
+  } else {
+    # Default starting values for unconstrained logit
     p <- mean(y)
     b0 <- c(log(p / (1 - p)), rep(0, ncol(x) - 1))
     names(b0) <- paste0("value::", colnames(x))
     
-    # Starting values for scale parameters (if heteroskedastic)
     if (!is.null(z)) {
-      # Initial fit with intercept-only
+      # Heteroskedastic case
       xb_init <- rep(b0[1], n)
-      resid2 <- (y - plogis(xb_init))^2
-      fit_aux <- .lm.fit(z, log(resid2 + 1e-8))   # small constant to avoid log(0)
-      g0 <- fit_aux$coefficients / 2
+      resid2  <- (y - plogis(xb_init))^2
+      fit_aux <- .lm.fit(z, log(resid2 + 1e-8))
+      g0      <- fit_aux$coefficients / 2
       names(g0) <- paste0("scale::", colnames(z))
       start_values <- c(b0, g0)
     } else {
-      # Homoskedastic case: only value equation coefficients
+      # Homoskedastic case
       start_values <- b0
     }
-    start <- .initial_values.mlmodel(.ml_logit_ll, start_values, y = y, x = x, z = z, w = w)
+    
+    #start <- start_values
+    # TODO: Uncomment when we are sure it works safely with logit
+    start <- .initial_values.mlmodel(.ml_logit_ll, start_values,
+                                      y = y, x = x, z = z, w = w)
   }
-
+  
   # Final estimation
-  maxLik::maxLik(.ml_lm_ll,
+  maxLik::maxLik(.ml_logit_ll,
                  start = start,
                  y = y,
                  x = x,

@@ -101,7 +101,7 @@
     # ── Heteroskedastic case ───────────────────────────────────
     z     <- as.matrix(object$model$scale$predictors)
     k     <- k1 + ncol(z)
-    delta <- b[(k1 + 1):k]
+    delta <- b[(k1+1):k]
 
     zg <- as.vector(z %*% cbind(delta))
     xz <- x / exp(zg)
