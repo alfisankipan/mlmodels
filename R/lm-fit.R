@@ -445,7 +445,7 @@ new_ml_lm <- function(object, ...) {
                  x = x,
                  z = z,
                  w = w,
-                 lognormal = log,
+                 lognormal = lognormal,
                  constraints = constraints,
                  method = method,
                  control = control,

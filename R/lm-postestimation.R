@@ -406,6 +406,7 @@ summary.ml_lm <- function(object,
 
   # Start building the summary object
   s <- list()
+  
   # Store the response's variable name
   s$response_name <- object$model$response_name
   # Read metadata from attributes (preferred source)
@@ -422,6 +423,7 @@ summary.ml_lm <- function(object,
   }
 
   # Basic information
+  s$logLik <- as.numeric(object$maximum %||% NA_real_)
   s$call           <- object$call                    # ← Now using root-level call
   s$formula        <- object$model$formula
   s$scale_formula  <- object$model$scale_formula
@@ -448,8 +450,7 @@ summary.ml_lm <- function(object,
     s$r.squared      <- cor(y, yhat)^2
     s$adj.r.squared  <- 1 - (1 - s$r.squared) * (n - 1) / (n - k_mean)
 
-    ll <- as.numeric(logLik(object))
-    s$logLik         <- ll
+    ll <- s$logLik
     s$AIC            <- -2 * ll + 2 * k_total
     s$BIC            <- -2 * ll + log(n) * k_total
 

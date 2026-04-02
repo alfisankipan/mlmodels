@@ -319,7 +319,8 @@ vcov.mlmodel <- function(object,
   return(vcov_mat)
 }
 
-## LOGLIK ----------------------------------------------------------------------
+## LOGLIK ======================================================================
+# --- General ------------------------------------------------------------------
 #' Return the Log-likelihood value.
 #'
 #' @param object Object of class `mlmodel` or `summary.mlmodel`, estimated with
@@ -327,21 +328,135 @@ vcov.mlmodel <- function(object,
 #'
 #' @param ... Additional arguments to methods.
 #'
-#' @returns A scalar numeric: the log-likelihood of the model. It has attribute(s)
-#' 'df', the number of free parameters, and 'nobs' the number of observations if
-#' `object` is of class `mlmodel`.
+#' @returns A scalar numeric: the log-likelihood of the model. It includes the
+#' number of observations as the attribute 'nobs'.
 #'
+#' @export
+logLik <- function(object, ...) UseMethod("logLik")
+
+# --- mlmodel ------------------------------------------------------------------
 #' @export
 logLik.mlmodel <- function(object, ...)
 {
-  if (!inherits(object, c("mlmodel", "summary.mlmodel")))
-    cli::cli_abort("`object` must be of either 'mlmodel' or 'summary.mlmodel' class.",
+  if (!inherits(object, "mlmodel"))
+    cli::cli_abort("`object` must inherit from class 'mlmodel'.",
                    call = NULL)
-  ll <- NextMethod("logLik", object, ...)
-  if (inherits(object, "mlmodel"))
-    if (!is.null(object$model$n_used))
-      attr(ll, "nobs") <- object$model$n_used
-  else
-    attr(ll, "nobs") <- object$nobs
-  return(ll)
+  
+  ll <- object$maximum
+  
+  # Attach useful attributes
+  attr(ll, "nobs") <- object$model$n_used
+  attr(ll, "df")   <- length(coef(object))   # number of free parameters
+  
+  ll
+}
+
+# --- summary.mlmodel ----------------------------------------------------------
+#' @export
+logLik.summary.mlmodel <- function(object, ...)
+{
+  if(!inherits(object, "summary.mlmodel"))
+    cli::cli_abort("`object` must inerit from class `summary.mlmodel`.",
+                   call = NULL)
+  if (is.null(object$logLik) || is.na(object$logLik)) {
+    cli::cli_warn("Log-likelihood value is not available.")
+    return(NA_real_)
+  }
+  
+  ll <- object$logLik
+  
+  attr(ll, "nobs") <- object$nobs
+  attr(ll, "df") <- nrow(object$coefficients)
+  
+  ll
+}
+
+## AIC =========================================================================
+# --- General ------------------------------------------------------------------
+#' Extract AIC from mlmodel objects
+#'
+#' @param object An object of class `"mlmodel"` or `"summary.mlmodel"`.
+#' @param k Numeric. The penalty per parameter to be used. Default is `k = 2`,
+#'   which gives the standard AIC. See [stats::AIC()] for details.
+#' @param ... Further arguments passed to methods.
+#'
+#' @details
+#' For fitted `mlmodel` objects, AIC is computed as `-2 * logLik + k * npar`,
+#' where `npar` is the total number of coefficients.
+#'
+#' For `summary.mlmodel` objects, the pre-computed AIC (calculated with `k = 2`)
+#' is returned. The `k` argument is accepted for compatibility but is ignored.
+#'
+#' @return A numeric value with the AIC.
+#'
+#' @export
+AIC <- function(object, ..., k = 2) UseMethod("AIC")
+
+# --- mlmodel ------------------------------------------------------------------
+#' @export
+AIC.mlmodel <- function(object, ..., k = 2)
+{
+  if (!inherits(object, "mlmodel"))
+    cli::cli_abort("`object` must inherit from class 'mlmodel'.", call = NULL)
+  
+  if (!(object$code %in% c(0L, 1L, 2L, 8L))) {
+    cli::cli_abort("AIC is not available (model did not converge).", call = NULL)
+  }
+  
+  ll <- logLik(object)
+  npar <- attr(ll, "df") %||% length(coef(object))
+  
+  -2 * as.numeric(ll) + k * npar
+}
+
+# --- mlmodel ------------------------------------------------------------------
+#' @export
+AIC.summary.mlmodel <- function(object, ..., k = 2)
+{
+  if (!inherits(object, "summary.mlmodel"))
+    cli::cli_abort("`object` must inherit from class 'summary.mlmodel'.", call = NULL)
+  
+  if (is.null(object$AIC) || !isTRUE(object$converged))
+    cli::cli_abort("AIC is not available (model did not converge).", call = NULL)
+  
+  # Note: we ignore the `k` argument for summary objects because we already computed AIC with k=2
+  object$AIC
+}
+
+## BIC =========================================================================
+#' Extract BIC
+#'
+#' @param object An object of class `"mlmodel"` or `"summary.mlmodel"`.
+#' @param ... Further arguments passed to methods.
+#'
+#' @export
+BIC <- function(object, ...) UseMethod("BIC")
+
+#' @export
+BIC.mlmodel <- function(object, ...)
+{
+  if (!inherits(object, "mlmodel"))
+    cli::cli_abort("`object` must inherit from class 'mlmodel'.", call = NULL)
+  
+  if (!(object$code %in% c(0L, 1L, 2L, 8L))) {
+    cli::cli_abort("AIC is not available (model did not converge).", call = NULL)
+  }
+  
+  ll <- logLik(object)
+  npar <- attr(ll, "df") %||% length(coef(object))
+  nobs <- attr(ll, "nobs") %||% object$model$n_used
+  
+  -2 * as.numeric(ll) + log(nobs) * npar
+}
+
+#' @export
+BIC.summary.mlmodel <- function(object, ...)
+{
+  if (!inherits(object, "summary.mlmodel"))
+    cli::cli_abort("`object` must inherit from class 'summary.mlmodel'.", call = NULL)
+  
+  if (is.null(object$BIC))
+    cli::cli_abort("BIC is not available (model did not converge).", call = NULL)
+  
+  object$BIC
 }

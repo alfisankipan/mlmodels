@@ -51,7 +51,7 @@ summary.ml_logit <- function(object,
   if (!inherits(object, "ml_logit"))
     cli::cli_abort("`object` must be a model of class 'ml_logit'.")
   
-  converged <- object$code %in% c(0, 1, 2, 8)
+  converged <- object$code %in% c(0L, 1L, 2L, 8L)
   # Get variance-covariance matrix once
   vcov_mat <- .process_vcov(object,
                             vcov = vcov,
@@ -88,6 +88,7 @@ summary.ml_logit <- function(object,
   # Start building the summary object
   s <- list()
   
+  s$logLik <- as.numeric(object$maximum %||% NA_real_)
   s$response_name <- object$model$response_name
   s$call          <- object$call
   s$formula       <- object$model$formula
@@ -122,8 +123,7 @@ summary.ml_logit <- function(object,
     y <- object$model$value$outcomes[[1]]
     yhat <- object$model$fitted.values
     
-    ll <- as.numeric(logLik(object))
-    s$logLik         <- ll
+    ll <- s$logLik
     s$AIC            <- -2 * ll + 2 * k_total
     s$BIC            <- -2 * ll + log(n) * k_total
     
