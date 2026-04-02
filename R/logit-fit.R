@@ -327,11 +327,19 @@ ml_logit <- function(value,
     return(ml)
   }
 
-  # Converged: compute fitted (easy calculation of pseudo R-squared)
-  beta <- coef(ml)[1:ncol(x)]
-  yhat <- as.vector(x %*% beta)
-
-  model_list$fitted.values <- yhat
+  # Converged: compute fitted (easy calculation of pseudo R-squared)]
+  cfs <- coef(ml)
+  beta <- cfs[1:ncol(x)]
+  xb <- x %*% beta
+  if(!is.null(scale))
+  {
+    delta <- cfs[(ncol(x)+1):length(cfs)]
+    sig <- exp(z %*% delta)
+  }
+  else
+    sig <- 1
+  model_list$fitted.values <- as.vector(1 / (1 + exp(- xb / sig)))
+  model_list$residuals <- y - model_list$fitted.values
 
   # -- 13. Add the model to the maxLik object ----------------------
   ml$model <- model_list

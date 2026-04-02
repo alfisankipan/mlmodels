@@ -9,23 +9,12 @@
   x,
   z = NULL,
   w = NULL,
-  method = "NR",
-  start = NULL,
   constraints = NULL,
-  control = list(tol = -1, reltol = 1e-12, gradtol = 1e-12, lambdatol = 1e-20, qac =
-    "marquardt"),
+  start = NULL,
+  method = NULL,
+  control = NULL,
   ...
 )
-}
-\arguments{
-\item{y}{Vector with the value equation's outcome variable.}
-
-\item{x}{Matrix with the predictors of the value equation.}
-
-\item{z}{Matrix with the predictors of the scale equation. Defaults to
-NULL. Only for heteroskedastic Logit.}
-
-\item{w}{vector with the weights.}
 }
 \description{
 Stripped down function to estimate a binary logit model.

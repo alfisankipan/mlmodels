@@ -328,7 +328,9 @@ residuals.ml_lm <- function(object, ...)
 #'
 #' @param object A fitted model object of class `"ml_lm"`.
 #' @param correlation Logical. Should the correlation matrix of the estimated
-#'   parameters be included in the output? Default is `FALSE`.
+#'   parameters be included in the output? Default is `FALSE`. If `TRUE` the
+#'   correlation matrix will be computed, and stored in the `'summary.ml_lm'`
+#'   object the function returns.
 #' @param vcov Optional user-supplied variance-covariance matrix. If provided,
 #'   it will be used instead of computing one internally.
 #' @param vcov.type Character string specifying the type of variance-covariance
@@ -350,15 +352,8 @@ residuals.ml_lm <- function(object, ...)
 #' `scale::` to identify to which equation they belong to, and to avoid
 #' confusion when the same variable(s) appear(s) in both the value and scale
 #' equations.
-#'
-#' @return An object of class `"summary.ml_lm"` containing:
-#'   - `call`: the original call
-#'   - `coefficients`: coefficient table with Estimate, Std. Error, z value, Pr(>|z|)
-#'   - `vcov.type`: type of variance-covariance matrix used
-#'   - `vcov.cluster`: clustering information (if applicable)
-#'   - `logLik`, `AIC`, `BIC`, `r.squared`, `adj.r.squared` (if converged)
-#'   - `sigma` (if homoskedastic)
-#'   - `significance`: joint Wald tests for overall, mean, and scale equations
+#' 
+#' @return An object of class `c("summary.ml_lm", "summary.mlmodel", "summary")`.
 #'
 #' @author Alfonso Sanchez-Penalver
 #'
@@ -393,16 +388,15 @@ summary.ml_lm <- function(object,
     cli::cli_warn(
       c("Variance matrix is not usable (contains NAs or non-finite values).",
         "i" = "This usually happens with bootstrap when constraints are present.",
-        "i" = "Joint significance tests will be skipped.")
+        "i" = "Joint significance tests and correlation matrix will be skipped.")
     )
   } else {
-    # Check singularity
     eig <- eigen(vcov_mat, symmetric = TRUE, only.values = TRUE)$values
     if (any(eig < sqrt(.Machine$double.eps))) {
       usable_vcov <- FALSE
       cli::cli_warn(
         c("Variance matrix is singular or nearly singular.",
-          "i" = "Joint significance tests could not be computed.",
+          "i" = "Joint significance tests and correlation matrix could not be computed.",
           "i" = "Consider using `vcov.type = 'robust'` instead.")
       )
     }
@@ -441,8 +435,7 @@ summary.ml_lm <- function(object,
   s$is_heteroskedastic <- is_heteroskedastic
 
   # Coefficient table
-  se <- se.mlmodel(object,
-                   vcov = vcov_mat)
+  se <- sqrt(diag(vcov_mat))
 
   s$coefficients <- cbind(
     Estimate   = coef(object),
@@ -503,6 +496,13 @@ summary.ml_lm <- function(object,
   } else {
     s$r.squared <- s$adj.r.squared <- s$AIC <- s$BIC <- s$sigma <- s$significance <- NULL
   }
+  
+  
+  if(correlation && converged && usable_vcov)
+    s$correlation <- cov2cor(vcov_mat)
+  else
+    s$correlation <- NULL
+  
 
   s$model_type <- if (is_heteroskedastic) {
     "Heteroskedastic Gaussian Linear Model"
@@ -510,11 +510,7 @@ summary.ml_lm <- function(object,
     "Homoskedastic Gaussian Linear Model"
   }
 
-  if (correlation) {
-    s$correlation <- cov2cor(vcov_mat)
-  }
-
-  class(s) <- c("summary.ml_lm", "summary")
+  class(s) <- c("summary.ml_lm", "summary'mlmodel", "summary")
   s
 }
 
