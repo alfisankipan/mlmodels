@@ -570,8 +570,8 @@ print.summary.ml_logit <- function(x, digits = max(3L, getOption("digits") - 3L)
   
   if (x$converged) {
     cat("---\n")
-    cat("Number of observations:", x$nobs, "\n")
-    cat("  -- Successes:", x$n_success, " Failures:", x$n_failure, "\n")
+    cat("Number of observations:", x$nobs, 
+        " (Successes:", x$n_y1, ", Failures:", x$n_y0, ")\n", sep = "")
     cat("Pseudo R-squared - Cor.Sq.: ",
         format(x$r.squared$cor, digits = digits),
         " McFadden: ", format(x$r.squared$mcfadden, digits = digits),
