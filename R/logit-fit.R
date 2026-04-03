@@ -75,7 +75,7 @@ ml_logit <- function(value,
 
   cl <- match.call()
 
-  # -- Save original data dimensions and create keep vector ------------
+  # -- 0. Save original data dimensions and create keep vector ------------
   n_orig <- nrow(data)
   keep <- rep(TRUE, n_orig)          # Start with all observations kept
 
@@ -164,13 +164,15 @@ ml_logit <- function(value,
   )
 
   y <- as.numeric(model_value$outcomes[[1]])
-  if (!all(y %in% c(0, 1))) {
-    cli::cli_abort(
-      c("The dependent variable must be binary.",
-        "i" = "It can only contain values 0 or 1 (or TRUE/FALSE)."),
-      call = NULL
-    )
+  
+  # -- 7. Validity of outcome variable ------------------
+  # Check range
+  if (any(y < 0 | y > 1)) {
+    cli::cli_abort("Outcome variable must be in the [0, 1] interval.", call = NULL)
   }
+  # Check if it's purely binary
+  is_binary <- all(y %in% c(0, 1))
+  
   x <- as.matrix(model_value$predictors)
 
   if(!is.null(scale))
@@ -187,10 +189,10 @@ ml_logit <- function(value,
   else
     model_scale <- z <- NULL
   
-  # -- 7. Map factor variables in relevant equations ------------------
+  # -- 8. Map factor variables in relevant equations ------------------
   factor_mapping <- .build_factor_mapping(molds)
   
-  # -- 8. Managing control and constraints -------------------
+  # -- 9. Managing control and constraints -------------------
   # Default control lists
   default_NR <- list(tol = -1,
                      reltol = 1e-12,
@@ -247,7 +249,7 @@ ml_logit <- function(value,
     }
   }
 
-  # -- 9. Fitting the model with maxLik ----------------------
+  # -- 10. Fitting the model with maxLik ----------------------
   ml <- .ml_logit.fit(y = y,
                       x = x,
                       z = z,
@@ -258,7 +260,7 @@ ml_logit <- function(value,
                       control = control,
                       ...)
 
-  # -- 10. Forming the dataset name ------------------------------
+  # -- 11. Forming the dataset name ------------------------------
   # Safely get a readable name for the dataset (for printing/storage)
   d_name <- tryCatch(
     deparse(substitute(data)),
@@ -269,7 +271,7 @@ ml_logit <- function(value,
     d_name <- "<unknown data>"
   }
 
-  # -- 11. Internal safety check(s) (for development/testing) --------
+  # -- 12. Internal safety check(s) (for development/testing) --------
   # They should be the same value, since we never indexed sample (that i can remember),
   # so if we get an alert, we must check the code.
   if (length(sample) != n_orig) {
@@ -278,9 +280,9 @@ ml_logit <- function(value,
     )
   }
 
-  # -- 12. Forming the the model list --------------------------------
+  # -- 13. Forming the model list ------------------------------------
 
-  # -- 12.a. The functions list --------------------------------------
+  # -- 13.a. The functions list --------------------------------------
 
   functions <- list(
     # predict        = predict.ml_logit,
@@ -290,7 +292,7 @@ ml_logit <- function(value,
     fit            = .ml_logit.fit
   )
 
-  # Common model list structure
+  # -- 13.b. The model_list list --------------------------------------
   model_list <- list(
     value         = model_value,
     scale         = model_scale,
@@ -311,7 +313,8 @@ ml_logit <- function(value,
     log_info      = NULL,
     control       = control,
     constraints   = parsed_constraints,
-    start         = start
+    start         = start,
+    is_binary     = is_binary
   )
 
   if (!(ml$code %in% c(0, 1, 2, 8))) {
@@ -341,11 +344,11 @@ ml_logit <- function(value,
   model_list$fitted.values <- as.vector(1 / (1 + exp(- xb / sig)))
   model_list$residuals <- y - model_list$fitted.values
 
-  # -- 13. Add the model to the maxLik object ----------------------
+  # -- 14. Add the model to the maxLik object ----------------------
   ml$model <- model_list
   ml$call <- cl
 
-  # -- 14. Call the function to create tge class and return  ----------
+  # -- 15. Call the function to create tge class and return  ----------
   new_ml_logit(ml)
 }
 
