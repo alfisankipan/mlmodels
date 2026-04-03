@@ -16,13 +16,13 @@ RoxygenNote: 7.3.3
 Imports: 
     cli,
     hardhat,
+    insight,
     MASS,
     matrixcalc,
     maxLik,
     rlang,
     tibble
 Suggests: 
-    insight,
     marginaleffects,
     testthat (>= 3.0.0),
     wooldridge
