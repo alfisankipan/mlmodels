@@ -211,7 +211,7 @@
     cluster_ids <- unique(cl_var[object$model$sample])
     n_cluster   <- length(cluster_ids)
   }
-
+  
   # ── Bootstrap loop ───────────────────────────────────────────────────
   if (progress) {
     if (is_clustered) {

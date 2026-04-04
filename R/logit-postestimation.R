@@ -585,3 +585,73 @@ print.summary.ml_logit <- function(x, digits = max(3L, getOption("digits") - 3L)
   
   invisible(x)
 }
+
+## UPDATE ======================================================================
+#' Update method for ml_logit objects
+#'
+#' Designed to work with sandwich::vcovBS() and our internal bootstrap.
+#' Re-evaluates the original call with new data/weights while preserving
+#' the original scale formula, constraints, control, etc.
+#'
+#' **Note on weights**: If the original model was weighted, sandwich::vcovBS()
+#' usually passes weights = NULL. In that case we keep the original weights.
+#' This means the bootstrap may not be properly re-weighted. For accurate
+#' weighted bootstrap use our own `vcov(..., type = "boot")` instead.
+#' 
+#' **Note on sandwich::vcovBS()**: This function does not work reliably with 
+#' `ml_logit` objects, even in simple homoskedastic cases.  We, therefore, built
+#' our own bootstrap implementation. We strongly recommend using
+#' `vcov(object, type = "boot")` instead.
+#'
+#' @export
+update.ml_logit <- function(object,
+                            formula. = NULL,
+                            scale. = NULL,
+                            data = NULL,
+                            weights = NULL,
+                            ...,
+                            evaluate = TRUE)
+{
+  if (is.null(call <- object$call))
+    cli::cli_abort("`object` does not contain a `call` component.", call = NULL)
+  
+  # Update value formula if explicitly requested
+  if (!is.null(formula.)) {
+    call$value <- update.formula(formula(object), formula.)
+  }
+  
+  # Update scale formula if explicitly requested
+  if (!is.null(scale.)) {
+    if (identical(scale., ~1) || identical(scale., ~0)) {
+      call$scale <- NULL
+    } else {
+      call$scale <- scale.
+    }
+  }
+  # If scale. was not supplied → keep original scale formula
+  
+  # Update data if supplied (what vcovBS passes)
+  if (!is.null(data)) {
+    call$data <- data
+  }
+  
+  # Update weights ONLY if explicitly supplied and non-NULL
+  if (!is.null(weights)) {
+    call$weights <- weights
+  }
+  
+  # Forward any extra arguments
+  extras <- match.call(expand.dots = FALSE)$...
+  if (length(extras) > 0) {
+    for (arg in names(extras)) {
+      call[[arg]] <- extras[[arg]]
+    }
+  }
+  
+  # Evaluate or return the call
+  if (evaluate) {
+    eval(call, envir = parent.frame())
+  } else {
+    call
+  }
+}

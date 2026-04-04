@@ -460,3 +460,24 @@ BIC.summary.mlmodel <- function(object, ...)
   
   object$BIC
 }
+
+# TERMS ========================================================================
+#' Extract terms from mlmodel objects
+#'
+#' Returns the terms object for the value (mean/probability) equation.
+#' For heteroskedastic models, the scale equation is **not** included in the
+#' returned terms object.
+#'
+#' @note The `terms()` method is provided for minimal compatibility with other
+#' packages, but it is incomplete for heteroskedastic models. For reliable
+#' bootstrap standard errors, use `vcov(object, type = "boot")` instead of
+#' functions from the sandwich package.
+#'
+#' @export
+terms.mlmodel <- function(x, ...) {
+  if (!is.null(x$model$value$terms)) {
+    x$model$value$terms
+  } else {
+    NULL
+  }
+}

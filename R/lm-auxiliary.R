@@ -214,7 +214,7 @@
     cluster_ids <- unique(cl_var[object$model$sample])
     n_cluster   <- length(cluster_ids)
   }
-
+  
   # ── Bootstrap loop ───────────────────────────────────────────────────
   if (progress) {
     if (is_clustered) {
@@ -263,7 +263,7 @@
                             x = x_boot,
                             z = z_boot,
                             w = w_boot,
-                            lognormal = object$log_info$value$is_log,
+                            lognormal = object$model$log_info$value$is_log,
                             constraints = object$model$constraints$maxLik,
                             start       = object$model$start,
                             method      = object$model$method,

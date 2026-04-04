@@ -637,72 +637,72 @@ print.summary.ml_lm <- function(x, digits = max(3L, getOption("digits") - 3L), .
   invisible(x)
 }
 
-# FUNCTIONS TO MAKE ML_LM WORK WITH SANDWICH -----------------------------------
-
-#' @export
-terms.ml_lm <- function(x, ...) {
-  # Return NULL or the terms from the value equation if available
-  if (!is.null(x$model$value$terms)) {
-    x$model$value$terms
-  } else {
-    NULL
-  }
-}
-
-#' Update an ml_lm model
+# UPDATE =======================================================================
+#' Update method for ml_logit objects
 #'
-#' This method allows updating the formulas or other arguments of a fitted
-#' `ml_lm` model. It is primarily used by bootstrap methods such as
-#' `sandwich::vcovBS()`.
+#' Designed to work with sandwich::vcovBS() and our internal bootstrap.
+#' Re-evaluates the original call with new data/weights while preserving
+#' the original scale formula, constraints, control, etc.
 #'
-#' @param object An object of class `"ml_lm"`.
-#' @param formula. An optional updated formula for the **value** (mean) equation.
-#' @param scale. An optional updated formula for the **scale** equation.
-#'   Use `NULL` to remove the scale equation (i.e., make the model homoskedastic).
-#' @param data Optional new data frame to use.
-#' @param ... Other arguments to be passed to `ml_lm()` (e.g. `data`, `weights`,
-#'   `noint_value`, `noint_scale`, etc.).
-#' @param evaluate Logical. If `TRUE` (default), the updated call is evaluated.
-#'   If `FALSE`, the updated call is returned as a language object.
-#'
-#' @return
-#' If `evaluate = TRUE`, returns a new fitted `ml_lm` object.
-#' If `evaluate = FALSE`, returns the updated call as a language object.
+#' **Note on weights**: If the original model was weighted, sandwich::vcovBS()
+#' usually passes weights = NULL. In that case we keep the original weights.
+#' This means the bootstrap may not be properly re-weighted. For accurate
+#' weighted bootstrap use our own `vcov(..., type = "boot")` instead.
+#' 
+#' **Note on sandwich::vcovBS()**: This function does not work reliably with 
+#' `ml_lm` objects, even in simple homoskedastic cases.  We, therefore, built
+#' our own bootstrap implementation. We strongly recommend using
+#' `vcov(object, type = "boot")` instead.
 #'
 #' @export
 update.ml_lm <- function(object,
-                         formula.,
+                         formula. = NULL,
                          scale. = NULL,
+                         data = NULL,
                          weights = NULL,
                          ...,
                          evaluate = TRUE)
 {
   if (is.null(call <- object$call))
-    cli::cli_abort("need an object with call component", call = NULL)
-
-  if (!missing(formula.)) {
+    cli::cli_abort("`object` does not contain a `call` component.", call = NULL)
+  
+  # Update value formula if explicitly requested (rare for bootstrap)
+  if (!is.null(formula.)) {
     call$value <- update.formula(formula(object), formula.)
   }
-
+  
+  # Update scale formula if explicitly requested
   if (!is.null(scale.)) {
-    call$scale <- if (is.null(call$scale)) scale. else update.formula(call$scale, scale.)
+    if (identical(scale., ~1) || identical(scale., ~0)) {
+      call$scale <- NULL
+    } else {
+      call$scale <- scale.
+    }
   }
-
-  # Forward weights if supplied
+  # If scale. is not supplied → keep the original scale formula (crucial for heteroskedastic models)
+  
+  # Update data (the main thing vcovBS passes)
+  if (!is.null(data)) {
+    call$data <- data
+  }
+  
+  # Update weights — this is the important part you asked about
   if (!is.null(weights)) {
-    call$weights <- weights
+    call$weights <- weights          # Yes, this correctly adds/replaces weights
   }
-
-  # Forward any other arguments
+  # If weights is NULL (most common case from vcovBS), we do NOTHING → original weights stay in the call
+  
+  # Forward any other arguments the user might pass explicitly
   extras <- match.call(expand.dots = FALSE)$...
   if (length(extras) > 0) {
     for (arg in names(extras)) {
       call[[arg]] <- extras[[arg]]
     }
   }
-
+  
+  # Evaluate or return the updated call
   if (evaluate) {
-    eval(call, parent.frame())
+    eval(call, envir = parent.frame())
   } else {
     call
   }
