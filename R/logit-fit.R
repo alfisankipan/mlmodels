@@ -78,6 +78,8 @@ ml_logit <- function(value,
   # -- 0. Save original data dimensions and create keep vector ------------
   n_orig <- nrow(data)
   keep <- rep(TRUE, n_orig)          # Start with all observations kept
+  
+  data <- .convert_integers_to_double(data)
 
   # -- 1. Handle subset argument --------------------------------------
   if (!is.null(subset)) {

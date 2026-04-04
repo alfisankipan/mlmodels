@@ -996,3 +996,48 @@
 
   b1
 }
+
+
+# Changing ptypes from a mold --------------------------------------------------
+#' The function takes a mold (object returned by hardhat::mold), loops through
+#' the ptypes in its blueprint and changes the integer types in the blueprint
+#' to double. Then returns the changed mold.
+#' 
+#' @keywords internal
+.mold_fix_integer_to_double <- function(mold) {
+  if (is.null(mold$blueprint) || is.null(mold$blueprint$ptypes)) {
+    return(mold)
+  }
+  
+  ptypes <- mold$blueprint$ptypes$predictors
+  
+  for (var in names(ptypes)) {
+    if (is.integer(ptypes[[var]])) {
+      # Change the prototype from integer to double
+      ptypes[[var]] <- double()
+    }
+  }
+  
+  # Update the blueprint with the modified ptypes
+  mold$blueprint$ptypes$predictors <- ptypes
+  
+  mold
+}
+
+#' Function to convert variables stored as integers in a data frame into
+#' doubles. To be called before using hardhat::mold in the estimator's function.
+#' 
+#' @keywords internal
+.convert_integers_to_double <- function(data) {
+  if (!is.data.frame(data)) {
+    return(data)
+  }
+  
+  for (col in colnames(data)) {
+    if (is.integer(data[[col]])) {
+      data[[col]] <- as.double(data[[col]])
+    }
+  }
+  
+  data
+}

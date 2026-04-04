@@ -1,9 +1,11 @@
+## LOG-LIKELIHOOD ==============================================================
+#' @keywords internal
 .ml_logit_ll <- function(b, y, x, z = NULL, w)
 {
   if(is.null(w))
     w <- rep(1, nrow(x))
   if (is.null(z)) {
-    # ── Homoskedastic binary logit ─────────────────────────────────────
+    # -- Homoskedastic binary logit --------------------------------------------
     xb <- as.vector(x %*% cbind(b))
     py <- exp(xb) / (1 + exp(xb))
 
@@ -22,7 +24,7 @@
     }
 
   } else {
-    # ── Heteroskedastic binary logit ───────────────────────────────────
+    # -- Heteroskedastic binary logit ------------------------------------------
     k1   <- ncol(x)
     k    <- k1 + ncol(z)
     beta <- b[1:k1]
@@ -67,7 +69,7 @@
 }
 
 
-# HESSIANS ---------------------------------------------------------------------
+# HESSIANS =====================================================================
 .ml_logit_hessianObs <- function(object)
 {
   if (!inherits(object, "ml_logit"))

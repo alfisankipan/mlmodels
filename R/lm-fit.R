@@ -78,10 +78,12 @@ ml_lm <- function(value,
 
   cl <- match.call()
 
-  # -- Save original data dimensions and create keep vector ------------
+  # -- 0. Save original data dimensions and create keep vector ------------
   n_orig <- nrow(data)
   keep <- rep(TRUE, n_orig)          # Start with all observations kept
-
+  
+  data <- .convert_integers_to_double(data)
+  
   # -- 1. Handle subset argument --------------------------------------
   if (!is.null(subset)) {
     if (is.logical(subset) && length(subset) == n_orig) {

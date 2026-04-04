@@ -66,10 +66,10 @@ predict.ml_logit <- function(object,
     cli::cli_abort("`object` must be of class 'ml_logit'.")
   
   # Match type argument
-  type <- rlang::arg_match(c("response", "prob", "prob0", "link", "odds", "fitted",
-                             "sigma", "variance"))
+  type <- rlang::arg_match(type, c("response", "prob", "prob0", "link", "odds", "fitted",
+                             "sigma", "variance", "zd"))
   
-  is_heteroskedastic <- !is.null(object$model$scale_formula)
+  is_heteroskedastic <- !is.null(object$model$scale)
   
   # ── Prepare predictors using hardhat ─────────────────────────────
   if (is.null(newdata)) {
@@ -205,8 +205,8 @@ predict.ml_logit <- function(object,
                                      g_sigma_delta),
                   "variance" = cbind(g_variance_beta,
                                      g_variance_delta),
-                  "zd"       = cbind(g_variance_beta,
-                                     g_variance_delta),
+                  "zd"       = cbind(g_zd_beta,
+                                     g_zd_delta),
                 matrix(0, n_obs, n_beta + n_delta)
     )
   }
@@ -231,7 +231,7 @@ predict.ml_logit <- function(object,
   
   # We may have se_fit being NA from this final check and the one we did in the
   # homoskedastic case for sigma, zd, and variance types.
-  if(!is.null(se_fit))
+  if(is.null(se_fit))
     se_fit <- sqrt(rowSums(g * (g %*% full_vcov)))
   
   # Align in-sample SEs
