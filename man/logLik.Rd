@@ -2,9 +2,15 @@
 % Please edit documentation in R/mlmodels-utils.R
 \name{logLik}
 \alias{logLik}
+\alias{logLik.mlmodel}
+\alias{logLik.summary.mlmodel}
 \title{Return the Log-likelihood value.}
 \usage{
 logLik(object, ...)
+
+\method{logLik}{mlmodel}(object, ...)
+
+\method{logLik}{summary.mlmodel}(object, ...)
 }
 \arguments{
 \item{object}{Object of class \code{mlmodel} or \code{summary.mlmodel}, estimated with

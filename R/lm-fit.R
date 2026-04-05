@@ -19,6 +19,8 @@
 #' @param start Numeric vector of starting values for the coefficients. Required
 #'   if constraints are being supplied. If supplied without constraints they
 #'   will be ignored. See **Details**.
+#' @param method A string with the method used for optimization. See
+#'   [maxLik::maxLik()] for options, and see **Details**.
 #' @param control A list of control parameters passed to [maxLik::maxLik()].
 #'   If `NULL` (default), a sensible set of options is chosen automatically
 #'   depending on whether constraints are used. See [maxLik::maxControl].
@@ -42,8 +44,8 @@
 #' If no constraints are used, any supplied `start` is ignored.
 #'
 #' When constraints are used, `ml_lm` automatically chooses the optimizer:
-#' - Equality constraints → Nelder-Mead (`"NM"`)
-#' - Inequality constraints → BFGS
+#' - Equality constraints => Nelder-Mead (`"NM"`)
+#' - Inequality constraints => BFGS (`"BFGS"`)
 #'
 #' In these cases your supplied `method` argument (if any) is ignored.
 #'
@@ -147,7 +149,7 @@ ml_lm <- function(value,
     cli::cli_alert_info("Dropped {nas_dropped} observations due to missing values.")
   }
 
-  # -- 4. Modify sample = subset ∩ complete cases ----------------
+  # -- 4. Modify sample = subset and complete cases ----------------
   sample <- keep & usable_obs
 
   # -- 5. Detect log transformation ------------------------------
@@ -242,7 +244,7 @@ ml_lm <- function(value,
 
     if (!is.null(parsed_constraints$maxLik$eqA))
     {
-      cli::cli_alert_info("Equality constraints detected → using Nelder-Mead optimizer.")
+      cli::cli_alert_info("Equality constraints detected => using Nelder-Mead optimizer.")
       method <- "NM"
       if (is.null(control))
         control <- default_NM
@@ -250,7 +252,7 @@ ml_lm <- function(value,
     else
     {
       method = "BFGS"
-      cli::cli_alert_info("Inequality constraints detected → using BFGS optimizer.")
+      cli::cli_alert_info("Inequality constraints detected => using BFGS optimizer.")
       if (is.null(control))
         control <- default_BFGS
     }
@@ -275,7 +277,7 @@ ml_lm <- function(value,
                    x = x,
                    z = z,
                    w = wts_clean,
-                   log = log_info$value$is_log,
+                   lognormal = log_info$value$is_log,
                    constraints = parsed_constraints$maxLik,
                    start = start,
                    method = method,
@@ -426,12 +428,12 @@ new_ml_lm <- function(object, ...) {
     resid <- y - x %*% b0
     # Scale starting values
     if (ncol(z) == 1 && colnames(z)[1] == "lnsigma") {
-      # Homoskedastic case → exact MLE
+      # Homoskedastic case => exact MLE
       n <- length(resid)
       rss <- sum(resid^2)
       g0 <- 0.5 * (log(rss) - log(n))
     } else {
-      # Heteroskedastic case → auxiliary regression on log(resid²)
+      # Heteroskedastic case => auxiliary regression on log(resid²)
       ln_res2 <- log(resid^2)
       fit_aux <- .lm.fit(z, ln_res2)
       g0 <- fit_aux$coefficients / 2

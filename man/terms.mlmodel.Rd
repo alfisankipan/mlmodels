@@ -6,6 +6,11 @@
 \usage{
 \method{terms}{mlmodel}(x, ...)
 }
+\arguments{
+\item{x}{An \code{mlmodel} object from an estimation of one of our models.}
+
+\item{...}{Not currently implemented.}
+}
 \description{
 Returns the terms object for the value (mean/probability) equation.
 For heteroskedastic models, the scale equation is \strong{not} included in the

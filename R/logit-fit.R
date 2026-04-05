@@ -13,6 +13,8 @@
 #' @param constraints Optional constraints on the parameters. Can be a character
 #'   vector of string constraints, a named list of string constraints, or a raw
 #'   maxLik constraints list. See **Details**.
+#' @param method A string with the method used for optimization. See
+#'   [maxLik::maxLik()] for options, and see **Details**.
 #' @param start Numeric vector of starting values for the coefficients. Required
 #'   if constraints are being supplied. If supplied without constraints they
 #'   will be ignored. See **Details**.
@@ -40,9 +42,9 @@
 #' You **must** provide initial values that yield a feasible log-likelihood.
 #' If no constraints are used, any supplied `start` is ignored.
 #'
-#' When constraints are used, `ml_logit` automatically chooses the optimizer:
-#' - Equality constraints → Nelder-Mead (`"NM"`)
-#' - Inequality constraints → BFGS
+#' When constraints are used, `ml_logit` automatically chooses `method`:
+#' - Equality constraints => Nelder-Mead (`"NM"`)
+#' - Inequality constraints => BFGS (`"BFGS"`)
 #'
 #' In these cases your supplied `method` argument (if any) is ignored.
 #'
@@ -144,7 +146,7 @@ ml_logit <- function(value,
     cli::cli_alert_info("Dropped {nas_dropped} observations due to missing values.")
   }
 
-  # -- 4. Modify sample = subset ∩ complete cases ----------------
+  # -- 4. Modify sample = subset and complete cases ----------------
   sample <- keep & usable_obs
 
   # -- 5. Create clean dataset for modeling ----------------------
@@ -222,7 +224,7 @@ ml_logit <- function(value,
     
     if (!is.null(parsed_constraints$maxLik$eqA))
     {
-      cli::cli_alert_info("Equality constraints detected → using Nelder-Mead optimizer.")
+      cli::cli_alert_info("Equality constraints detected => using Nelder-Mead optimizer.")
       method <- "NM"
       if (is.null(control))
         control <- default_NM
@@ -230,7 +232,7 @@ ml_logit <- function(value,
     else
     {
       method = "BFGS"
-      cli::cli_alert_info("Inequality constraints detected → using BFGS optimizer.")
+      cli::cli_alert_info("Inequality constraints detected => using BFGS optimizer.")
       if (is.null(control))
         control <- default_BFGS
     }
@@ -316,6 +318,7 @@ ml_logit <- function(value,
     control       = control,
     constraints   = parsed_constraints,
     start         = start,
+    method        = method,
     is_binary     = is_binary
   )
 
@@ -373,7 +376,7 @@ new_ml_logit <- function(object, ...) {
                           control = NULL,
                           ...)
 {
-  n <- length(y)   # <<< This was missing — critical for heteroskedastic case
+  n <- length(y)
   
   # Starting values
   if (!is.null(start)) {

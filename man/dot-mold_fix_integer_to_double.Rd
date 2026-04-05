@@ -2,15 +2,17 @@
 % Please edit documentation in R/mlmodels-auxiliary.R
 \name{.mold_fix_integer_to_double}
 \alias{.mold_fix_integer_to_double}
-\title{The function takes a mold (object returned by hardhat::mold), loops through
-the ptypes in its blueprint and changes the integer types in the blueprint
-to double. Then returns the changed mold.}
+\title{Function to change ptypes in a mold from int to double.}
 \usage{
 .mold_fix_integer_to_double(mold)
 }
+\arguments{
+\item{mold}{An object returned by \link[hardhat:mold]{mold()}.}
+}
+\value{
+The \code{mold} object with the changed \code{ptype} tibble.
+}
 \description{
-The function takes a mold (object returned by hardhat::mold), loops through
-the ptypes in its blueprint and changes the integer types in the blueprint
-to double. Then returns the changed mold.
+Function to change ptypes in a mold from int to double.
 }
 \keyword{internal}

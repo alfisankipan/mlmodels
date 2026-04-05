@@ -1,38 +1,23 @@
 ## PREDICT =====================================================================
 #' Predictions for ml_logit objects
 #'
-#' @param object A fitted `ml_logit` object.
-#' @param newdata Optional data frame for out-of-sample predictions.
-#' @param type Character string indicating what to predict. See **Details**.
-#' @param se.fit Logical. If `TRUE`, also return standard errors (delta method).
-#' @param vcov Optional user-supplied variance-covariance matrix.
-#' @param vcov.type Type of variance-covariance matrix. See [vcov.mlmodel()].
-#' @param cl_var Clustering variable (name or vector).
-#' @param repetitions Number of bootstrap replications when `vcov.type = "boot"`.
-#' @param seed Random seed for reproducibility.
-#' @param progress Logical. Show bootstrap progress bar? Default is `FALSE` in
-#'   higher-level functions.
-#' @param ... Not currently used.
-#'
-#' @return If `se.fit = FALSE` (default), a numeric vector of predictions.
-#'   If `se.fit = TRUE`, a list with components `fit` and `se.fit`.
-#'
 #' @details
+#' ### ml_logit prediction types
+#' 
 #' The `type` argument controls what quantity is returned. Behavior differs
 #' depending on whether the model is homoskedastic or heteroskedastic.
 #'
-#' ### Prediction types
 #'
 #' | Type          | Homoskedastic case                  | Heteroskedastic case                     | Notes |
 #' |---------------|-------------------------------------|------------------------------------------|-------|
-#' | `"response"`  | P(y=1 \| x)                         | P(y=1 \| x)                              | Default |
+#' | `"response"`  | P(y=1 \| x)                         | P(y=1 \| x)                              | Prob. of success (default) |
 #' | `"prob"`      | Alias for `"response"`              | Alias for `"response"`                   | - |
 #' | `"fitted"`    | Alias for `"response"`              | Alias for `"response"`                   | - |
-#' | `"prob0"`     | P(y=0 \| x)                         | P(y=0 \| x)                              | Probability of failure |
+#' | `"prob0"`     | P(y=0 \| x)                         | P(y=0 \| x)                              | Prob. of failure |
 #' | `"link"`      | Linear predictor xb                 | Linear predictor xb                      | Logit scale |
 #' | `"odds"`      | Odds = exp(xb)                      | Odds = exp(xb)                           | - |
-#' | `"sigma"`     | 1 (constant)                        | exp(z'delta)                             | Only available if heteroskedastic |
-#' | `"variance"`  | 1 (constant)                        | exp(2*z'delta)                           | Only available if heteroskedastic |
+#' | `"sigma"`     | 1 (constant)                        | Std. Deviation: exp(z'delta)             | Only available if heteroskedastic |
+#' | `"variance"`  | 1 (constant)                        | Variance: exp(2*z'delta)                 | Only available if heteroskedastic |
 #' | `"zd"`        | 0 (constant)                        | z'delta                                  | Linear predictor for scale |
 #'
 #' In binary logit models, the **overall scale** of the latent error term is 
@@ -42,13 +27,13 @@
 #' and `"variance"` represent **individual-level deviations** from the 
 #' normalized overall scale, not the absolute standard deviation or variance.
 #'
-#' When `se.fit = TRUE`, standard errors are computed using the delta method
-#' for `"response"`, `"prob"`, `"fitted"`, `"prob0"`, `"link"`, and `"odds"`.
+#' When `se.fit = TRUE`, standard errors are computed using the delta method.
 #' Standard errors are not available (and will return `NA`) for `"sigma"`,
 #' `"variance"`, and `"zd"` in homoskedastic models.
 #' 
 #' @author Alfonso Sanchez-Penalver
 #'
+#' @rdname predict.mlmodel
 #' @export
 predict.ml_logit <- function(object,
                              newdata = NULL,
@@ -588,7 +573,16 @@ print.summary.ml_logit <- function(x, digits = max(3L, getOption("digits") - 3L)
 
 ## UPDATE ======================================================================
 #' Update method for ml_logit objects
+#' 
+#' @param object An `ml_logit` estimation object.
+#' @param formula. The formula of the value equation (optional).
+#' @param scale. The formula of the scale equation (optional).
+#' @param data A data.frame with the data to do the estimation (optional).
+#' @param weights A vector with the weights (optional).
+#' @param ... Currently not implemented.
+#' @param evaluate Should the updated call be evaluated? Defaults to `TRUE`.
 #'
+#' @details
 #' Designed to work with sandwich::vcovBS() and our internal bootstrap.
 #' Re-evaluates the original call with new data/weights while preserving
 #' the original scale formula, constraints, control, etc.
@@ -599,7 +593,7 @@ print.summary.ml_logit <- function(x, digits = max(3L, getOption("digits") - 3L)
 #' weighted bootstrap use our own `vcov(..., type = "boot")` instead.
 #' 
 #' **Note on sandwich::vcovBS()**: This function does not work reliably with 
-#' `ml_logit` objects, even in simple homoskedastic cases.  We, therefore, built
+#' `ml_lm` objects, even in simple homoskedastic cases.  We, therefore, built
 #' our own bootstrap implementation. We strongly recommend using
 #' `vcov(object, type = "boot")` instead.
 #'

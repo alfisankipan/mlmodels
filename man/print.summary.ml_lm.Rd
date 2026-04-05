@@ -2,7 +2,7 @@
 % Please edit documentation in R/lm-postestimation.R
 \name{print.summary.ml_lm}
 \alias{print.summary.ml_lm}
-\title{Print the summary stastics from an \code{ml_lm} estimation.}
+\title{Print the summary statistics from an \code{ml_lm} estimation.}
 \usage{
 \method{print}{summary.ml_lm}(x, digits = max(3L, getOption("digits") - 3L), ...)
 }
@@ -12,10 +12,10 @@
 \item{digits}{A numeric scalar with the number of decimal places to use in
 the statistics}
 
-\item{...}{Currently not used.}
+\item{...}{Currently not implemented.}
 }
 \description{
-Print the summary stastics from an \code{ml_lm} estimation.
+Print the summary statistics from an \code{ml_lm} estimation.
 }
 \author{
 Alfonso Sanchez-Penalver

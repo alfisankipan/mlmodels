@@ -2,7 +2,7 @@
 % Please edit documentation in R/lm-auxiliary.R
 \name{.ml_lm_ll}
 \alias{.ml_lm_ll}
-\title{Log-likelihood, gradient and Hessian evaluator for ml_lm models}
+\title{Log-likelihood, gradient and Hessian calculation for ml_lm models}
 \usage{
 .ml_lm_ll(b, y, x, z, w = NULL, lognormal = FALSE)
 }

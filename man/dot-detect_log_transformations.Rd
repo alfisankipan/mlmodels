@@ -7,10 +7,10 @@
 .detect_log_transformations(formulas_list, data)
 }
 \arguments{
-\item{data}{A data.frame that holds all the data in the estimation.}
-
-\item{formulas}{A list with the different formulas for the different
+\item{formulas_list}{A list with the different formulas for the different
 equations that need checking.}
+
+\item{data}{A data.frame that holds all the data in the estimation.}
 }
 \value{
 A list with the same number of elements as in \code{formulas_list}, each

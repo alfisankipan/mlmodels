@@ -48,6 +48,9 @@ maxLik constraints list. See \strong{Details}.}
 if constraints are being supplied. If supplied without constraints they
 will be ignored. See \strong{Details}.}
 
+\item{method}{A string with the method used for optimization. See
+\code{\link[maxLik:maxLik]{maxLik::maxLik()}} for options, and see \strong{Details}.}
+
 \item{control}{A list of control parameters passed to \code{\link[maxLik:maxLik]{maxLik::maxLik()}}.
 If \code{NULL} (default), a sensible set of options is chosen automatically
 depending on whether constraints are used. See \link[maxLik:maxControl]{maxLik::maxControl}.}
@@ -79,8 +82,8 @@ If no constraints are used, any supplied \code{start} is ignored.
 
 When constraints are used, \code{ml_lm} automatically chooses the optimizer:
 \itemize{
-\item Equality constraints → Nelder-Mead (\code{"NM"})
-\item Inequality constraints → BFGS
+\item Equality constraints => Nelder-Mead (\code{"NM"})
+\item Inequality constraints => BFGS (\code{"BFGS"})
 }
 
 In these cases your supplied \code{method} argument (if any) is ignored.

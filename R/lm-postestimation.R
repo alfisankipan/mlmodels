@@ -1,27 +1,38 @@
-## PREDICT ---------------------------------------------------------------------
-#' Predictions for ml_lm objects
+## FITTED VALUES ===============================================================
+#' Extract Fitted Values from ml_lm objects
+#'
+#' Returns the fitted values (predicted conditional mean) from the value equation.
 #'
 #' @param object A fitted `ml_lm` object.
-#' @param newdata Optional data frame for out-of-sample predictions.
-#' @param type Character string indicating what to predict. See **Details**.
-#' @param se.fit Logical. If `TRUE`, also return standard errors (delta method).
-#' @param vcov Optional user-supplied variance-covariance matrix.
-#' @param vcov.type Type of variance-covariance matrix. See [vcov.mlmodel()].
-#' @param cl_var Clustering variable (name or vector).
-#' @param repetitions Number of bootstrap replications when `vcov.type = "boot"`.
-#' @param seed Random seed for reproducibility.
-#' @param progress Logical. Show bootstrap progress bar? Default is `FALSE` in
-#' higher-level functions.
 #' @param ... Not currently used.
 #'
-#' @return If `se.fit = FALSE` (default), a numeric vector of predictions.
-#' If `se.fit = TRUE`, a list with components `fit` and `se.fit`.
+#' @return A numeric vector of fitted values with length equal to the number of
+#'   observations used in estimation.
+#'
+#' @author Alfonso Sanchez-Penalver
+#'
+#' @export
+fitted.ml_lm <- function(object, ...)
+{
+  if (!inherits(object, "ml_lm"))
+    cli::cli_abort("`object` must be a model of class 'ml_lm' (from ml_lm).",
+                   call = NULL)
+  
+  
+  if (!is.null(object$model$fitted.values))
+    return(object$model$fitted.values)
+  
+  # Fallback to predict if not stored
+  predict(object, type = "response")
+}
+
+## PREDICT =====================================================================
+#' Predictions for ml_lm objects
 #'
 #' @details
+#' ### ml_lm prediction types
 #' The `type` argument controls what quantity is returned. Behavior differs
 #' depending on whether the outcome was modeled in logs (\code{log(y)}).
-#'
-#' ### Prediction types
 #'
 #' | Type | Normal (linear) case | Lognormal case (\code{log(y)}) | Notes |
 #' |---------------------|---------------------------------------|------------------------------------------------------|-------|
@@ -43,6 +54,7 @@
 #'
 #' @author Alfonso Sanchez-Penalver
 #'
+#' @rdname predict.mlmodel
 #' @export
 predict.ml_lm <- function(object,
                           newdata = NULL,
@@ -262,42 +274,13 @@ predict.ml_lm <- function(object,
   list(fit = out, se.fit = se_fit)
 }
 
-
-## FITTED VALUES ---------------------------------------------------------------
-#' Extract Fitted Values from ml_lm objects
-#'
-#' Returns the fitted values (predicted conditional mean) from the value equation.
-#'
-#' @param object A fitted `ml_lm` object.
-#' @param ... Not currently used.
-#'
-#' @return A numeric vector of fitted values with length equal to the number of
-#'   observations used in estimation.
-#'
-#' @author Alfonso Sanchez-Penalver
-#'
-#' @export
-fitted.ml_lm <- function(object, ...)
-{
-  if (!inherits(object, "ml_lm"))
-    cli::cli_abort("`object` must be a model of class 'ml_lm' (from ml_lm).",
-                   call = NULL)
-
-
-  if (!is.null(object$model$fitted.values))
-    return(object$model$fitted.values)
-
-  # Fallback to predict if not stored
-  predict(object, type = "response")
-}
-
-## RESIDUALS -------------------------------------------------------------------
+## RESIDUALS ===================================================================
 #' Extract Residuals from ml_lm objects
 #'
 #' Returns the residuals (observed minus fitted values) from the value equation.
 #'
 #' @param object A fitted `ml_lm` object.
-#' @param ... Not currently used.
+#' @param ... Not currently implemented.
 #'
 #' @return A numeric vector of residuals with length equal to the number of
 #'   observations used in estimation.
@@ -323,7 +306,133 @@ residuals.ml_lm <- function(object, ...)
   return(y_clean - fit_clean)
 }
 
-## SUMMARY ---------------------------------------------------------------------
+## PRINT SUMMARY ===============================================================
+#' Print the summary statistics from an `ml_lm` estimation.
+#'
+#' @param x An object of class `summary.ml_lm`, usually from [summary.ml_lm()][mlmodels::summary.ml_lm()].
+#'
+#' @param digits A numeric scalar with the number of decimal places to use in
+#'    the statistics
+#'
+#' @param ... Currently not implemented.
+#'
+#' @author Alfonso Sanchez-Penalver
+#'
+#' @export
+print.summary.ml_lm <- function(x, digits = max(3L, getOption("digits") - 3L), ...)
+{
+  if (!inherits(x, "summary.ml_lm"))
+    cli::cli_abort("`x` needs to be a `summary.ml_lm` object.")
+  
+  cat("\nMaximum Likelihood Model\n")
+  cat(" Type:", x$model_type, "\n")
+  cat("---------------------------------------\n")
+  
+  if (!is.null(x$call)) {
+    cat("Call:\n")
+    print(x$call)
+    cat("\n")
+  }
+  
+  if (!x$converged) {
+    cat("WARNING: Model did NOT converge!\n")
+    cat("Convergence code:", x$code %||% "???", "-", x$message %||% "", "\n\n")
+  } else {
+    # Log-Likelihood + Joint tests (only when converged)
+    cat("Log-Likelihood:", format(x$logLik, nsmall = 2, digits = digits + 1), "\n\n")
+    cat("Joint significance tests:\n")
+    
+    any_test_printed <- FALSE
+    for (test in c("all", "mean", "scale")) {
+      w <- x$significance[[test]]
+      if (is.null(w) || isTRUE(w$singular) || !is.finite(w$pval)) {
+        next   # skip silently (happens in homoskedastic case or useless variance)
+      }
+      any_test_printed <- TRUE
+      p_str <- if (w$pval < 1e-8) "< 1e-8" else sprintf("%.4f", w$pval)
+      cat(sprintf(" %s: Chisq(%d) = %.3f, Pr(>Chisq) = %s\n",
+                  tools::toTitleCase(test), w$df, w$waldstat, p_str))
+    }
+    
+    if (!any_test_printed) {
+      cat(" Tests were not computable (singular or not finite variance).\n")
+    }
+  }
+  
+  if(!is.null(x$vcov.type))
+    vcov_type <- switch (x$vcov.type,
+                         "oim" = "Original Information Matrix",
+                         "opg" = "Outer Product of Gradients (BHHH)",
+                         "robust" = if(is.null(x$vcov.cluster)) "Robust" else "Cluster-Robust",
+                         "boot" = if(is.null(x$vcov.cluster)) "Bootstrapped" else "Cluster Bootstrapped",
+                         x$vcov.type
+    )
+  else
+    vcov_type <- "User Supplied (Unknown)"
+  
+  cat("\nVariance type:", vcov_type)
+  if (!is.null(x$vcov.cluster)) {
+    cat(" | Clusters:", x$vcov.cluster$n_cluster)
+    if (!is.null(x$vcov.cluster$var_name))
+      cat(" (", x$vcov.cluster$var_name, ")", sep = "")
+  }
+  cat("\n---------------------------------------\n")
+  
+  old_pen <- getOption("scipen")
+  options(scipen = .mlmodels_get_default("scipen"))
+  
+  # Capture the whole output of printCoefmat into a vector of strings.
+  captured <- capture.output(printCoefmat(x$coefficients,
+                                          digits = digits,
+                                          signif.legend = TRUE))
+  
+  # Get the number of coefficients in each equation.
+  k1 <- sum(grepl("^value::", rownames(x$coefficients)))
+  k2 <- sum(grepl("^scale::", rownames(x$coefficients)))
+  
+  # The first row is the header of the table, have to indent it to align it with
+  # the coefficients after.
+  cat("  ", captured[1],"\n")
+  # Value header. Depends if we have the dependent's variable name.
+  val_head <- if (!is.null(x$response_name) && 
+                  nzchar(trimws(x$response_name))) {
+    paste0("Value (", trimws(x$response_name), "):")
+  } else {
+    "Value:"
+  }
+  cat(val_head)
+  cat("  ", captured[2:(k1+1)],
+      sep = "\n  ")
+  cat("Scale (log(sigma)):")
+  cat("  ", captured[(k1+2):(k1+k2+1)],
+      sep = "\n  ")
+  # It seems as if there is an empty line between the coefficients and the legend
+  # so we need to add one more line and start at k1+k2+3, to avoid that empty one.
+  cat("---------------------------------------",
+      captured[(k1+k2+3):length(captured)],
+      sep = "\n")
+  
+  options(scipen = old_pen)
+  
+  if (x$converged) {
+    cat("---\n")
+    cat("Number of observations:", x$nobs, "\n")
+    if (!is.null(x$df.residual))
+      cat("Residual degrees of freedom:", x$df.residual, "\n")
+    if (!is.null(x$sigma))
+      cat("Residual standard error (sigma):", format(x$sigma, digits = digits), "\n")
+    cat("Multiple R-squared: ", format(x$r.squared, digits = digits),
+        " Adjusted R-squared: ", format(x$adj.r.squared, digits = digits), "\n", sep = "")
+    cat("AIC:", format(x$AIC, nsmall = 2, digits = digits + 1),
+        " BIC:", format(x$BIC, nsmall = 2, digits = digits + 1), "\n")
+  } else {
+    cat("\nGoodness-of-fit statistics not available (model did not converge).\n")
+  }
+  
+  invisible(x)
+}
+
+## SUMMARY =====================================================================
 #' Summary for ml_lm objects
 #'
 #' @param object A fitted model object of class `"ml_lm"`.
@@ -511,135 +620,18 @@ summary.ml_lm <- function(object,
   s
 }
 
-## PRINT SUMMARY ---------------------------------------------------------------
-#' Print the summary stastics from an `ml_lm` estimation.
+## UPDATE ======================================================================
+#' Update method for ml_lm objects
+#' 
+#' @param object An `ml_lm` estimation object.
+#' @param formula. The formula of the value equation (optional).
+#' @param scale. The formula of the scale equation (optional).
+#' @param data A data.frame with the data to do the estimation (optional).
+#' @param weights A vector with the weights (optional).
+#' @param ... Currently not implemented.
+#' @param evaluate Should the updated call be evaluated? Defaults to `TRUE`.
 #'
-#' @param x An object of class `summary.ml_lm`, usually from [summary.ml_lm()][mlmodels::summary.ml_lm()].
-#'
-#' @param digits A numeric scalar with the number of decimal places to use in
-#'    the statistics
-#'
-#' @param ... Currently not used.
-#'
-#' @author Alfonso Sanchez-Penalver
-#'
-#' @export
-print.summary.ml_lm <- function(x, digits = max(3L, getOption("digits") - 3L), ...)
-{
-  if (!inherits(x, "summary.ml_lm"))
-    cli::cli_abort("`x` needs to be a `summary.ml_lm` object.")
-
-  cat("\nMaximum Likelihood Model\n")
-  cat(" Type:", x$model_type, "\n")
-  cat("---------------------------------------\n")
-
-  if (!is.null(x$call)) {
-    cat("Call:\n")
-    print(x$call)
-    cat("\n")
-  }
-
-  if (!x$converged) {
-    cat("WARNING: Model did NOT converge!\n")
-    cat("Convergence code:", x$code %||% "???", "-", x$message %||% "", "\n\n")
-  } else {
-    # Log-Likelihood + Joint tests (only when converged)
-    cat("Log-Likelihood:", format(x$logLik, nsmall = 2, digits = digits + 1), "\n\n")
-    cat("Joint significance tests:\n")
-
-    any_test_printed <- FALSE
-    for (test in c("all", "mean", "scale")) {
-      w <- x$significance[[test]]
-      if (is.null(w) || isTRUE(w$singular) || !is.finite(w$pval)) {
-        next   # skip silently (happens in homoskedastic case or useless variance)
-      }
-      any_test_printed <- TRUE
-      p_str <- if (w$pval < 1e-8) "< 1e-8" else sprintf("%.4f", w$pval)
-      cat(sprintf(" %s: Chisq(%d) = %.3f, Pr(>Chisq) = %s\n",
-                  tools::toTitleCase(test), w$df, w$waldstat, p_str))
-    }
-
-    if (!any_test_printed) {
-      cat(" Tests were not computable (singular or not finite variance).\n")
-    }
-  }
-
-  if(!is.null(x$vcov.type))
-    vcov_type <- switch (x$vcov.type,
-      "oim" = "Original Information Matrix",
-      "opg" = "Outer Product of Gradients (BHHH)",
-      "robust" = if(is.null(x$vcov.cluster)) "Robust" else "Cluster-Robust",
-      "boot" = if(is.null(x$vcov.cluster)) "Bootstrapped" else "Cluster Bootstrapped",
-      x$vcov.type
-    )
-  else
-    vcov_type <- "User Supplied (Unknown)"
-
-  cat("\nVariance type:", vcov_type)
-  if (!is.null(x$vcov.cluster)) {
-    cat(" | Clusters:", x$vcov.cluster$n_cluster)
-    if (!is.null(x$vcov.cluster$var_name))
-      cat(" (", x$vcov.cluster$var_name, ")", sep = "")
-  }
-  cat("\n---------------------------------------\n")
-
-  old_pen <- getOption("scipen")
-  options(scipen = .mlmodels_get_default("scipen"))
-
-  # Capture the whole output of printCoefmat into a vector of strings.
-  captured <- capture.output(printCoefmat(x$coefficients,
-                                          digits = digits,
-                                          signif.legend = TRUE))
-  
-  # Get the number of coefficients in each equation.
-  k1 <- sum(grepl("^value::", rownames(x$coefficients)))
-  k2 <- sum(grepl("^scale::", rownames(x$coefficients)))
-  
-  # The first row is the header of the table, have to indent it to align it with
-  # the coefficients after.
-  cat("  ", captured[1],"\n")
-  # Value header. Depends if we have the dependent's variable name.
-  val_head <- if (!is.null(x$response_name) && 
-                  nzchar(trimws(x$response_name))) {
-    paste0("Value (", trimws(x$response_name), "):")
-  } else {
-    "Value:"
-  }
-  cat(val_head)
-  cat("  ", captured[2:(k1+1)],
-      sep = "\n  ")
-  cat("Scale (log(sigma)):")
-  cat("  ", captured[(k1+2):(k1+k2+1)],
-      sep = "\n  ")
-  # It seems as if there is an empty line between the coefficients and the legend
-  # so we need to add one more line and start at k1+k2+3, to avoid that empty one.
-  cat("---------------------------------------",
-      captured[(k1+k2+3):length(captured)],
-      sep = "\n")
-  
-  options(scipen = old_pen)
-
-  if (x$converged) {
-    cat("---\n")
-    cat("Number of observations:", x$nobs, "\n")
-    if (!is.null(x$df.residual))
-      cat("Residual degrees of freedom:", x$df.residual, "\n")
-    if (!is.null(x$sigma))
-      cat("Residual standard error (sigma):", format(x$sigma, digits = digits), "\n")
-    cat("Multiple R-squared: ", format(x$r.squared, digits = digits),
-        " Adjusted R-squared: ", format(x$adj.r.squared, digits = digits), "\n", sep = "")
-    cat("AIC:", format(x$AIC, nsmall = 2, digits = digits + 1),
-        " BIC:", format(x$BIC, nsmall = 2, digits = digits + 1), "\n")
-  } else {
-    cat("\nGoodness-of-fit statistics not available (model did not converge).\n")
-  }
-
-  invisible(x)
-}
-
-# UPDATE =======================================================================
-#' Update method for ml_logit objects
-#'
+#' @details
 #' Designed to work with sandwich::vcovBS() and our internal bootstrap.
 #' Re-evaluates the original call with new data/weights while preserving
 #' the original scale formula, constraints, control, etc.

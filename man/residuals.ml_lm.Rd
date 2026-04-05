@@ -9,7 +9,7 @@
 \arguments{
 \item{object}{A fitted \code{ml_lm} object.}
 
-\item{...}{Not currently used.}
+\item{...}{Not currently implemented.}
 }
 \value{
 A numeric vector of residuals with length equal to the number of

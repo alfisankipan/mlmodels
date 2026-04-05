@@ -2,7 +2,7 @@
 % Please edit documentation in R/lm-postestimation.R
 \name{update.ml_lm}
 \alias{update.ml_lm}
-\title{Update method for ml_logit objects}
+\title{Update method for ml_lm objects}
 \usage{
 \method{update}{ml_lm}(
   object,
@@ -14,12 +14,29 @@
   evaluate = TRUE
 )
 }
+\arguments{
+\item{object}{An \code{ml_lm} estimation object.}
+
+\item{formula.}{The formula of the value equation (optional).}
+
+\item{scale.}{The formula of the scale equation (optional).}
+
+\item{data}{A data.frame with the data to do the estimation (optional).}
+
+\item{weights}{A vector with the weights (optional).}
+
+\item{...}{Currently not implemented.}
+
+\item{evaluate}{Should the updated call be evaluated? Defaults to \code{TRUE}.}
+}
 \description{
+Update method for ml_lm objects
+}
+\details{
 Designed to work with sandwich::vcovBS() and our internal bootstrap.
 Re-evaluates the original call with new data/weights while preserving
 the original scale formula, constraints, control, etc.
-}
-\details{
+
 \strong{Note on weights}: If the original model was weighted, sandwich::vcovBS()
 usually passes weights = NULL. In that case we keep the original weights.
 This means the bootstrap may not be properly re-weighted. For accurate

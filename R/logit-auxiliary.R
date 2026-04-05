@@ -1,75 +1,4 @@
-## LOG-LIKELIHOOD ==============================================================
-#' @keywords internal
-.ml_logit_ll <- function(b, y, x, z = NULL, w)
-{
-  if(is.null(w))
-    w <- rep(1, nrow(x))
-  if (is.null(z)) {
-    # -- Homoskedastic binary logit --------------------------------------------
-    xb <- as.vector(x %*% cbind(b))
-    py <- exp(xb) / (1 + exp(xb))
-
-    # Weighted log-likelihood
-    ll <- y * xb - log(1 + exp(xb))
-
-    # Gradient
-    g <- w * as.vector(y - py) * x
-
-    # Hessian
-    H <- matrix(0, nrow = length(b), ncol = length(b))
-    for (i in seq_len(nrow(x))) {
-      pyi <- py[i]
-      xi  <- cbind(x[i, ])
-      H   <- H - w[i] * pyi * (1 - pyi) * tcrossprod(xi)
-    }
-
-  } else {
-    # -- Heteroskedastic binary logit ------------------------------------------
-    k1   <- ncol(x)
-    k    <- k1 + ncol(z)
-    beta <- b[1:k1]
-    delta <- b[(k1+1):k]
-
-    zd <- as.vector(z %*% cbind(delta))
-    xz <- x / exp(zd)
-    xb <- as.vector(xz %*% cbind(beta))
-    py <- exp(xb) / (1 + exp(xb))
-
-    # Weighted log-likelihood
-    ll <- w * (y * xb - log(1 + exp(xb)))
-
-    # Gradient
-    gb <- w * as.vector(y - py) * xz
-    gd <- w * as.vector((py - y) * xb) * z
-    g  <- cbind(gb, gd)
-
-    # Hessian
-    H <- matrix(0, nrow = k, ncol = k)
-    for (i in seq_len(nrow(x))) {
-      pyi <- py[i]
-      xbi <- xb[i]
-      xzi <- cbind(xz[i, ])
-      zi  <- cbind(z[i, ])
-      wi  <- w[i]
-
-      hbb <- -wi * pyi * (1 - pyi) * tcrossprod(xzi)
-      hbd <- wi * (pyi * (1 - pyi) * xbi - (y[i] - pyi)) * tcrossprod(xzi, zi)
-      hdd <- wi * ((y[i] - pyi) * xbi - pyi * (1 - pyi) * xbi^2) * tcrossprod(zi)
-
-      H <- H + rbind(cbind(hbb, hbd),
-                     cbind(t(hbd), hdd))
-    }
-  }
-
-  # Attach gradient and Hessian as attributes
-  attr(ll, "gradient") <- g
-  attr(ll, "hessian")  <- H
-
-  return(ll)
-}
-
-
-# HESSIANS =====================================================================
+## HESSIANS ====================================================================
 .ml_logit_hessianObs <- function(object)
 {
   if (!inherits(object, "ml_logit"))
@@ -88,8 +17,9 @@
   # Pre-allocate list to collect individual Hessians
   H_list <- vector("list", length(y))
 
-  if (is.null(object$model$scale)) {
-    # ── Homoskedastic case ─────────────────────────────────────
+  if (is.null(object$model$scale))
+  {
+    # -- 2. Homoskedastic case -------------------------------------------------
     xb <- as.vector(x %*% cbind(beta))
     py <- exp(xb) / (1 + exp(xb))
 
@@ -98,9 +28,10 @@
       xi  <- cbind(x[i, ])
       H_list[[i]] <- -w[i] * pyi * (1 - pyi) * tcrossprod(xi)
     }
-
-  } else {
-    # ── Heteroskedastic case ───────────────────────────────────
+  }
+  else
+  {
+    # -- 3. Heteroskedastic case -----------------------------------------------
     z     <- as.matrix(object$model$scale$predictors)
     k     <- k1 + ncol(z)
     delta <- b[(k1+1):k]
@@ -128,4 +59,220 @@
 
   # Stack all individual Hessians
   do.call(rbind, H_list)
+}
+
+## ML EVALUATOR ==============================================================
+#' @keywords internal
+.ml_logit_ll <- function(b, y, x, z = NULL, w)
+{
+  if(is.null(w))
+    w <- rep(1, nrow(x))
+  if (is.null(z)) {
+    # -- Homoskedastic binary logit --------------------------------------------
+    xb <- as.vector(x %*% cbind(b))
+    py <- exp(xb) / (1 + exp(xb))
+    
+    # Weighted log-likelihood
+    ll <- y * xb - log(1 + exp(xb))
+    
+    # Gradient
+    g <- w * as.vector(y - py) * x
+    
+    # Hessian
+    H <- matrix(0, nrow = length(b), ncol = length(b))
+    for (i in seq_len(nrow(x))) {
+      pyi <- py[i]
+      xi  <- cbind(x[i, ])
+      H   <- H - w[i] * pyi * (1 - pyi) * tcrossprod(xi)
+    }
+  } else {
+    # -- Heteroskedastic binary logit ------------------------------------------
+    k1   <- ncol(x)
+    k    <- k1 + ncol(z)
+    beta <- b[1:k1]
+    delta <- b[(k1+1):k]
+    
+    zd <- as.vector(z %*% cbind(delta))
+    xz <- x / exp(zd)
+    xb <- as.vector(xz %*% cbind(beta))
+    py <- exp(xb) / (1 + exp(xb))
+    
+    # Weighted log-likelihood
+    ll <- w * (y * xb - log(1 + exp(xb)))
+    
+    # Gradient
+    gb <- w * as.vector(y - py) * xz
+    gd <- w * as.vector((py - y) * xb) * z
+    g  <- cbind(gb, gd)
+    
+    # Hessian
+    H <- matrix(0, nrow = k, ncol = k)
+    for (i in seq_len(nrow(x))) {
+      pyi <- py[i]
+      xbi <- xb[i]
+      xzi <- cbind(xz[i, ])
+      zi  <- cbind(z[i, ])
+      wi  <- w[i]
+      
+      hbb <- -wi * pyi * (1 - pyi) * tcrossprod(xzi)
+      hbd <- wi * (pyi * (1 - pyi) * xbi - (y[i] - pyi)) * tcrossprod(xzi, zi)
+      hdd <- wi * ((y[i] - pyi) * xbi - pyi * (1 - pyi) * xbi^2) * tcrossprod(zi)
+      
+      H <- H + rbind(cbind(hbb, hbd),
+                     cbind(t(hbd), hdd))
+    }
+  }
+  
+  # Attach gradient and Hessian as attributes
+  attr(ll, "gradient") <- g
+  attr(ll, "hessian")  <- H
+  
+  return(ll)
+}
+
+## VCOV BOOT ===================================================================
+#' Bootstrap variance-covariance for ml_logit objects
+#'
+#' Internal function called by vcov.mlmodel when type = "boot".
+#' Uses .ml_logit.fit directly for efficiency and control.
+#'
+#' @keywords internal
+.vcov_boot.ml_logit <- function(object,
+                                repetitions = 999,
+                                seed = NULL,
+                                cl_var = NULL,
+                                progress = TRUE,
+                                ...)
+{
+  # --- 0. Validity Checks -----------------------------------------------------
+  if (!inherits(object, "ml_logit"))
+    cli::cli_abort("`object` must be of class 'ml_logit'.")
+  
+  if (is.null(seed)) seed <- sample.int(1e6, 1)
+  set.seed(seed)
+  
+  # Recover the data used in estimation
+  if (!is.null(object$model$data) && is.data.frame(object$model$data)) {
+    original_data <- object$model$data
+  } else {
+    cli::cli_abort("Could not recover original data for bootstrapping.", call = NULL)
+  }
+
+  # --- 1. Sample data extraction. ---------------------------------------------
+  is_heteroskedastic <- !is.null(object$model$scale)
+  y <- object$model$value$outcomes[[1]]
+  x <- as.matrix(object$model$value$predictors)
+  if(is_heteroskedastic)
+    z <- as.matrix(object$model$scale$predictors)
+  else
+    z <- NULL
+  n <- nrow(x)
+  if(is.null(object$model$weights))
+    w <- rep(1,n)
+  else
+    w <- object$model$weights
+  
+  # Prepare for clustered bootstrap if requested
+  is_clustered <- !is.null(cl_var)
+  if (is_clustered) {
+    cluster_ids <- unique(cl_var[object$model$sample])
+    n_cluster <- length(cluster_ids)
+  }
+  
+  # --- 2. Bootstrap area ------------------------------------------------------
+  if (progress) {
+    if (is_clustered) {
+      cli::cli_alert_info("Clustered bootstrap with {.val {repetitions}} repetitions and {.val {n_cluster}} clusters.")
+    } else {
+      cli::cli_alert_info("Bootstrap with {.val {repetitions}} repetitions.")
+    }
+    cat(cli::col_blue(" 0"))
+    for (i in seq(10, 50, by = 10)) cat(cli::col_blue(sprintf("%10d", i)))
+    cat("\n")
+    cat(cli::col_blue(strrep("=", 52), "\n"))
+  }
+  
+  # Storage
+  coef_matrix <- matrix(NA_real_, nrow = repetitions, ncol = length(coef(object)))
+  success <- logical(repetitions)
+  
+  if (!is.null(object$model$constraints$maxLik)) {
+    cli::cli_warn(
+      c("Bootstrap variance with constraints may be unreliable.",
+        "i" = "Different bootstrap samples often produce infeasible log-likelihoods at the supplied starting values.",
+        "i" = "Equality constraints in particular lead to very low convergence rates.",
+        "i" = "Consider using `type = 'robust'` or `type = 'cluster'` (with `cl_var`) instead.")
+    )
+  }
+  
+  # --- 2.1 Bootstrap loop -----------------------------------------------------
+  for (i in seq_len(repetitions)) {
+    if (progress && i %% 50 == 1 && i > 1) cat("\n ")
+    else if(progress && i == 1) cat(" ")
+    
+    tryCatch({
+      # Draw bootstrap sample
+      if (is_clustered) {
+        boot_idx <- sample(seq_len(n_cluster), n_cluster, replace = TRUE)
+        boot_clusters <- cluster_ids[boot_idx]
+        boot_idx <- which(cl_var[object$model$sample] %in% boot_clusters)
+      } else {
+        boot_idx <- sample(n, n, replace = TRUE)
+      }
+      
+      y_boot <- y[boot_idx]
+      x_boot <- x[boot_idx, , drop = FALSE]
+      
+      z_boot <- if (is_heteroskedastic) {
+        z[boot_idx, , drop = FALSE]
+      } else NULL
+      
+      w_boot <- w[boot_idx]
+      
+      # Fit on bootstrap sample using internal fit function
+      updated <- .ml_logit.fit(y = y_boot,
+                               x = x_boot,
+                               z = z_boot,
+                               w = w_boot,
+                               constraints = object$model$constraints$maxLik,
+                               start       = object$model$start,
+                               method      = object$model$method,
+                               control     = object$model$control)
+      
+      if (updated$code %in% c(0L, 1L, 2L, 8L)) {
+        coef_matrix[i, ] <- coef(updated)
+        success[i] <- TRUE
+        if (progress) cat(cli::col_green("."))
+      } else {
+        success[i] <- FALSE
+        if (progress) cat(cli::col_red("x"))
+      }
+    }, error = function(e) {
+      success[i] <- FALSE
+      if (progress) cat(cli::col_red("x"))
+      print(e)
+    })
+  }
+  
+  if (progress) {
+    cat("\n")
+    cat(cli::col_blue(strrep("=", 52), "\n"))
+  }
+  
+  # --- 3. Final reporting -----------------------------------------------------
+  if (progress) {
+    cat("\n")
+    cli::cli_text("Bootstrapping finished - {round(mean(success) * 100, 1)}% of replications converged.")
+  }
+  
+  if (mean(success) < 0.7) {
+    cli::cli_warn("Low convergence rate in bootstrap - results may be unreliable.")
+  }
+  
+  # Compute variance from successful replications only
+  valid_rows <- complete.cases(coef_matrix)
+  vcov_boot <- var(coef_matrix[valid_rows, , drop = FALSE])
+  dimnames(vcov_boot) <- list(names(coef(object)), names(coef(object)))
+  
+  vcov_boot
 }

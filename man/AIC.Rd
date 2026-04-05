@@ -2,9 +2,15 @@
 % Please edit documentation in R/mlmodels-utils.R
 \name{AIC}
 \alias{AIC}
+\alias{AIC.mlmodel}
+\alias{AIC.summary.mlmodel}
 \title{Extract AIC from mlmodel objects}
 \usage{
 AIC(object, ..., k = 2)
+
+\method{AIC}{mlmodel}(object, ..., k = 2)
+
+\method{AIC}{summary.mlmodel}(object, ..., k = 2)
 }
 \arguments{
 \item{object}{An object of class \code{"mlmodel"} or \code{"summary.mlmodel"}.}

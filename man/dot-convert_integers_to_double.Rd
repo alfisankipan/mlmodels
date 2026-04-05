@@ -7,6 +7,12 @@ doubles. To be called before using hardhat::mold in the estimator's function.}
 \usage{
 .convert_integers_to_double(data)
 }
+\arguments{
+\item{data}{A \code{data.frame} with the data to check.}
+}
+\value{
+The \code{data.frame} with its integer variables changed to doubles.
+}
 \description{
 Function to convert variables stored as integers in a data frame into
 doubles. To be called before using hardhat::mold in the estimator's function.

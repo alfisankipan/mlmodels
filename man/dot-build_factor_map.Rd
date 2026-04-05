@@ -10,7 +10,7 @@
 \item{mold}{A mold object returned by \code{hardhat::mold()}.}
 
 \item{equation_name}{Character string indicating the equation name
-("value" or "scale").}
+(e.g. "value" or "scale").}
 }
 \value{
 A named list containing the factor mapping for this equation.

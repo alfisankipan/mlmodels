@@ -2,11 +2,37 @@
 % Please edit documentation in R/mlmodels-auxiliary.R
 \name{.vcov_boot}
 \alias{.vcov_boot}
-\title{Generic for bootstrap variance-covariance matrix}
+\alias{.vcov_boot.mlmodel}
+\title{Bootstrap Variance-Covariance Matrix (mlmodel method)}
 \usage{
 .vcov_boot(object, ...)
+
+\method{.vcov_boot}{mlmodel}(
+  object,
+  repetitions = 999,
+  seed = NULL,
+  cl_var = NULL,
+  progress = TRUE,
+  ...
+)
+}
+\arguments{
+\item{object}{An \code{mlmodel} object.}
+
+\item{...}{Not currently used.}
+
+\item{repetitions}{Number of bootstrap replications.}
+
+\item{seed}{Random seed for reproducibility.}
+
+\item{cl_var}{Clustering variable (if clustered bootstrap).}
+
+\item{progress}{Logical. Whether to show progress bar.}
 }
 \description{
-Generic for bootstrap variance-covariance matrix
+Internal function to compute bootstrapped variance-covariance matrix.
+}
+\details{
+Called by \link[=vcov]{vcov} when \code{type} is set to \code{"boot"}
 }
 \keyword{internal}

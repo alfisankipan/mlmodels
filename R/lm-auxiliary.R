@@ -1,5 +1,80 @@
-# ML EVALUATOR -----------------------------------------------------------------
-#' Log-likelihood, gradient and Hessian evaluator for ml_lm models
+## HESSIANS ====================================================================
+#' Observed Hessian by observation for ml_lm models
+#'
+#' Returns the Hessian matrix evaluated at each observation. Used internally
+#' by the Information Matrix test (`IMtest`).
+#'
+#' @param object A fitted `ml_lm` object.
+#'
+#' @return Matrix with one row per observation and columns corresponding to the
+#'   second derivatives with respect to all parameters.
+#'
+#' @keywords internal
+.ml_lm_hessianObs <- function(object)
+{
+  if (!inherits(object, "ml_lm"))
+    cli::cli_abort("`object` must be a model of class 'ml_lm' (from ml_lm).",
+                   call = NULL)
+  
+  b <- coef(object)
+  y <- object$model$value$outcomes[[1]]
+  x <- as.matrix(object$model$value$predictors)
+  z <- as.matrix(object$model$scale$predictors)
+  w <- if(is.null(object$model$weights))
+    rep(1, nrow(x))
+  else
+    object$model$weights
+  k1 <- ncol(x)
+  k <- k1 + ncol(z)
+  
+  if (length(b) != k)
+    cli::cli_abort("The length of the coefficients ({length(b)}) \\
+                   does not match with the number of parameters ({k}).",
+                   call = NULL)
+  
+  beta <- b[1:k1]
+  delta <- b[(k1+1):k]
+  
+  xb <- x %*% cbind(beta)
+  zd <- z %*% cbind(delta)
+  s <- exp(zd)
+  u <- y - xb
+  
+  # For each observation we form the hessian and we add it as a new row on an
+  # overall matrix to return.
+  H <- NULL
+  for(i in 1:nrow(x))
+  {
+    # Extracting the elements for the observation we need.
+    xi <- cbind(x[i, ])
+    zi <- cbind(z[i, ])
+    si <- s[i]
+    ui <- u[i]
+    wi <- w[i]
+    
+    # Second partial with respect both times to beta.
+    hbb <- - wi * si^(-2) * tcrossprod(xi)
+    
+    # Second partial first with respect to beta and then to s
+    hbs <- -2 * wi * (ui / si^2) * tcrossprod(xi,zi)
+    
+    # Transpose that.
+    hsb <- t(hbs)
+    
+    # Second partial with respect both times to lnsigma.
+    hss <- -2 * wi * (ui / si)^2 * tcrossprod(zi)
+    
+    # Form the observation's Hessian
+    h <- rbind(cbind(hbb, hbs),
+               cbind(hsb, hss))
+    # Add it to the final Hessian.
+    H <- rbind(H, h)
+  }
+  return(H)
+}
+
+## ML EVALUATOR ================================================================
+#' Log-likelihood, gradient and Hessian calculation for ml_lm models
 #'
 #' This is the function passed to [maxLik::maxLik()] for Gaussian linear models.
 #' It returns the log-likelihood and attaches the gradient and Hessian as
@@ -91,81 +166,6 @@
   return(ll)
 }
 
-# HESSIANS ---------------------------------------------------------------------
-#' Observed Hessian by observation for ml_lm models
-#'
-#' Returns the Hessian matrix evaluated at each observation. Used internally
-#' by the Information Matrix test (`IMtest`).
-#'
-#' @param object A fitted `ml_lm` object.
-#'
-#' @return Matrix with one row per observation and columns corresponding to the
-#'   second derivatives with respect to all parameters.
-#'
-#' @keywords internal
-.ml_lm_hessianObs <- function(object)
-{
-  if (!inherits(object, "ml_lm"))
-    cli::cli_abort("`object` must be a model of class 'ml_lm' (from ml_lm).",
-                   call = NULL)
-
-  b <- coef(object)
-  y <- object$model$value$outcomes[[1]]
-  x <- as.matrix(object$model$value$predictors)
-  z <- as.matrix(object$model$scale$predictors)
-  w <- if(is.null(object$model$weights))
-    rep(1, nrow(x))
-  else
-    object$model$weights
-  k1 <- ncol(x)
-  k <- k1 + ncol(z)
-
-  if (length(b) != k)
-    cli::cli_abort("The length of the coefficients ({length(b)}) \\
-                   does not match with the number of parameters ({k}).",
-                   call = NULL)
-
-  beta <- b[1:k1]
-  delta <- b[(k1+1):k]
-
-  xb <- x %*% cbind(beta)
-  zd <- z %*% cbind(delta)
-  s <- exp(zd)
-  u <- y - xb
-
-  # For each observation we form the hessian and we add it as a new row on an
-  # overall matrix to return.
-  H <- NULL
-  for(i in 1:nrow(x))
-  {
-    # Extracting the elements for the observation we need.
-    xi <- cbind(x[i, ])
-    zi <- cbind(z[i, ])
-    si <- s[i]
-    ui <- u[i]
-    wi <- w[i]
-
-    # Second partial with respect both times to beta.
-    hbb <- - wi * si^(-2) * tcrossprod(xi)
-
-    # Second partial first with respect to beta and then to s
-    hbs <- -2 * wi * (ui / si^2) * tcrossprod(xi,zi)
-
-    # Transpose that.
-    hsb <- t(hbs)
-
-    # Second partial with respect both times to lnsigma.
-    hss <- -2 * wi * (ui / si)^2 * tcrossprod(zi)
-
-    # Form the observation's Hessian
-    h <- rbind(cbind(hbb, hbs),
-               cbind(hsb, hss))
-    # Add it to the final Hessian.
-    H <- rbind(H, h)
-  }
-  return(H)
-}
-
 # VARIANCE BOOTSTRAP -----------------------------------------------------------
 #' Bootstrap variance-covariance matrix for ml_lm models
 #'
@@ -189,6 +189,8 @@
                              progress = TRUE,
                              ...)
 {
+  
+  # --- 0. Validity Checks -----------------------------------------------------
   if(!inherits(object, "ml_lm"))
     cli::cli_abort("`object` needs to be of class 'ml_lm'.")
 
@@ -200,6 +202,7 @@
       is.null(object$model$scale$predictors))
     cli::cli_abort("The sample data was not stored properly.")
 
+  # --- 1. Sample data extraction. ---------------------------------------------
   y <- object$model$value$outcomes[[1]]
   x <- as.matrix(object$model$value$predictors)
   z <- as.matrix(object$model$scale$predictors)
@@ -215,7 +218,7 @@
     n_cluster   <- length(cluster_ids)
   }
   
-  # ── Bootstrap loop ───────────────────────────────────────────────────
+  # --- 2. Bootstrap area ------------------------------------------------------
   if (progress) {
     if (is_clustered) {
       cli::cli_alert_info("Clustered bootstrap with {.val {repetitions}} repetitions and {.val {n_cluster}} clusters.")
@@ -240,6 +243,7 @@
     )
   }
   
+  # --- 2.1 Bootstrap loop -----------------------------------------------------
   for (i in seq_len(repetitions)) {
     if (progress && i %% 50 == 1 && i > 1) cat("\n ")
     else if(progress && i == 1) cat(" ")
@@ -290,12 +294,14 @@
     cat(cli::col_blue(strrep("=", 52), "\n"))
   }
 
-  # Final summary
-  success_rate <- mean(success) * 100
-  cli::cli_text("Bootstrapping finished — {round(success_rate, 1)}% of replications converged.")
-
-  if (success_rate < 70) {
-    cli::cli_warn("Low convergence rate — bootstrap results may be unreliable.")
+  # --- 3. Final reporting -----------------------------------------------------
+  if (progress) {
+    cat("\n")
+    cli::cli_text("Bootstrapping finished - {round(mean(success) * 100, 1)}% of replications converged.")
+  }
+  
+  if (mean(success) < 0.7) {
+    cli::cli_warn("Low convergence rate - bootstrap results may be unreliable.")
   }
 
   # Variance from successful replications only

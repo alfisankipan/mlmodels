@@ -1,39 +1,105 @@
 # mlmodels: Exported utility functions for all mlmodel objects
 
-## NULL DEFAULT ----------------------------------------------------------------
-#' Null default operator
+## AIC =========================================================================
+# --- General ------------------------------------------------------------------
+#' Extract AIC from mlmodel objects
 #'
-#' @description
-#' Provides a convenient infix operator for replacing `NULL` values.
-#' `x \%||\% y` is equivalent to `if (is.null(x)) y else x`.
+#' @param object An object of class `"mlmodel"` or `"summary.mlmodel"`.
+#' @param k Numeric. The penalty per parameter to be used. Default is `k = 2`,
+#'   which gives the standard AIC. See [stats::AIC()] for details.
+#' @param ... Further arguments passed to methods.
 #'
-#' @param x,y Any R objects.
+#' @details
+#' For fitted `mlmodel` objects, AIC is computed as `-2 * logLik + k * npar`,
+#' where `npar` is the total number of coefficients.
 #'
-#' @name null-default
-#' @usage x \%||\% y
+#' For `summary.mlmodel` objects, the pre-computed AIC (calculated with `k = 2`)
+#' is returned. The `k` argument is accepted for compatibility but is ignored.
+#'
+#' @return A numeric value with the AIC.
+#' 
+#' @importFrom stats AIC
 #' @export
-#' @importFrom rlang %||%
-#' @examples
-#' NULL %||% "fallback"
-#' list(a = 1) %||% list(b = 2)
-`%||%` <- rlang::`%||%`
+AIC <- function(object, ..., k = 2) UseMethod("AIC")
 
-## PREDICT GENERIC -----------------------------------------------------------
-#' Predictions for mlmodel objects
-#'
-#' Generic method for computing predictions from models fitted with the
-#' `mlmodels` package.
-#'
-#' @param object A model object inheriting from `'mlmodel'`.
-#' @param ... Further arguments passed to specific methods.
-#'
-#' @method predict mlmodel
+# --- mlmodel ------------------------------------------------------------------
+#' @rdname AIC
 #' @export
-predict.mlmodel <- function(object, ...) {
-  UseMethod("predict")
+AIC.mlmodel <- function(object, ..., k = 2)
+{
+  if (!inherits(object, "mlmodel"))
+    cli::cli_abort("`object` must inherit from class 'mlmodel'.", call = NULL)
+  
+  if (!(object$code %in% c(0L, 1L, 2L, 8L))) {
+    cli::cli_abort("AIC is not available (model did not converge).", call = NULL)
+  }
+  
+  ll <- logLik(object)
+  npar <- attr(ll, "df") %||% length(coef(object))
+  
+  -2 * as.numeric(ll) + k * npar
 }
 
-# COEFFICIENTS -----------------------------------------------------------------
+# --- summary.mlmodel ----------------------------------------------------------
+#' @rdname AIC
+#' @export
+AIC.summary.mlmodel <- function(object, ..., k = 2)
+{
+  if (!inherits(object, "summary.mlmodel"))
+    cli::cli_abort("`object` must inherit from class 'summary.mlmodel'.", call = NULL)
+  
+  if (is.null(object$AIC) || !isTRUE(object$converged))
+    cli::cli_abort("AIC is not available (model did not converge).", call = NULL)
+  
+  # Note: we ignore the `k` argument for summary objects because we already computed AIC with k=2
+  object$AIC
+}
+
+## BIC =========================================================================
+# --- General ------------------------------------------------------------------
+#' Extract BIC
+#'
+#' @param object An object of class `"mlmodel"` or `"summary.mlmodel"`.
+#' @param ... Further arguments passed to methods.
+#'
+#' @importFrom stats BIC
+#' @export
+BIC <- function(object, ...) UseMethod("BIC")
+
+# --- mlmodel ------------------------------------------------------------------
+#' @rdname BIC
+#' @export
+BIC.mlmodel <- function(object, ...)
+{
+  if (!inherits(object, "mlmodel"))
+    cli::cli_abort("`object` must inherit from class 'mlmodel'.", call = NULL)
+  
+  if (!(object$code %in% c(0L, 1L, 2L, 8L))) {
+    cli::cli_abort("AIC is not available (model did not converge).", call = NULL)
+  }
+  
+  ll <- logLik(object)
+  npar <- attr(ll, "df") %||% length(coef(object))
+  nobs <- attr(ll, "nobs") %||% object$model$n_used
+  
+  -2 * as.numeric(ll) + log(nobs) * npar
+}
+
+# --- summary.mlmodel ----------------------------------------------------------
+#' @rdname BIC
+#' @export
+BIC.summary.mlmodel <- function(object, ...)
+{
+  if (!inherits(object, "summary.mlmodel"))
+    cli::cli_abort("`object` must inherit from class 'summary.mlmodel'.", call = NULL)
+  
+  if (is.null(object$BIC))
+    cli::cli_abort("BIC is not available (model did not converge).", call = NULL)
+  
+  object$BIC
+}
+
+## COEFFICIENTS ================================================================
 #' Gets the coefficients from an mlmodel estimation.
 #'
 #' @param object An mlmodel from an estimator, that you want the coefficients for.
@@ -53,10 +119,134 @@ coef.mlmodel <- function(object, ...) {
   object$estimate
 }
 
-# SE ---------------------------------------------------------------------------
-#' Extract Standard Errors
+## LOGLIK ======================================================================
+# --- General ------------------------------------------------------------------
+#' Return the Log-likelihood value.
 #'
-#' Computes standard errors for an `mlmodel` object.
+#' @param object Object of class `mlmodel` or `summary.mlmodel`, estimated with
+#' one of the estimators in this package.
+#'
+#' @param ... Additional arguments to methods.
+#'
+#' @returns A scalar numeric: the log-likelihood of the model. It includes the
+#' number of observations as the attribute 'nobs'.
+#'
+#' @importFrom stats logLik
+#' @export
+logLik <- function(object, ...) UseMethod("logLik")
+
+# --- mlmodel ------------------------------------------------------------------
+#' @rdname logLik
+#' @export
+logLik.mlmodel <- function(object, ...)
+{
+  if (!inherits(object, "mlmodel"))
+    cli::cli_abort("`object` must inherit from class 'mlmodel'.",
+                   call = NULL)
+  
+  ll <- object$maximum
+  
+  # Attach useful attributes
+  attr(ll, "nobs") <- object$model$n_used
+  attr(ll, "df")   <- length(coef(object))   # number of free parameters
+  
+  ll
+}
+
+# --- summary.mlmodel ----------------------------------------------------------
+#' @rdname logLik
+#' @export
+logLik.summary.mlmodel <- function(object, ...)
+{
+  if(!inherits(object, "summary.mlmodel"))
+    cli::cli_abort("`object` must inerit from class `summary.mlmodel`.",
+                   call = NULL)
+  if (is.null(object$logLik) || is.na(object$logLik)) {
+    cli::cli_warn("Log-likelihood value is not available.")
+    return(NA_real_)
+  }
+  
+  ll <- object$logLik
+  
+  attr(ll, "nobs") <- object$nobs
+  attr(ll, "df") <- nrow(object$coefficients)
+  
+  ll
+}
+
+# NOBS =========================================================================
+#' Returns the number of observations used in an estimation of an `mlmodel` model.
+#' 
+#' @param object An `mlmodel` estimation model.
+#' @param ... Not currently implemented.
+#' 
+#' @returns A value with the number of observations used in the estimation.
+#' 
+#' @importFrom stats nobs
+#' @export
+nobs.mlmodel <- function(object, ...) {
+  n <- object$model$n_used %||% 
+    object$nobs %||% 
+    length(object$model$sample) %||% 
+    length(object$model$usable_sample)
+  
+  if (is.null(n) || n == 0) {
+    cli::cli_warn("Could not determine number of observations.")
+    return(NA_integer_)
+  }
+  
+  as.integer(n)
+}
+
+## NULL DEFAULT ================================================================
+#' Null default operator
+#'
+#' @description
+#' Provides a convenient infix operator for replacing `NULL` values.
+#' `x \%||\% y` is equivalent to `if (is.null(x)) y else x`.
+#'
+#' @param x,y Any R objects.
+#'
+#' @name null-default
+#' @usage x \%||\% y
+#' @export
+#' @importFrom rlang %||%
+#' @examples
+#' NULL %||% "fallback"
+#' list(a = 1) %||% list(b = 2)
+`%||%` <- rlang::`%||%`
+
+## PREDICT GENERIC =============================================================
+#' Predictions from mlmodel objects
+#'
+#' Generic method for computing predictions from models fitted with the
+#' `mlmodels` package.
+#'
+#' @param object A fitted `ml_lm` object.
+#' @param newdata Optional data frame for out-of-sample predictions.
+#' @param type Character string indicating what to predict. See **Details**.
+#' @param se.fit Logical. If `TRUE`, also return standard errors (delta method).
+#' @param vcov Optional user-supplied variance-covariance matrix.
+#' @param vcov.type Type of variance-covariance matrix. See [vcov.mlmodel()].
+#' @param cl_var Clustering variable (name or vector).
+#' @param repetitions Number of bootstrap replications when `vcov.type = "boot"`.
+#' @param seed Random seed for reproducibility.
+#' @param progress Logical. Show bootstrap progress bar? Default is `FALSE` in
+#' higher-level functions.
+#' @param ... Additional arguments passed to methods.
+#'
+#' @return If `se.fit = FALSE` (default), a numeric vector of predictions.
+#' If `se.fit = TRUE`, a list with components `fit` and `se.fit`.
+#' 
+#' @method predict mlmodel
+#' @export
+predict.mlmodel <- function(object, ...) {
+  UseMethod("predict")
+}
+
+## SE ==========================================================================
+# --- Generic ------------------------------------------------------------------
+#' Extracts standard errors for an `mlmodel` object.
 #'
 #' @param object An object of class `"mlmodel"` or any model that inherits
 #'   from it (e.g. `"ml_lm"`).
@@ -79,7 +269,15 @@ coef.mlmodel <- function(object, ...) {
 #' @seealso [vcov.mlmodel()], [summary.ml_lm()]
 #'
 #' @author Alfonso Sanchez-Penalver
-#'
+#' 
+#' @export
+se <- function(object, ...) {
+  UseMethod("se")
+}
+
+# --- mlmodel ------------------------------------------------------------------
+#' Extracts standard errors for an `mlmodel` object.
+#' 
 #' @rdname se
 #' @export
 se.mlmodel <- function(object,
@@ -106,19 +304,31 @@ se.mlmodel <- function(object,
   return(se)
 }
 
-#' Extract Standard Errors
+# TERMS ========================================================================
+#' Extract terms from mlmodel objects
 #'
-#' Generic function to extract standard errors from a fitted model.
+#' Returns the terms object for the value (mean/probability) equation.
+#' For heteroskedastic models, the scale equation is **not** included in the
+#' returned terms object.
+#' 
+#' @param x An `mlmodel` object from an estimation of one of our models.
+#' @param ... Not currently implemented.
 #'
-#' @param object A fitted model object.
-#' @param ... Further arguments passed to methods.
+#' @note The `terms()` method is provided for minimal compatibility with other
+#' packages, but it is incomplete for heteroskedastic models. For reliable
+#' bootstrap standard errors, use `vcov(object, type = "boot")` instead of
+#' functions from the sandwich package.
 #'
 #' @export
-se <- function(object, ...) {
-  UseMethod("se")
+terms.mlmodel <- function(x, ...) {
+  if (!is.null(x$model$value$terms)) {
+    x$model$value$terms
+  } else {
+    NULL
+  }
 }
 
-# VARIANCE ---------------------------------------------------------------------
+# VARIANCE =====================================================================
 #' Variance-Covariance Matrix for mlmodel Objects
 #'
 #' Returns the variance-covariance matrix of the estimated parameters
@@ -317,167 +527,4 @@ vcov.mlmodel <- function(object,
   }
   dimnames(vcov_mat) <- list(names(coef(object)), names(coef(object)))
   return(vcov_mat)
-}
-
-## LOGLIK ======================================================================
-# --- General ------------------------------------------------------------------
-#' Return the Log-likelihood value.
-#'
-#' @param object Object of class `mlmodel` or `summary.mlmodel`, estimated with
-#' one of the estimators in this package.
-#'
-#' @param ... Additional arguments to methods.
-#'
-#' @returns A scalar numeric: the log-likelihood of the model. It includes the
-#' number of observations as the attribute 'nobs'.
-#'
-#' @export
-logLik <- function(object, ...) UseMethod("logLik")
-
-# --- mlmodel ------------------------------------------------------------------
-#' @export
-logLik.mlmodel <- function(object, ...)
-{
-  if (!inherits(object, "mlmodel"))
-    cli::cli_abort("`object` must inherit from class 'mlmodel'.",
-                   call = NULL)
-  
-  ll <- object$maximum
-  
-  # Attach useful attributes
-  attr(ll, "nobs") <- object$model$n_used
-  attr(ll, "df")   <- length(coef(object))   # number of free parameters
-  
-  ll
-}
-
-# --- summary.mlmodel ----------------------------------------------------------
-#' @export
-logLik.summary.mlmodel <- function(object, ...)
-{
-  if(!inherits(object, "summary.mlmodel"))
-    cli::cli_abort("`object` must inerit from class `summary.mlmodel`.",
-                   call = NULL)
-  if (is.null(object$logLik) || is.na(object$logLik)) {
-    cli::cli_warn("Log-likelihood value is not available.")
-    return(NA_real_)
-  }
-  
-  ll <- object$logLik
-  
-  attr(ll, "nobs") <- object$nobs
-  attr(ll, "df") <- nrow(object$coefficients)
-  
-  ll
-}
-
-## AIC =========================================================================
-# --- General ------------------------------------------------------------------
-#' Extract AIC from mlmodel objects
-#'
-#' @param object An object of class `"mlmodel"` or `"summary.mlmodel"`.
-#' @param k Numeric. The penalty per parameter to be used. Default is `k = 2`,
-#'   which gives the standard AIC. See [stats::AIC()] for details.
-#' @param ... Further arguments passed to methods.
-#'
-#' @details
-#' For fitted `mlmodel` objects, AIC is computed as `-2 * logLik + k * npar`,
-#' where `npar` is the total number of coefficients.
-#'
-#' For `summary.mlmodel` objects, the pre-computed AIC (calculated with `k = 2`)
-#' is returned. The `k` argument is accepted for compatibility but is ignored.
-#'
-#' @return A numeric value with the AIC.
-#'
-#' @export
-AIC <- function(object, ..., k = 2) UseMethod("AIC")
-
-# --- mlmodel ------------------------------------------------------------------
-#' @export
-AIC.mlmodel <- function(object, ..., k = 2)
-{
-  if (!inherits(object, "mlmodel"))
-    cli::cli_abort("`object` must inherit from class 'mlmodel'.", call = NULL)
-  
-  if (!(object$code %in% c(0L, 1L, 2L, 8L))) {
-    cli::cli_abort("AIC is not available (model did not converge).", call = NULL)
-  }
-  
-  ll <- logLik(object)
-  npar <- attr(ll, "df") %||% length(coef(object))
-  
-  -2 * as.numeric(ll) + k * npar
-}
-
-# --- mlmodel ------------------------------------------------------------------
-#' @export
-AIC.summary.mlmodel <- function(object, ..., k = 2)
-{
-  if (!inherits(object, "summary.mlmodel"))
-    cli::cli_abort("`object` must inherit from class 'summary.mlmodel'.", call = NULL)
-  
-  if (is.null(object$AIC) || !isTRUE(object$converged))
-    cli::cli_abort("AIC is not available (model did not converge).", call = NULL)
-  
-  # Note: we ignore the `k` argument for summary objects because we already computed AIC with k=2
-  object$AIC
-}
-
-## BIC =========================================================================
-#' Extract BIC
-#'
-#' @param object An object of class `"mlmodel"` or `"summary.mlmodel"`.
-#' @param ... Further arguments passed to methods.
-#'
-#' @export
-BIC <- function(object, ...) UseMethod("BIC")
-
-#' @export
-BIC.mlmodel <- function(object, ...)
-{
-  if (!inherits(object, "mlmodel"))
-    cli::cli_abort("`object` must inherit from class 'mlmodel'.", call = NULL)
-  
-  if (!(object$code %in% c(0L, 1L, 2L, 8L))) {
-    cli::cli_abort("AIC is not available (model did not converge).", call = NULL)
-  }
-  
-  ll <- logLik(object)
-  npar <- attr(ll, "df") %||% length(coef(object))
-  nobs <- attr(ll, "nobs") %||% object$model$n_used
-  
-  -2 * as.numeric(ll) + log(nobs) * npar
-}
-
-#' @export
-BIC.summary.mlmodel <- function(object, ...)
-{
-  if (!inherits(object, "summary.mlmodel"))
-    cli::cli_abort("`object` must inherit from class 'summary.mlmodel'.", call = NULL)
-  
-  if (is.null(object$BIC))
-    cli::cli_abort("BIC is not available (model did not converge).", call = NULL)
-  
-  object$BIC
-}
-
-# TERMS ========================================================================
-#' Extract terms from mlmodel objects
-#'
-#' Returns the terms object for the value (mean/probability) equation.
-#' For heteroskedastic models, the scale equation is **not** included in the
-#' returned terms object.
-#'
-#' @note The `terms()` method is provided for minimal compatibility with other
-#' packages, but it is incomplete for heteroskedastic models. For reliable
-#' bootstrap standard errors, use `vcov(object, type = "boot")` instead of
-#' functions from the sandwich package.
-#'
-#' @export
-terms.mlmodel <- function(x, ...) {
-  if (!is.null(x$model$value$terms)) {
-    x$model$value$terms
-  } else {
-    NULL
-  }
 }

@@ -155,17 +155,9 @@
 
 
 ## --- vcov_boot ---------------------------------------------------------------
-#' Generic for bootstrap variance-covariance matrix
-#'
-#' @keywords internal
-.vcov_boot <- function(object, ...) {
-  UseMethod(".vcov_boot")
-}
-
 #' Bootstrap Variance-Covariance Matrix (mlmodel method)
 #'
 #' Internal function to compute bootstrapped variance-covariance matrix.
-#' Called by `vcov.mlmodel()` when `type = "boot"`.
 #'
 #' @param object An `mlmodel` object.
 #' @param repetitions Number of bootstrap replications.
@@ -173,7 +165,18 @@
 #' @param cl_var Clustering variable (if clustered bootstrap).
 #' @param progress Logical. Whether to show progress bar.
 #' @param ... Not currently used.
-#'
+#' 
+#' @details
+#' Called by [vcov][mlmodels::vcov] when `type` is set to `"boot"`
+#' 
+#' @keywords internal
+.vcov_boot <- function(object, ...) {
+  UseMethod(".vcov_boot")
+}
+
+#' Internal function to compute bootstrapped variance-covariance matrix.
+#' 
+#' @rdname dot-vcov_boot
 #' @keywords internal
 .vcov_boot.mlmodel <- function(object,
                               repetitions = 999,
@@ -205,14 +208,14 @@
   used_data <- original_data[object$model$sample, , drop = FALSE]
   w <- object$model$weights %||% rep(1, nrow(used_data))
 
-  # ── Prepare for clustered bootstrap if requested ─────────────────────
+  # -- Prepare for clustered bootstrap if requested ----------------------------
   is_clustered <- !is.null(cl_var)
   if (is_clustered) {
     cluster_ids <- unique(cl_var[object$model$sample])
     n_cluster   <- length(cluster_ids)
   }
   
-  # ── Bootstrap loop ───────────────────────────────────────────────────
+  # -- Bootstrap loop ----------------------------------------------------------
   if (progress) {
     if (is_clustered) {
       cli::cli_alert_info("Clustered bootstrap with {.val {repetitions}} repetitions and {.val {n_cluster}} clusters.")
@@ -246,7 +249,9 @@
       w_boot    <- w[boot_idx]
       
       # Use update() for the general case
-      updated <- update(object, data = boot_data, weights = w_boot, evaluate = TRUE)
+      suppressMessages({
+        updated <- update(object, data = boot_data, weights = w_boot, evaluate = TRUE)
+      })
       
       if (updated$code %in% c(0L, 1L, 2L, 8L)) {
         if (progress) cat(cli::col_green("."))
@@ -271,10 +276,10 @@
 
   # Final summary
   success_rate <- mean(success) * 100
-  cli::cli_text("Bootstrapping finished — {round(success_rate, 1)}% of replications converged.")
+  cli::cli_text("Bootstrapping finished - {round(success_rate, 1)}% of replications converged.")
 
   if (success_rate < 70) {
-    cli::cli_warn("Low convergence rate — bootstrap results may be unreliable.")
+    cli::cli_warn("Low convergence rate - bootstrap results may be unreliable.")
   }
 
   # Variance from successful replications only
@@ -287,10 +292,19 @@
 
 
 ## --- Is invertible -----------------------------------------------------------
+#' Internal function to detect if a matrix is invertible.
+#' 
+#' @param matrix The matrix you want to check
+#' 
+#' @returns Logical with `TRUE` if it's invertible, or `FALSE` if it's not.
+#' 
+#' @details
+#' Used in prediction and other methods to avoid throwing an error.
+#' 
 #' @keywords internal
-.is_invertible <- function(V) {
+.is_invertible <- function(matrix) {
   tryCatch({
-    chol2inv(chol(V))
+    chol2inv(chol(matrix))
     TRUE
   }, error = function(e) FALSE)
 }
@@ -305,7 +319,7 @@
 #'
 #' @param mold A mold object returned by `hardhat::mold()`.
 #' @param equation_name Character string indicating the equation name
-#'   ("value" or "scale").
+#'   (e.g. "value" or "scale").
 #'
 #' @return A named list containing the factor mapping for this equation.
 #'
@@ -422,7 +436,7 @@
     base_level <- if (length(missing_levels) == 1) {
       sub(var_name, "", missing_levels[1])
     } else if (length(missing_levels) == 0) {
-      NULL   # All levels present → no intercept
+      NULL   # All levels present => no intercept
     } else {
       cli::cli_alert_warning(
         "Unexpected number of missing levels for factor '{var_name}' in equation '{equation_name}'."
@@ -433,8 +447,8 @@
       equation         = equation_name,
       var_name         = var_name,
       levels           = levels,
-      main_effect_cols = main_effect_cols,     # ← separate
-      interaction_cols = interaction_cols,     # ← separate
+      main_effect_cols = main_effect_cols,     # <- separate
+      interaction_cols = interaction_cols,     # <- separate
       dummy_cols       = dummy_cols,           # combined for convenience
       base_level       = base_level,
       n_dummies        = length(dummy_cols),
@@ -534,7 +548,7 @@
 
   lhs_expr <- rlang::f_lhs(formula)
 
-  # No left-hand side → not a log transformation
+  # No left-hand side -> not a log transformation
   if (is.null(lhs_expr)) {
     return(list(
       is_log        = FALSE,
@@ -552,7 +566,7 @@
   # Get the expression on the LHS
   expr <- rlang::quo_get_expr(rlang::quo(!!lhs_expr))
 
-  # Not a log function → not a log transformation
+  # Not a log function -> not a log transformation
   if (!is.call(expr) || !as.character(expr[[1]]) %in% c("log", "log10", "log1p")) {
     return(list(
       is_log        = FALSE,
@@ -567,7 +581,7 @@
     ))
   }
 
-  # ── Log transformation detected ─────────────────────────────────────
+  # -- Log transformation detected ---------------------------------------------
   fun_name <- as.character(expr[[1]])
   inner_expr <- expr[[2]]
 
@@ -643,7 +657,7 @@
 #' Returns a named list with detection results for each formula.
 #' Useful for future multi-equation models.
 #'
-#' @param formulas A list with the different formulas for the different
+#' @param formulas_list A list with the different formulas for the different
 #' equations that need checking.
 #' @param data A data.frame that holds all the data in the estimation.
 #'
@@ -719,6 +733,12 @@
 }
 
 #' Internal helper: parse string constraints into maxLik matrices
+#' 
+#' @param strings A vector with the strings defining the linear constraints.
+#' @param coef_names Character vector of all coefficient names in the model.
+#' 
+#' @returns A list that conforms with [maxLik][maxLik::maxLik]'s constraint
+#'   requirements.
 #'
 #' @keywords internal
 .parse_string_constraints <- function(strings, coef_names)
@@ -789,7 +809,7 @@
 #' @param expr Character string containing the left-hand side expression.
 #' @param coef_names Character vector of all coefficient names in the model.
 #'
-#' @return Numeric vector of length `length(coef_names)` with the multipliers
+#' @returns Numeric vector of length `length(coef_names)` with the multipliers
 #'   for each coefficient. Zeros for coefficients not present in the expression.
 #'
 #' @keywords internal
@@ -870,7 +890,7 @@
         }
         coef_vec[coef_name] <- coef_vec[coef_name] + sign
       } else {
-        # Pure constant — ignore for now (can be used in more complex expressions later)
+        # Pure constant - ignore for now (can be used in more complex expressions later)
         next
       }
     }
@@ -949,7 +969,7 @@
         }
       }
     } else {
-      # No intercepts — set everything to zero and check
+      # No intercepts - set everything to zero and check
       b1 <- rep(0, length(b))
       names(b1) <- names(b)
       if (all(is.finite(fn(b1, ...)))) {
@@ -999,9 +1019,11 @@
 
 
 # Changing ptypes from a mold --------------------------------------------------
-#' The function takes a mold (object returned by hardhat::mold), loops through
-#' the ptypes in its blueprint and changes the integer types in the blueprint
-#' to double. Then returns the changed mold.
+#' Function to change ptypes in a mold from int to double.
+#' 
+#' @param mold An object returned by [mold()][hardhat::mold].
+#' 
+#' @returns The `mold` object with the changed `ptype` tibble.
 #' 
 #' @keywords internal
 .mold_fix_integer_to_double <- function(mold) {
@@ -1026,6 +1048,10 @@
 
 #' Function to convert variables stored as integers in a data frame into
 #' doubles. To be called before using hardhat::mold in the estimator's function.
+#' 
+#' @param data A `data.frame` with the data to check.
+#' 
+#' @returns The `data.frame` with its integer variables changed to doubles.
 #' 
 #' @keywords internal
 .convert_integers_to_double <- function(data) {
