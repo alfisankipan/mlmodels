@@ -3,7 +3,14 @@
 library(testthat)
 
 # =============================================================================
-# Test suite for constraint parsing and constrained estimation
+# Tests for constraint parsing and constrained estimation in ml_lm
+# 
+# Covers:
+# - Basic equality and inequality parsing
+# - Mixed constraint rejection
+# - Scaled coefficients (e.g. `* 2`, `/ 5`)
+# - Proper storage in the model object
+# - Enforcement of constraints during estimation
 # =============================================================================
 
 test_that("parse_constraints works with simple equality constraints", {
