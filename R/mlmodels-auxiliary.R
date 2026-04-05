@@ -724,6 +724,16 @@
 
   # Parse the string constraints into maxLik format
   maxLik_list <- .parse_string_constraints(strings, coef_names)
+  
+  # Check that we don't have equality and inequality constraints together
+  if (!is.null(maxLik_list$eqA) && !is.null(maxLik_list$ineqA) && 
+      nrow(maxLik_list$eqA) > 0 && nrow(maxLik_list$ineqA) > 0) {
+    cli::cli_abort(
+      c("Cannot mix equality and inequality constraints in the same model.",
+        "i" = "Use only '=' for equality or '>='/'<=' for inequality."),
+      call = NULL
+    )
+  }
 
   return(list(
     names   = names_vec,
@@ -768,7 +778,10 @@
     }
 
     lhs <- trimws(parts[1])
-    rhs <- as.numeric(trimws(parts[2]))
+    
+    suppressWarnings({
+      rhs <- as.numeric(trimws(parts[2]))
+    })
 
     if (is.na(rhs)) {
       cli::cli_abort("Right-hand side must be numeric in constraint: {.val {constr}}",
