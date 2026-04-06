@@ -70,7 +70,8 @@
   if (is.null(z)) {
     # -- Homoskedastic binary logit --------------------------------------------
     xb <- as.vector(x %*% cbind(b))
-    py <- exp(xb) / (1 + exp(xb))
+    py <- plogis(xb)
+    pn <- 1 - py
     
     # Weighted log-likelihood
     ll <- y * xb - log(1 + exp(xb))
@@ -79,12 +80,8 @@
     g <- w * as.vector(y - py) * x
     
     # Hessian
-    H <- matrix(0, nrow = length(b), ncol = length(b))
-    for (i in seq_len(nrow(x))) {
-      pyi <- py[i]
-      xi  <- cbind(x[i, ])
-      H   <- H - w[i] * pyi * (1 - pyi) * tcrossprod(xi)
-    }
+    s_bb <- as.vector(- w * py * pn)
+    H <- crossprod(x * s_bb, x)
   } else {
     # -- Heteroskedastic binary logit ------------------------------------------
     k1   <- ncol(x)
@@ -95,7 +92,8 @@
     zd <- as.vector(z %*% cbind(delta))
     xz <- x / exp(zd)
     xb <- as.vector(xz %*% cbind(beta))
-    py <- exp(xb) / (1 + exp(xb))
+    py <- plogis(xb)
+    pn <- 1 - py
     
     # Weighted log-likelihood
     ll <- w * (y * xb - log(1 + exp(xb)))
@@ -106,21 +104,16 @@
     g  <- cbind(gb, gd)
     
     # Hessian
-    H <- matrix(0, nrow = k, ncol = k)
-    for (i in seq_len(nrow(x))) {
-      pyi <- py[i]
-      xbi <- xb[i]
-      xzi <- cbind(xz[i, ])
-      zi  <- cbind(z[i, ])
-      wi  <- w[i]
-      
-      hbb <- -wi * pyi * (1 - pyi) * tcrossprod(xzi)
-      hbd <- wi * (pyi * (1 - pyi) * xbi - (y[i] - pyi)) * tcrossprod(xzi, zi)
-      hdd <- wi * ((y[i] - pyi) * xbi - pyi * (1 - pyi) * xbi^2) * tcrossprod(zi)
-      
-      H <- H + rbind(cbind(hbb, hbd),
-                     cbind(t(hbd), hdd))
-    }
+    s_bb <- as.vector(- w * py * pn)
+    s_bd <- as.vector(w * (py * pn * xb - (y - py)))
+    s_dd <- as.vector(w * ((y - py) * xb - py * pn * xb^2))
+    
+    H_bb <- crossprod(xz * s_bb, xz)
+    H_bd <- crossprod(xz * s_bd, z)
+    H_dd <- crossprod(z * s_dd, z)
+    
+    H <- rbind(cbind(H_bb, H_bd),
+               cbind(t(H_bd), H_dd))
   }
   
   # Attach gradient and Hessian as attributes

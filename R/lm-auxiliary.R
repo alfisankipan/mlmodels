@@ -123,43 +123,22 @@
   # Partial with respect to delta.
   gd <- w * as.vector((u / s)^2 - 1) * z
 
-  # Set the attribute in ll to pass it back to maxLik
-  attr(ll, "gradient") <- cbind(gb, gd)
-
   ## HESSIAN
 
-  # For the Hessian we have to calculate the matrix by observation and then
-  # add it to an overall matrix that I set with zero values.
-  H <- matrix(0, nrow = k, ncol = k)
+  s_bb <- as.vector(- w * s^(-2))
+  s_bd <- as.vector(- 2 * w * (u / s^2))
+  s_dd <- as.vector(- 2 * w * (u / s)^2)
+  
+  H_bb <- crossprod(x * s_bb, x)
+  H_bd <- crossprod(x * s_bd, z)
+  H_dd <- crossprod(z * s_dd, z)
+  
+  H <- rbind(cbind(H_bb, H_bd),
+             cbind(t(H_bd), H_dd))
 
-  for(i in 1:nrow(x))
-  {
-    # Extracting the elements for the observation we need.
-    xi <- cbind(x[i, ])
-    zi <- cbind(z[i, ])
-    si <- s[i]
-    ui <- u[i]
-    wi <- w[i]
-
-    # Second partial with respect both times to beta.
-    hbb <- - wi * si^(-2) * tcrossprod(xi)
-
-    # Second partial first with respect to beta and then to s
-    hbs <- -2 * wi * (ui / si^2) * tcrossprod(xi,zi)
-
-    # Transpose that.
-    hsb <- t(hbs)
-
-    # Second partial with respect both times to lnsigma.
-    hss <- -2 * wi * (ui / si)^2 * tcrossprod(zi)
-
-    # Form the observation's Hessian
-    h <- rbind(cbind(hbb, hbs),
-               cbind(hsb, hss))
-    # Add it to the final Hessian.
-    H <- H + h
-  }
-
+  # Set the attribute in ll to pass it back to maxLik
+  attr(ll, "gradient") <- cbind(gb, gd)
+  
   # Set the attribute in ll to pass it back to maxLik
   attr(ll, "hessian") <- H
 
