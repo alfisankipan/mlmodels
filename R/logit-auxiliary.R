@@ -130,7 +130,8 @@
   return(ll)
 }
 
-## VCOV BOOT ===================================================================
+## VCOV HELPERS ================================================================
+# --- 1. vcov_boot -------------------------------------------------------------
 #' Bootstrap variance-covariance for ml_logit objects
 #'
 #' Internal function called by vcov.mlmodel when type = "boot".
@@ -151,12 +152,12 @@
   if (is.null(seed)) seed <- sample.int(1e6, 1)
   set.seed(seed)
   
-  # Recover the data used in estimation
-  if (!is.null(object$model$data) && is.data.frame(object$model$data)) {
-    original_data <- object$model$data
-  } else {
-    cli::cli_abort("Could not recover original data for bootstrapping.", call = NULL)
-  }
+  if (is.null(object$model$value$outcomes) ||
+      is.null(object$model$value$predictors))
+    cli::cli_abort("The sample data was not stored properly.")
+  
+  if( !is.null(object$model$scale) && is.null(object$model$scale$predictors))
+    cli::cli_abort("The sample data was not stored properly.")
 
   # --- 1. Sample data extraction. ---------------------------------------------
   is_heteroskedastic <- !is.null(object$model$scale)
@@ -275,4 +276,148 @@
   dimnames(vcov_boot) <- list(names(coef(object)), names(coef(object)))
   
   vcov_boot
+}
+
+# --- 2. vcov_jack -------------------------------------------------------------
+#' @rdname dot-vcov_jack
+#' @keywords internal
+.vcov_jack.ml_logit <- function(object,
+                                cl_var = NULL,
+                                progress = TRUE,
+                                ...)
+{
+  if(!inherits(object, "ml_logit"))
+    cli::cli_abort("`object` needs to be of class 'ml_lm'.")
+  
+  if (is.null(object$model$value$outcomes) ||
+      is.null(object$model$value$predictors))
+    cli::cli_abort("The sample data was not stored properly.")
+  
+  if( !is.null(object$model$scale) && is.null(object$model$scale$predictors))
+    cli::cli_abort("The sample data was not stored properly.")
+  
+  # --- 2.1. Sample data extraction. -------------------------------------------
+  is_heteroskedastic <- !is.null(object$model$scale)
+  y <- object$model$value$outcomes[[1]]
+  x <- as.matrix(object$model$value$predictors)
+  if(is_heteroskedastic)
+    z <- as.matrix(object$model$scale$predictors)
+  else
+    z <- NULL
+  n_obs <- nrow(x)
+  if(is.null(object$model$weights))
+    w <- rep(1,n)
+  else
+    w <- object$model$weights
+  
+  # --- 2.2. Prepare for clustered jackknife if requested ----------------------
+  is_clustered <- !is.null(cl_var)
+  if (is_clustered) {
+    cl_var <- cl_var[object$model$sample]
+    cluster_ids <- unique(cl_var)
+    n_cluster   <- length(cluster_ids)
+    n_jack <- n_cluster
+  }
+  else
+    n_jack <- n_obs
+  
+  # --- 2.3. Jackknife loop ----------------------------------------------------
+  if (progress) {
+    if (is_clustered) {
+      cli::cli_alert_info("Clustered jackknife variance with {.val {n_jack}} clusters.")
+    } else {
+      cli::cli_alert_info("Jackknife variance.")
+    }
+    cat(cli::col_blue(" 0"))
+    for (i in seq(10, 50, by = 10)) cat(cli::col_blue(sprintf("%10d", i)))
+    cat("\n")
+    cat(cli::col_blue(strrep("=", 52), "\n"))
+  }
+  
+  success     <- logical(n_jack)
+  coef_matrix <- matrix(NA_real_, nrow = n_jack, ncol = length(coef(object)))
+  
+  for (i in seq_len(n_jack)) {
+    if (progress && i %% 50 == 1 && i > 1) cat("\n ")
+    else if(progress && i == 1) cat(" ")
+    
+    tryCatch({
+      if (is_clustered) {
+        # We are looping through cluster ids, so we have to leave out the current
+        # cluster from the data.
+        keep_idx <- cl_var != cluster_ids[i]
+        
+        y_jack <- y[keep_idx]
+        x_jack <- x[keep_idx, , drop = FALSE]
+        z_jack <- if (is_heteroskedastic) {
+          z[keep_idx, , drop = FALSE]
+        } else NULL
+        w_jack <- w[keep_idx]
+      } else {
+        y_jack <- y[-i]
+        x_jack <- x[-i, , drop = FALSE]
+        z_jack <- if (is_heteroskedastic){
+          z[-i, , drop = FALSE]
+        } else NULL
+        w_jack <- w[-i]
+      }
+      
+      updated <- .ml_logit.fit(y = y_jack,
+                               x = x_jack,
+                               z = z_jack,
+                               w = w_jack,
+                               constraints = object$model$constraints$maxLik,
+                               start       = object$model$start,
+                               method      = object$model$method,
+                               control     = object$model$control)
+      
+      if (updated$code %in% c(0L, 1L, 2L, 8L)) {
+        if (progress) cat(cli::col_green("."))
+        success[i] <- TRUE
+        coef_matrix[i, ] <- coef(updated)
+      } else {
+        if (progress) cat(cli::col_red("x"))
+        success[i] <- FALSE
+        coef_matrix[i, ] <- NA_real_
+      }
+    }, error = function(e) {
+      if (progress) cat(cli::col_red("x"))
+      success[i] <- FALSE
+      coef_matrix[i, ] <- NA_real_
+    })
+  }
+  
+  if (progress) {
+    cat("\n")
+    cat(cli::col_blue(strrep("=", 52), "\n"))
+  }
+  
+  # --- 2.4. Reporting ---------------------------------------------------------
+  success_rate <- mean(success) * 100
+  if(progress && success_rate == 100)
+  {
+    cli::cli_text("Bootstrapping finished - {.val {round(success_rate, 1)}}% of replications converged.")
+  }
+  
+  valid_rows <- complete.cases(coef_matrix)
+  valid_coef <- coef_matrix[valid_rows, , drop = FALSE]
+  n_valid    <- nrow(valid_coef)
+  
+  if (n_valid == 0) {
+    cli::cli_abort("All jackknife replications failed.")
+  }
+  
+  if (n_valid < n_jack) {
+    cli::cli_warn(
+      "Jackknife variance computed from only {.val {n_valid}} out of {.val {n_jack}} successful replications ({.val {round(success_rate, 1)}}%)."
+    )
+  }
+  
+  # --- 2.5. Calculation -------------------------------------------------------
+  theta_bar <- colMeans(valid_coef)
+  centered  <- sweep(valid_coef, 2, theta_bar, FUN = "-")
+  vcov_jack <- (n_valid - 1) / n_valid * crossprod(centered)
+  
+  dimnames(vcov_jack) <- list(names(coef(object)), names(coef(object)))
+  vcov_jack
 }

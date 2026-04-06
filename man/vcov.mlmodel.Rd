@@ -20,7 +20,7 @@
 
 \item{type}{Character string specifying the type of variance-covariance
 matrix. One of \code{"oim"} (default), \code{"robust"}, \code{"opg"}, \code{"cluster"},
-or \code{"boot"}.}
+\code{"boot"}, and \code{"jack"} or \code{"jackknife"}.}
 
 \item{cl_var}{Character string or vector. Name of the clustering variable
 in the data, or the vector itself.}
@@ -31,8 +31,9 @@ in the data, or the vector itself.}
 \item{seed}{Integer. Random seed for reproducibility when \code{type = "boot"}.
 If \code{NULL}, a random seed is generated.}
 
-\item{progress}{Logical. Should a progress bar be displayed during
-bootstrapping? Default is \code{TRUE}. Only relevant when \code{type = "boot"}.}
+\item{progress}{Logical. Should a progress bar be displayed? Default is
+\code{TRUE} when \code{type} is \code{"boot"} or \code{"jack"}/\code{"jackknife"}. Ignored for other
+types.}
 
 \item{...}{Further arguments passed to methods.}
 }
@@ -43,6 +44,18 @@ on the rows and columns.
 \description{
 Returns the variance-covariance matrix of the estimated parameters
 using different methods.
+}
+\details{
+Type \code{"cluster"} is an alias for \code{"robust"}, but it requires \code{cl_var} to be
+passed.
+
+When \code{type} is set to \code{"robust"}, and \code{cl_var} is \code{NULL}, a standard
+robust (sandwich) variance is returned.
+
+When \code{type} is set to \code{"robust"} and \code{cl_var} is not \code{NULL}, a clustered-robust
+variance is returned.
+
+Type \code{"jackknife"} is an alias for type \code{"jack"}.
 }
 \author{
 Alfonso Sanchez-Penalver

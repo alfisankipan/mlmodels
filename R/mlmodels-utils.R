@@ -338,20 +338,33 @@ terms.mlmodel <- function(x, ...) {
 #'   (e.g. `"ml_lm"`).
 #' @param type Character string specifying the type of variance-covariance
 #'   matrix. One of `"oim"` (default), `"robust"`, `"opg"`, `"cluster"`,
-#'   or `"boot"`.
+#'   `"boot"`, and `"jack"` or `"jackknife"`.
 #' @param cl_var Character string or vector. Name of the clustering variable
 #'   in the data, or the vector itself.
 #' @param repetitions Integer. Number of bootstrap replications to use when
 #'   `type = "boot"`. Default is 999.
 #' @param seed Integer. Random seed for reproducibility when `type = "boot"`.
 #'   If `NULL`, a random seed is generated.
-#' @param progress Logical. Should a progress bar be displayed during
-#'   bootstrapping? Default is `TRUE`. Only relevant when `type = "boot"`.
+#' @param progress Logical. Should a progress bar be displayed? Default is
+#'   `TRUE` when `type` is `"boot"` or `"jack"`/`"jackknife"`. Ignored for other
+#'   types.
 #' @param ... Further arguments passed to methods.
 #'
 #' @return A symmetric variance-covariance matrix with coefficient names
 #'   on the rows and columns.
-#'
+#' 
+#' @details
+#' Type `"cluster"` is an alias for `"robust"`, but it requires `cl_var` to be
+#' passed. 
+#' 
+#' When `type` is set to `"robust"`, and `cl_var` is `NULL`, a standard
+#' robust (sandwich) variance is returned.
+#' 
+#' When `type` is set to `"robust"` and `cl_var` is not `NULL`, a clustered-robust
+#' variance is returned.
+#' 
+#' Type `"jackknife"` is an alias for type `"jack"`.
+#' 
 #' @author Alfonso Sanchez-Penalver
 #'
 #' @export
@@ -368,7 +381,7 @@ vcov.mlmodel <- function(object,
     cli::cli_abort("`object` must be a model of class 'mlmodel'.", call = NULL)
 
   # 2. Validate and normalize type
-  type <- rlang::arg_match(type, c("oim", "robust", "opg", "cluster", "boot"))
+  type <- rlang::arg_match(type, c("oim", "robust", "opg", "cluster", "boot", "jack", "jackknife"))
 
   if(type == "cluster" && is.null(cl_var))
     cli::cli_abort("`cl_var` cannot be null with 'cluster' `type`.",
@@ -376,11 +389,14 @@ vcov.mlmodel <- function(object,
 
   # cluster is an alias for robust, since they must provide cl_var
   if (type == "cluster") type <- "robust"
+  
+  # jackknife is an alias for jack
+  if (type %in% c("jack", "jackknife")) type <- "jack"
 
   # 3. Early validation for cl_var
-  if (!is.null(cl_var) && !(type %in% c("robust", "boot")))
+  if (!is.null(cl_var) && !(type %in% c("robust", "boot", "jack")))
     cli::cli_abort(
-      "`cl_var` can only be used when `type` is 'cluster', 'robust' or 'boot'.",
+      "`cl_var` can only be used when `type` is 'cluster', 'robust', 'boot', or 'jack'.",
       call = NULL
     )
 
@@ -434,8 +450,14 @@ vcov.mlmodel <- function(object,
                       cl_var = cl_var,
                       progress = progress,
                       ...))
+  
+  if (type == "jack")
+    return(.vcov_jack(object,
+                      cl_var = cl_var,
+                      progress = progress,
+                      ...))
 
-  # Regular (non-bootstrap) variance types
+  # Regular (non-bootstrap or jackknife) variance types
   H <- object$hessian
   if (is.null(H))
     cli::cli_abort("Hessian is missing from the model object.", call = NULL)
