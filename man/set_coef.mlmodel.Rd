@@ -4,7 +4,7 @@
 \alias{set_coef.mlmodel}
 \title{Implementation of \code{marginaleffects} package's \code{set_coef()} function.}
 \usage{
-set_coef.mlmodel(model, coefs, ...)
+\method{set_coef}{mlmodel}(model, coefs, ...)
 }
 \arguments{
 \item{model}{An \code{mlmodel} estimation object (from one of the package's

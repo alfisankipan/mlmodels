@@ -4,7 +4,7 @@
 \alias{get_predict.mlmodel}
 \title{Implementation of \code{marginaleffects} package's \code{get_predict()} function.}
 \usage{
-get_predict.mlmodel(model, newdata = NULL, type = "response", ...)
+\method{get_predict}{mlmodel}(model, newdata = NULL, type = "response", ...)
 }
 \arguments{
 \item{model}{An \code{mlmodel} estimation object (from one of the package's

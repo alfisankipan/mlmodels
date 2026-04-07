@@ -431,7 +431,7 @@ summary.ml_logit <- function(object,
     }
     
   } else {
-    s$r.squared <- s$adj.r.squared <- s$AIC <- s$BIC <- s$sigma <- s$significance <- NULL
+    s$r.squared <- s$AIC <- s$BIC <- s$sigma <- s$significance <- NULL
   }
   
   if(correlation && converged && usable_vcov)
@@ -497,7 +497,8 @@ print.summary.ml_logit <- function(x, digits = max(3L, getOption("digits") - 3L)
                          "oim" = "Original Information Matrix",
                          "opg" = "Outer Product of Gradients (BHHH)",
                          "robust" = if(is.null(x$vcov.cluster)) "Robust" else "Cluster-Robust",
-                         "boot" = if(is.null(x$vcov.cluster)) "Bootstrapped" else "Cluster Bootstrapped",
+                         "boot" = if(is.null(x$vcov.cluster)) "Bootstrap" else "Cluster Bootstrap",
+                         "jack" = if(is.null(x$vcov.cluster)) "Jackknife" else "Cluster Jackknife",
                          x$vcov.type
     )
   else

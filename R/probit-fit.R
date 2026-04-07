@@ -1,4 +1,4 @@
-#' Fit Binary Logit Model by Maximum Likelihood
+#' Fit Binary Probit Model by Maximum Likelihood
 #'
 #' @param value Two-sided formula for the probability equation.
 #' @param scale Optional one-sided formula for heteroskedasticity.
@@ -29,8 +29,7 @@
 #' `noint_value` instead. For the scale equation (if modeling heteroskedasticity),
 #' the formula must contain only the predictors (right-hand side).
 #'
-#' The dependent variable must be binary (0/1 or TRUE/FALSE) or fractional
-#' (0 <= y <= 1).
+#' The dependent variable must be binary (0/1 or TRUE/FALSE).
 #'
 #' Coefficient names in the fitted object use the prefixes `value::` and
 #' `scale::` (when heteroskedasticity is modeled) to clearly identify which
@@ -43,18 +42,18 @@
 #' You **must** provide initial values that yield a feasible log-likelihood.
 #' If no constraints are used, any supplied `start` is ignored.
 #'
-#' When constraints are used, `ml_logit` automatically chooses `method`:
+#' When constraints are used, `ml_probit` automatically chooses `method`:
 #' - Equality constraints => Nelder-Mead (`"NM"`)
 #' - Inequality constraints => BFGS (`"BFGS"`)
 #'
 #' In these cases your supplied `method` argument (if any) is ignored.
 #'
-#' @return An object of class `ml_logit` that extends `mlmodel`.
+#' @return An object of class `ml_probit` that extends `mlmodel`.
 #'
 #' @author Alfonso Sanchez-Penalver
 #'
 #' @export
-ml_logit <- function(value,
+ml_probit <- function(value,
                      scale = NULL,
                      weights = NULL,
                      data,
@@ -70,20 +69,20 @@ ml_logit <- function(value,
     cli::cli_abort("`value` must be a two-sided formula with an outcome variable on the left-hand side.",
                    call = NULL)
   }
-
+  
   if (!is.null(scale) && !rlang::is_formula(scale, lhs = FALSE)) {
     cli::cli_abort("`scale` must be a one-sided formula (no outcome on the left-hand side).",
                    call = NULL)
   }
-
+  
   cl <- match.call()
-
+  
   # -- 0. Save original data dimensions and create keep vector ------------
   n_orig <- nrow(data)
   keep <- rep(TRUE, n_orig)          # Start with all observations kept
   
   data <- .convert_integers_to_double(data)
-
+  
   # -- 1. Handle subset argument --------------------------------------
   if (!is.null(subset)) {
     if (is.logical(subset) && length(subset) == n_orig) {
@@ -95,17 +94,17 @@ ml_logit <- function(value,
         subset_idx <- as.logical(subset_idx)
       }
     }
-
+    
     if (length(subset_idx) != n_orig) {
       cli::cli_abort("`subset` must have the same length as `data`.", call = NULL)
     }
-
+    
     keep <- keep & subset_idx
   }
-
+  
   # Always store subset in the call (even if NULL)
   cl$subset <- subset
-
+  
   # -- 2. Weights handling ------------------------------------------
   w_expr <- rlang::enquo(weights)
   if (!rlang::quo_is_null(w_expr)) {
@@ -116,79 +115,81 @@ ml_logit <- function(value,
     w_name <- NULL
     wts    <- NULL
   }
-
+  
   # Safety: if user passed a vector, w_name should not be treated as a column
   if (!is.null(w_name) && !w_name %in% names(data)) {
     w_name <- NULL   # it was a direct vector, not a column
   }
-
+  
   # -- 3. Identify usable observations on full data ----------------
   if (is.null(scale)) {
     v_vars <- all.vars(value)
   } else {
     v_vars <- unique(c(all.vars(value), all.vars(scale)))
   }
-
+  
   cols_to_check <- v_vars
   if (!is.null(w_name)) {
     cols_to_check <- unique(c(cols_to_check, w_name))
   }
-
+  
   usable_obs <- complete.cases(data[, cols_to_check, drop = FALSE])
-
+  
   # Extra check if user passed a weights vector directly
   if (!is.null(wts) && is.null(w_name)) {
     usable_obs <- usable_obs & complete.cases(wts)
   }
-
+  
   # Count observations dropped due to missing values *within the subset*
   nas_dropped <- sum(keep & !usable_obs)
   if (nas_dropped > 0) {
     cli::cli_alert_info("Dropped {nas_dropped} observations due to missing values.")
   }
-
+  
   # -- 4. Modify sample = subset and complete cases ----------------
   sample <- keep & usable_obs
-
+  
   # -- 5. Create clean dataset for modeling ----------------------
   data_clean <- data[sample, , drop = FALSE]
   wts_clean <- if (!is.null(wts)) wts[sample] else rep(1, sum(sample))
-
+  
   # Add this safety check:
   if (length(wts_clean) != sum(sample) || any(is.na(wts_clean))) {
     cli::cli_abort("Final weights vector has wrong length or contains NAs.", call = NULL)
   }
-
+  
   # -- 6. Molding ----------------------
   model_value <- hardhat::mold(value,
                                data_clean,
                                blueprint = hardhat::default_formula_blueprint(intercept = !noint_value))
-
+  
   molds <- list(
     value = model_value
   )
-
+  
   y <- as.numeric(model_value$outcomes[[1]])
   
   # -- 7. Validity of outcome variable ------------------
-  # Check range
-  if (any(y < 0 | y > 1)) {
-    cli::cli_abort("Outcome variable must be in the [0, 1] interval.", call = NULL)
+  # Check binary
+  if (any(y != 0 & y != 1)) {
+    cli::cli_abort(c(
+      "Probit models require a strictly binary outcome (only 0s and 1s).",
+      "i" = "The outcome variable contains values different from 0 and 1.",
+      "i" = "For fractional responses, please use {.fn ml_logit} instead."
+    ), call = NULL)
   }
-  # Check if it's purely binary
-  is_binary <- all(y %in% c(0, 1))
   
   x <- as.matrix(model_value$predictors)
-
+  
   if(!is.null(scale))
   {
     # Remember Scale has no intercept.
     model_scale <- hardhat::mold(scale,
                                  data_clean,
                                  blueprint = hardhat::default_formula_blueprint(intercept = FALSE))
-
+    
     molds$scale <- model_scale
-
+    
     z <- as.matrix(model_scale$predictors)
   }
   else
@@ -208,7 +209,7 @@ ml_logit <- function(value,
   default_BFGS <- list(reltol = 1e-8)
   default_NM <- list(reltol = 1e-8,
                      iterlim = 1000)
-
+  
   # Set control list if user did not provide one
   if (!is.null(constraints)) {
     if (is.null(start))
@@ -253,9 +254,9 @@ ml_logit <- function(value,
       }
     }
   }
-
+  
   # -- 10. Fitting the model with maxLik ----------------------
-  ml <- .ml_logit.fit(y = y,
+  ml <- .ml_probit.fit(y = y,
                       x = x,
                       z = z,
                       w = wts_clean,
@@ -264,18 +265,18 @@ ml_logit <- function(value,
                       method = method,
                       control = control,
                       ...)
-
+  
   # -- 11. Forming the dataset name ------------------------------
   # Safely get a readable name for the dataset (for printing/storage)
   d_name <- tryCatch(
     deparse(substitute(data)),
     error = function(e) "<unknown data>"
   )
-
+  
   if (length(d_name) > 1 || d_name == "NULL" || grepl("^\\s*\\(", d_name)) {
     d_name <- "<unknown data>"
   }
-
+  
   # -- 12. Internal safety check(s) (for development/testing) --------
   # They should be the same value, since we never indexed sample (that i can remember),
   # so if we get an alert, we must check the code.
@@ -284,19 +285,19 @@ ml_logit <- function(value,
       "Internal error: length of 'sample' ({length(sample)}) does not match n_orig ({n_orig})."
     )
   }
-
+  
   # -- 13. Forming the model list ------------------------------------
-
+  
   # -- 13.a. The functions list --------------------------------------
-
+  
   functions <- list(
-    predict        = predict.ml_logit,
-    hessianObs     = .ml_logit_hessianObs,
-    update         = update.ml_logit,
-    loglik         = .ml_logit_ll,
-    fit            = .ml_logit.fit
+    # predict        = predict.ml_probit,
+    # hessianObs     = .ml_probit_hessianObs,
+    # update         = update.ml_probit,
+    loglik         = .ml_probit_ll,
+    fit            = .ml_probit.fit
   )
-
+  
   # -- 13.b. The model_list list --------------------------------------
   model_list <- list(
     value         = model_value,
@@ -319,10 +320,9 @@ ml_logit <- function(value,
     control       = control,
     constraints   = parsed_constraints,
     start         = start,
-    method        = method,
-    is_binary     = is_binary
+    method        = method
   )
-
+  
   if (!(ml$code %in% c(0, 1, 2, 8))) {
     cli::cli_alert_warning(
       "Estimation did not converge (code {.strong {ml$code}}).\nMessage: {ml$message}"
@@ -335,7 +335,7 @@ ml_logit <- function(value,
     ml$model <- model_list
     return(ml)
   }
-
+  
   # Converged: compute fitted (easy calculation of pseudo R-squared)]
   cfs <- coef(ml)
   beta <- cfs[1:ncol(x)]
@@ -347,30 +347,30 @@ ml_logit <- function(value,
   }
   else
     sig <- 1
-  model_list$fitted.values <- as.vector(1 / (1 + exp(- xb / sig)))
+  model_list$fitted.values <- as.vector(pnorm(xb / sig))
   model_list$residuals <- y - model_list$fitted.values
-
+  
   # -- 14. Add the model to the maxLik object ----------------------
   ml$model <- model_list
   ml$call <- cl
-
+  
   # -- 15. Call the function to create tge class and return  ----------
-  new_ml_logit(ml)
+  new_ml_probit(ml)
 }
 
 # Hidden function to create the class and return the object.
-new_ml_logit <- function(object, ...) {
+new_ml_probit <- function(object, ...) {
   # object is the result from maxLik::maxLik()
   structure(
     object,
-    class = unique(c("ml_logit", "mlmodel", class(object)))
+    class = unique(c("ml_probit", "mlmodel", class(object)))
   )
 }
 
 #' Stripped down function to estimate a binary logit model.
 #'
 #' @keywords internal
-.ml_logit.fit <- function(y, x, z = NULL, w = NULL,
+.ml_probit.fit <- function(y, x, z = NULL, w = NULL,
                           constraints = NULL,
                           start = NULL,
                           method = NULL,
@@ -382,7 +382,7 @@ new_ml_logit <- function(object, ...) {
   # Starting values
   if (!is.null(start)) {
     # User provided start (required when constraints are used)
-    ll <- .ml_logit_ll(start, y = y, x = x, z = z, w = w)
+    ll <- .ml_probit_ll(start, y = y, x = x, z = z, w = w)
     if (any(!is.finite(ll)))
       cli::cli_abort("Infeasible log-likelihood value at supplied `start` vector.",
                      call = NULL)
@@ -411,7 +411,7 @@ new_ml_logit <- function(object, ...) {
       # Heteroskedastic case
       if (has_constant) {
         xb_init <- rep(b0[1], n)
-        resid2 <- (y - plogis(xb_init))^2 + 1e-8
+        resid2 <- (y - pnorm(xb_init))^2 + 1e-8
       } else {
         resid2 <- fit_beta$residuals^2 + 1e-8
       }
@@ -423,12 +423,12 @@ new_ml_logit <- function(object, ...) {
       # Homoskedastic case
       start_values <- b0
     }
-    start <- .initial_values.mlmodel(.ml_logit_ll, start_values,
-                                       y = y, x = x, z = z, w = w)
+    start <- .initial_values.mlmodel(.ml_probit_ll, start_values,
+                                     y = y, x = x, z = z, w = w)
   }
   
   # Final estimation
-  maxLik::maxLik(.ml_logit_ll,
+  maxLik::maxLik(.ml_probit_ll,
                  start = start,
                  y = y,
                  x = x,

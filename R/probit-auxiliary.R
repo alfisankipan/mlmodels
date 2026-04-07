@@ -9,16 +9,17 @@
     xb <- as.vector(x %*% cbind(b))
     py <- pnorm(xb)
     pn <- pnorm(-xb)
+    den <- dnorm(xb)
     
     # Weighted log-likelihood
     ll <- ((1-y) * pnorm(-xb, log.p = TRUE) + y * pnorm(xb, log.p = TRUE)) * w
     
     # Gradient
-    g <- w * as.vector(y * dnorm(xb) / py - (1 - y) * dnorm(xb) / pn) * x
+    g <- as.vector(w * (y * den / py - (1 - y) * den / pn)) * x
     
     # Hessian
-    scalar <- w * ((1 - y) * dnorm(xb) / pn * (xb - dnorm(xb) / pn) -
-            y * dnorm(xb) / py * (xb + dnorm(xb) / py))
+    scalar <- as.vector(w * ((1 - y) * den / pn * (xb - den / pn) -
+                               y * den / py * (xb + den / py)))
     
     H   <- crossprod(x * scalar, x)
   } else {
