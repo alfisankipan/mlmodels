@@ -579,7 +579,8 @@ print.waldtest.mlmodel <- function(x, digits = 3, ...)
                          "oim" = "Original Information Matrix",
                          "opg" = "Outer Product of Gradients (BHHH)",
                          "robust" = if(is.null(x$vcov.cluster)) "Robust" else "Cluster-Robust",
-                         "boot" = if(is.null(x$vcov.cluster)) "Bootstrapped" else "Cluster Bootstrapped",
+                         "boot" = if(is.null(x$vcov.cluster)) "Bootstrap" else "Cluster Bootstrap",
+                         "jack" = if(is.null(x$vcov.cluster)) "Jackknife" else "Cluster Jackknife",
                          x$vcov.type
     )
   else
