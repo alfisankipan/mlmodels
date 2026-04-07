@@ -594,7 +594,7 @@ print.summary.ml_logit <- function(x, digits = max(3L, getOption("digits") - 3L)
 #' weighted bootstrap use our own `vcov(..., type = "boot")` instead.
 #' 
 #' **Note on sandwich::vcovBS()**: This function does not work reliably with 
-#' `ml_lm` objects, even in simple homoskedastic cases.  We, therefore, built
+#' `ml_logit` objects, even in simple homoskedastic cases.  We, therefore, built
 #' our own bootstrap implementation. We strongly recommend using
 #' `vcov(object, type = "boot")` instead.
 #'
