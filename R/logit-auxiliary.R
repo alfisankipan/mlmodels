@@ -223,15 +223,16 @@
       
       w_boot <- w[boot_idx]
       
-      # Fit on bootstrap sample using internal fit function
-      updated <- .ml_logit.fit(y = y_boot,
-                               x = x_boot,
-                               z = z_boot,
-                               w = w_boot,
-                               constraints = object$model$constraints$maxLik,
-                               start       = object$model$start,
-                               method      = object$model$method,
-                               control     = object$model$control)
+      suppressMessages({
+        updated <- .ml_logit.fit(y = y_boot,
+                                 x = x_boot,
+                                 z = z_boot,
+                                 w = w_boot,
+                                 constraints = object$model$constraints$maxLik,
+                                 start       = object$model$start,
+                                 method      = object$model$method,
+                                 control     = object$model$control)
+      })
       
       if (updated$code %in% c(0L, 1L, 2L, 8L)) {
         coef_matrix[i, ] <- coef(updated)
@@ -280,7 +281,7 @@
                                 ...)
 {
   if(!inherits(object, "ml_logit"))
-    cli::cli_abort("`object` needs to be of class 'ml_lm'.")
+    cli::cli_abort("`object` needs to be of class 'ml_logit'.")
   
   if (is.null(object$model$value$outcomes) ||
       is.null(object$model$value$predictors))
@@ -355,14 +356,16 @@
         w_jack <- w[-i]
       }
       
-      updated <- .ml_logit.fit(y = y_jack,
-                               x = x_jack,
-                               z = z_jack,
-                               w = w_jack,
-                               constraints = object$model$constraints$maxLik,
-                               start       = object$model$start,
-                               method      = object$model$method,
-                               control     = object$model$control)
+      suppressMessages({
+        updated <- .ml_logit.fit(y = y_jack,
+                                 x = x_jack,
+                                 z = z_jack,
+                                 w = w_jack,
+                                 constraints = object$model$constraints$maxLik,
+                                 start       = object$model$start,
+                                 method      = object$model$method,
+                                 control     = object$model$control)
+      })
       
       if (updated$code %in% c(0L, 1L, 2L, 8L)) {
         if (progress) cat(cli::col_green("."))

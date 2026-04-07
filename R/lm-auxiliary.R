@@ -243,15 +243,17 @@
       z_boot <- z[boot_idx, , drop = FALSE]
       w_boot <- w[boot_idx]
       
-      updated <- .ml_lm.fit(y = y_boot,
-                            x = x_boot,
-                            z = z_boot,
-                            w = w_boot,
-                            lognormal = object$model$log_info$value$is_log,
-                            constraints = object$model$constraints$maxLik,
-                            start       = object$model$start,
-                            method      = object$model$method,
-                            control     = object$model$control)
+      suppressMessages({
+        updated <- .ml_lm.fit(y = y_boot,
+                              x = x_boot,
+                              z = z_boot,
+                              w = w_boot,
+                              lognormal = object$model$log_info$value$is_log,
+                              constraints = object$model$constraints$maxLik,
+                              start       = object$model$start,
+                              method      = object$model$method,
+                              control     = object$model$control)
+      })
       
       if (updated$code %in% c(0L, 1L, 2L, 8L)) {
         if (progress) cat(cli::col_green("."))
@@ -366,15 +368,17 @@
         w_jack <- w[-i]
       }
       
-      updated <- .ml_lm.fit(y = y_jack,
-                            x = x_jack,
-                            z = z_jack,
-                            w = w_jack,
-                            lognormal = object$model$log_info$value$is_log,
-                            constraints = object$model$constraints$maxLik,
-                            start       = object$model$start,
-                            method      = object$model$method,
-                            control     = object$model$control)
+      suppressMessages({
+        updated <- .ml_lm.fit(y = y_jack,
+                              x = x_jack,
+                              z = z_jack,
+                              w = w_jack,
+                              lognormal = object$model$log_info$value$is_log,
+                              constraints = object$model$constraints$maxLik,
+                              start       = object$model$start,
+                              method      = object$model$method,
+                              control     = object$model$control)
+      })
       
       if (updated$code %in% c(0L, 1L, 2L, 8L)) {
         if (progress) cat(cli::col_green("."))
