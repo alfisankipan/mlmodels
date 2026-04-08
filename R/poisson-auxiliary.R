@@ -29,6 +29,14 @@
 }
 
 ## ML EVALUATOR ==============================================================
+# Initial values for Poisson
+# m <- log(y + 0.1)
+# ols <- .lm.fit(x, m)
+# b0 <- ols$coefficients
+# 
+# # Add names for clarity in your summary output later
+# names(b0) <- paste0("value::", colnames(x))
+
 #' @keywords internal
 .ml_poisson_ll <- function(b, y, x, w = NULL)
 {
