@@ -42,35 +42,37 @@
   
   # For each observation we form the hessian and we add it as a new row on an
   # overall matrix to return.
-  H <- NULL
-  for(i in 1:nrow(x))
+  H_list <- vector("list", length(y))
+  
+  s_bb <- as.vector(- w * s^(-2))
+  s_bd <- as.vector(- 2 * w * (u / s^2))
+  s_dd <- as.vector(- 2 * w * (u / s)^2)
+  
+  for(i in seq_len(nrow(x)))
   {
     # Extracting the elements for the observation we need.
     xi <- cbind(x[i, ])
     zi <- cbind(z[i, ])
-    si <- s[i]
-    ui <- u[i]
-    wi <- w[i]
     
     # Second partial with respect both times to beta.
-    hbb <- - wi * si^(-2) * tcrossprod(xi)
+    hbb <- s_bb[i] * tcrossprod(xi)
     
     # Second partial first with respect to beta and then to s
-    hbs <- -2 * wi * (ui / si^2) * tcrossprod(xi,zi)
+    hbs <- s_bd[i] * tcrossprod(xi,zi)
     
     # Transpose that.
     hsb <- t(hbs)
     
     # Second partial with respect both times to lnsigma.
-    hss <- -2 * wi * (ui / si)^2 * tcrossprod(zi)
+    hss <- s_dd[i] * tcrossprod(zi)
     
     # Form the observation's Hessian
-    h <- rbind(cbind(hbb, hbs),
-               cbind(hsb, hss))
-    # Add it to the final Hessian.
-    H <- rbind(H, h)
+    H_list[[i]] <- rbind(cbind(hbb, hbs),
+                         cbind(hsb, hss))
   }
-  return(H)
+  
+  # Stack all individual Hessians
+  do.call(rbind, H_list)
 }
 
 ## ML EVALUATOR ================================================================

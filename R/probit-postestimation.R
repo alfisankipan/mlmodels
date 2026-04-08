@@ -1,3 +1,261 @@
+## PREDICT =====================================================================
+#' Predictions for ml_probit models
+#'
+#' @details
+#' ### ml_probit prediction types
+#' 
+#' The `type` argument controls what quantity is returned. Behavior differs
+#' depending on whether the model is homoskedastic or heteroskedastic.
+#'
+#'
+#' | Type          | Homoskedastic case                  | Heteroskedastic case                     | Notes |
+#' |---------------|-------------------------------------|------------------------------------------|-------|
+#' | `"xb"`        | Linear predictor xb                 | Linear predictor xb                      | Linear predictor for value |
+#' | `"response"`  | P(y=1 \| x)                         | P(y=1 \| x)                              | Prob. of success (default) |
+#' | `"prob"`      | Alias for `"response"`              | Alias for `"response"`                   | - |
+#' | `"fitted"`    | Alias for `"response"`              | Alias for `"response"`                   | - |
+#' | `"prob0"`     | P(y=0 \| x)                         | P(y=0 \| x)                              | Prob. of failure |
+#' | `"link"`      | Linear predictor xb                 | xb / exp(z'delta)                        | Probit index |
+#' | `"odds"`      | Odds = prob / prob0                 | Odds = prob / prob0.                     | - |
+#' | `"sigma"`     | 1 (constant)                        | Std. Deviation: exp(z'delta)             | Only available if heteroskedastic |
+#' | `"variance"`  | 1 (constant)                        | Variance: exp(2*z'delta)                 | Only available if heteroskedastic |
+#' | `"zd"`        | 0 (constant)                        | z'delta                                  | Linear predictor for scale |
+#'
+#' In binary probit models, the **overall scale** of the latent error term is 
+#' not identified and is normalized to 1. In the homoskedastic case there is 
+#' no scale equation, so sigma is fixed at 1. In the heteroskedastic case, 
+#' the scale equation has no intercept. Therefore, the predicted `"sigma"` 
+#' and `"variance"` represent **individual-level deviations** from the 
+#' normalized overall scale, not the absolute standard deviation or variance.
+#' 
+#' The `"link"` type returns the value on the **probit scale**, which is the
+#' inverse of the standard normal cumulative distribution function
+#' (p = Phi^(-1)(p)). This is the linear prediction (p = xb) ih homoskedastic models,
+#' and the standardized linear predictor (p = xb / sigma) in heteroskedastic models.
+#'
+#' When `se.fit = TRUE`, standard errors are computed using the delta method.
+#' Standard errors are not available (and will return `NA`) for `"sigma"`,
+#' `"variance"`, and `"zd"` in homoskedastic models.
+#' 
+#' @author Alfonso Sanchez-Penalver
+#'
+#' @rdname predict.mlmodel
+#' @export
+predict.ml_probit <- function(object,
+                             newdata = NULL,
+                             type = "response",
+                             se.fit = FALSE,
+                             vcov = NULL,
+                             vcov.type = "oim",
+                             cl_var = NULL,
+                             repetitions = 999,
+                             seed = NULL,
+                             progress = FALSE,
+                             ...)
+{
+  if (!inherits(object, "ml_probit"))
+    cli::cli_abort("`object` must be of class 'ml_probit'.")
+  
+  # Match type argument
+  type <- rlang::arg_match(type, c("response", "prob", "prob0", "link", "odds", "fitted",
+                                   "sigma", "variance", "zd", "xb"))
+  
+  is_heteroskedastic <- !is.null(object$model$scale)
+  
+  # ── Prepare predictors using hardhat ─────────────────────────────
+  if (is.null(newdata)) {
+    val_predictors <- object$model$value$predictors
+    scale_predictors <- if (is_heteroskedastic)
+      object$model$scale$predictors
+    else
+      matrix(1, nrow = nrow(val_predictors), ncol = 1)
+    sample_idx <- object$model$sample
+    n_orig <- length(sample_idx)
+  } else {
+    # Forge newdata using the original blueprint
+    val_bp <- object$model$value$blueprint
+    forged <- hardhat::forge(newdata, blueprint = val_bp, outcomes = FALSE)
+    val_predictors <- forged$predictors
+    
+    if (is_heteroskedastic) {
+      scale_bp <- object$model$scale$blueprint
+      scale_forged <- hardhat::forge(newdata, blueprint = scale_bp, outcomes = FALSE)
+      scale_predictors <- scale_forged$predictors
+    } else {
+      scale_predictors <- matrix(1, nrow = nrow(val_predictors), ncol = 1)
+    }
+    sample_idx <- NULL
+    n_orig <- nrow(val_predictors)
+  }
+  
+  n_obs <- nrow(val_predictors)
+  X <- as.matrix(val_predictors)
+  Z <- if (is_heteroskedastic) as.matrix(scale_predictors) else NULL
+  
+  # Extract coefficients
+  cfs <- coef(object)
+  beta <- cfs[1:ncol(X)]
+  delta <- if (is_heteroskedastic) cfs[(ncol(X)+1):length(cfs)] else NULL
+  
+  # ── Compute the requested type ─────────────────────────────────────
+  xb <- as.vector(X %*% beta)
+  
+  if (is_heteroskedastic) {
+    zd    <- as.vector(Z %*% delta)
+    sigma <- exp(zd)
+  } else {
+    zd    <- rep(0, n_obs)
+    sigma <- rep(1, n_obs)
+  }
+  
+  p1 <- pnorm(xb / sigma)
+  p0 <- pnorm(- xb /sigma)
+  den <- dnorm(xb / sigma)
+  
+  # Compute the requested prediction type
+  out <- switch(type,
+                "xb"       = xb,
+                "link"     = xb / sigma,
+                "odds"     = p1 / p0,
+                "response" = ,
+                "prob"     = ,
+                "fitted"   = p1,
+                "prob0"    = p0,
+                "sigma"    = sigma,
+                "variance" = sigma^2,
+                "zd"       = zd,
+                cli::cli_abort("Unknown prediction type '{type}'.", call = NULL)
+  )
+  
+  # Align in-sample predictions if needed
+  if (is.null(newdata) && any(!sample_idx)) {
+    full_out <- rep(NA_real_, n_orig)
+    full_out[sample_idx] <- out
+    out <- full_out
+  }
+  
+  if (!se.fit) return(out)
+  # ── Standard errors (delta method) ─────────────────────────────────────
+  se_fit <- NULL
+  # Common dimensions
+  n_obs   <- length(xb)
+  n_beta  <- length(beta)
+  # No n_delta because in homoskedastic case it doesn't exist.
+  if (!is_heteroskedastic) {
+    if(type %in% c("sigma", "variance", "zd"))
+    {
+      cli::cli_warn(
+        "Standard errors are not available for prediction type '{type}' in homoskedastic models.",
+        call = NULL
+      )
+      se_fit <- rep(NA_real_, n_obs)
+    }
+    else
+    {
+      # Homoskedastic: no delta. Only X dimension to the matrix.
+      g_link <- X
+      g_odds <- as.vector(den / p0^2) * X
+      g_response <- den * X
+      g <- switch(type,
+                  "xb"       = ,
+                  "link"     = g_link,
+                  "odds"     = g_odds,
+                  "response" = ,
+                  "prob"     = ,
+                  "fitted"   = g_response,
+                  "prob0"    = - g_response,
+                  matrix(0, n_obs, n_beta)
+      )
+    }
+  } else {
+    # Heteroskedastic
+    n_delta <- length(delta)
+    # Now the functions with respect to both set of parameters
+    g_xb_beta <- X
+    g_xb_delta <- matrix(0, nrow = n_obs, ncol = n_delta)
+    g_link_beta <- X / sigma
+    g_link_delta <- as.vector(- xb / sigma) * Z
+    g_odds_beta <- as.vector(den / p0^2) * X / sigma
+    g_odds_delta <- as.vector(- den / p0^2 * xb /sigma) * Z
+    g_response_beta <- as.vector(den / sigma) * X
+    g_response_delta <- as.vector(- den * xb / sigma) * Z
+    g_sigma_beta <- matrix(0, nrow = n_obs, ncol = n_beta)
+    g_sigma_delta <- sigma * Z
+    g_variance_beta <- matrix(0, nrow = n_obs, ncol = n_beta)
+    g_variance_delta <- 2 * sigma^2 * Z
+    g_zd_beta <- matrix(0, nrow = n_obs, ncol = n_beta)
+    g_zd_delta <- Z
+    
+    g <- switch(type,
+                "xb"       = cbind(g_xb_beta,
+                                   g_xb_delta),
+                "link"     = cbind(g_link_beta,
+                                   g_link_delta),
+                "odds"     = cbind(g_odds_beta,
+                                   g_odds_delta),
+                "response" = ,
+                "prob"     = ,
+                "fitted"   = cbind(g_response_beta,
+                                   g_response_delta),
+                "prob0"    = - cbind(g_response_beta,
+                                     g_response_delta),
+                "sigma"    = cbind(g_sigma_beta,
+                                   g_sigma_delta),
+                "variance" = cbind(g_variance_beta,
+                                   g_variance_delta),
+                "zd"       = cbind(g_zd_beta,
+                                   g_zd_delta),
+                matrix(0, n_obs, n_beta + n_delta)
+    )
+  }
+  
+  full_vcov <- .process_vcov(object,
+                             vcov = vcov,
+                             vcov.type = vcov.type,
+                             cl_var = cl_var,
+                             repetitions = repetitions,
+                             seed = seed,
+                             progress = progress)
+  
+  # ── Check for unusable variance matrix ─────────────────────────────
+  if (any(!is.finite(full_vcov)) || any(is.na(full_vcov))) {
+    cli::cli_warn(
+      c("Variance matrix is unusable (contains NAs or non-finite values).",
+        "i" = "This usually happens with bootstrap when constraints are present.",
+        "i" = "Standard errors will be returned as NA.")
+    )
+    se_fit <- rep(NA_real_, length(out))
+  } 
+  
+  # We may have se_fit being NA from this final check and the one we did in the
+  # homoskedastic case for sigma, zd, and variance types.
+  if(is.null(se_fit))
+    se_fit <- sqrt(rowSums(g * (g %*% full_vcov)))
+  
+  # Align in-sample SEs
+  if (is.null(newdata) && any(!sample_idx)) {
+    full_se <- rep(NA_real_, n_orig)
+    full_se[sample_idx] <- se_fit
+    se_fit <- full_se
+  }
+  list(fit = out, se.fit = se_fit)
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 ## PRINT SUMMARY ===============================================================
 #' @export
 print.summary.ml_probit <- function(x, digits = max(3L, getOption("digits") - 3L), ...)

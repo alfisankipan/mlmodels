@@ -21,12 +21,14 @@
   {
     # -- 2. Homoskedastic case -------------------------------------------------
     xb <- as.vector(x %*% cbind(beta))
-    py <- exp(xb) / (1 + exp(xb))
-
-    for (i in seq_along(y)) {
-      pyi <- py[i]
+    py <- plogis(xb)
+    pn <- 1 - py
+    
+    s <- as.vector(-w * py * pn)
+      
+    for (i in seq_len(nrow(x))) {
       xi  <- cbind(x[i, ])
-      H_list[[i]] <- -w[i] * pyi * (1 - pyi) * tcrossprod(xi)
+      H_list[[i]] <- s[i] * tcrossprod(xi)
     }
   }
   else
@@ -39,18 +41,20 @@
     zg <- as.vector(z %*% cbind(delta))
     xz <- x / exp(zg)
     xb <- as.vector(xz %*% cbind(beta))
-    py <- exp(xb) / (1 + exp(xb))
-
-    for (i in seq_along(y)) {
-      pyi <- py[i]
-      xbi <- xb[i]
+    py <- plogis(xb)
+    pn <- 1 - py
+    
+    s_bb <- as.vector(-w * py * pn)
+    s_bd <- as.vector(w * (py * pn * xb - (y - py)))
+    s_dd <- as.vector(w * ((y - py) * xb - py * pn * xb^2))
+    
+    for (i in seq_len(nrow(x))) {
       xzi <- cbind(xz[i, ])
       zi  <- cbind(z[i, ])
-      wi  <- w[i]
 
-      hbb <- -wi * pyi * (1 - pyi) * tcrossprod(xzi)
-      hbd <- wi * (pyi * (1 - pyi) * xbi - (y[i] - pyi)) * tcrossprod(xzi, zi)
-      hdd <- wi * ((y[i] - pyi) * xbi - pyi * (1 - pyi) * xbi^2) * tcrossprod(zi)
+      hbb <- s_bb[i] * tcrossprod(xzi)
+      hbd <- s_bd[i] * tcrossprod(xzi, zi)
+      hdd <- s_dd[i] * tcrossprod(zi)
 
       H_list[[i]] <- rbind(cbind(hbb, hbd),
                            cbind(t(hbd), hdd))
@@ -300,7 +304,7 @@
     z <- NULL
   n_obs <- nrow(x)
   if(is.null(object$model$weights))
-    w <- rep(1,n)
+    w <- rep(1,n_obs)
   else
     w <- object$model$weights
   

@@ -217,17 +217,17 @@ nobs.mlmodel <- function(object, ...) {
 `%||%` <- rlang::`%||%`
 
 ## PREDICT GENERIC =============================================================
-#' Predictions from mlmodel objects
+#' Predictions from mlmodel models
 #'
 #' Generic method for computing predictions from models fitted with the
 #' `mlmodels` package.
-#'
-#' @param object A fitted `ml_lm` object.
+#' 
+#' @param object An object from an estimation with one of our models.
 #' @param newdata Optional data frame for out-of-sample predictions.
 #' @param type Character string indicating what to predict. See **Details**.
 #' @param se.fit Logical. If `TRUE`, also return standard errors (delta method).
 #' @param vcov Optional user-supplied variance-covariance matrix.
-#' @param vcov.type Type of variance-covariance matrix. See [vcov.mlmodel()].
+#' @param vcov.type Type of variance-covariance matrix. See [vcov][vcov.mlmodel].
 #' @param cl_var Clustering variable (name or vector).
 #' @param repetitions Number of bootstrap replications when `vcov.type = "boot"`.
 #' @param seed Random seed for reproducibility.

@@ -10,12 +10,13 @@
 #'
 #' | Type          | Homoskedastic case                  | Heteroskedastic case                     | Notes |
 #' |---------------|-------------------------------------|------------------------------------------|-------|
+#' | `"xb"`        | Linear predictor xb                 | Linear predictor xb                      | Linear predictor for value |
 #' | `"response"`  | P(y=1 \| x)                         | P(y=1 \| x)                              | Prob. of success (default) |
 #' | `"prob"`      | Alias for `"response"`              | Alias for `"response"`                   | - |
 #' | `"fitted"`    | Alias for `"response"`              | Alias for `"response"`                   | - |
 #' | `"prob0"`     | P(y=0 \| x)                         | P(y=0 \| x)                              | Prob. of failure |
-#' | `"link"`      | Linear predictor xb                 | Linear predictor xb                      | Logit scale |
-#' | `"odds"`      | Odds = exp(xb)                      | Odds = exp(xb)                           | - |
+#' | `"link"`      | Linear predictor xb                 | xb / exp(z'delta)                        | Log-odds |
+#' | `"odds"`      | Odds = exp(xb)                      | Odds = exp(xb / exp(z'delta))            | - |
 #' | `"sigma"`     | 1 (constant)                        | Std. Deviation: exp(z'delta)             | Only available if heteroskedastic |
 #' | `"variance"`  | 1 (constant)                        | Variance: exp(2*z'delta)                 | Only available if heteroskedastic |
 #' | `"zd"`        | 0 (constant)                        | z'delta                                  | Linear predictor for scale |
@@ -52,7 +53,7 @@ predict.ml_logit <- function(object,
   
   # Match type argument
   type <- rlang::arg_match(type, c("response", "prob", "prob0", "link", "odds", "fitted",
-                             "sigma", "variance", "zd"))
+                             "sigma", "variance", "zd", "xb"))
   
   is_heteroskedastic <- !is.null(object$model$scale)
   
@@ -102,13 +103,14 @@ predict.ml_logit <- function(object,
     sigma <- rep(1, n_obs)
   }
   
-  p1 <- as.vector(1 / (1 + exp(-xb / sigma)))
-  p0 <- as.vector(1 / (1 + exp(xb / sigma)))
+  p1 <- plogis(xb / sigma)
+  p0 <- 1 - p1
   
   # Compute the requested prediction type
   out <- switch(type,
-                "link"     = xb,
-                "odds"     = exp(xb),
+                "xb"       = xb,
+                "link"     = xb / sigma,
+                "odds"     = exp(xb / sigma),
                 "response" = ,
                 "prob"     = ,
                 "fitted"   = p1,
@@ -149,6 +151,7 @@ predict.ml_logit <- function(object,
       g_odds <- exp(xb) * X
       g_response <- p1 * p0 * X
       g <- switch(type,
+                  "xb"       = ,
                   "link"     = g_link,
                   "odds"     = g_odds,
                   "response" = ,
@@ -162,10 +165,12 @@ predict.ml_logit <- function(object,
     # Heteroskedastic
     n_delta <- length(delta)
     # Now the functions with respect to both set of parameters
-    g_link_beta <- X
-    g_link_delta <- matrix(0, nrow = n_obs, ncol = n_delta)
-    g_odds_beta <- exp(xb) * X
-    g_odds_delta <- matrix(0, nrow = n_obs, ncol = n_delta)
+    g_xb_beta <- X
+    g_xb_delta <- matrix(0, nrow = n_obs, ncol = n_delta)
+    g_link_beta <- X / sigma
+    g_link_delta <- as.vector(- xb / sigma) * Z
+    g_odds_beta <- as.vector(exp(xb / sigma) / sigma) * X
+    g_odds_delta <- as.vector(- exp(xb / sigma) * xb / sigma) * Z
     g_response_beta <- sigma^(-1) * p1 * p0 * X
     g_response_delta <- - p1 * p0 * xb / sigma * Z
     g_sigma_beta <- matrix(0, nrow = n_obs, ncol = n_beta)
@@ -176,6 +181,8 @@ predict.ml_logit <- function(object,
     g_zd_delta <- Z
     
     g <- switch(type,
+                  "xb"       = cbind(g_xb_beta,
+                                     g_xb_delta),
                   "link"     = cbind(g_link_beta,
                                      g_link_delta),
                   "odds"     = cbind(g_odds_beta,

@@ -1,3 +1,78 @@
+## HESSIANS ====================================================================
+.ml_probit_hessianObs <- function(object)
+{
+  if (!inherits(object, "ml_probit"))
+    cli::cli_abort("`object` must be a model of class 'ml_probit' (from ml_probit).",
+                   call = NULL)
+  
+  # -- 1. Common elements for both hetero and homo -----------------------------
+  b <- coef(object)
+  y <- object$model$value$outcomes[[1]]
+  x <- as.matrix(object$model$value$predictors)
+  w <- object$model$weights %||% rep(1, length(y))   # default to 1 if NULL
+  
+  k1   <- ncol(x)
+  beta <- b[1:k1]
+  
+  # Pre-allocate list to collect individual Hessians
+  H_list <- vector("list", length(y))
+  
+  if (is.null(object$model$scale))
+  {
+    # -- 2. Homoskedastic case -------------------------------------------------
+    xb <- as.vector(x %*% cbind(beta))
+    py <- pnorm(xb)
+    pn <- pnorm(-xb)
+    den <- dnorm(xb)
+    
+    s <- as.vector(w * ((1 - y) * den / pn * (xb - den / pn) -
+                          y * den / py * (xb + den / py)))
+    
+    for (i in seq_len(nrow(x))) {
+      xi  <- cbind(x[i, ])
+      H_list[[i]] <- s[i] * tcrossprod(xi)
+    }
+  }
+  else
+  {
+    # -- 3. Heteroskedastic case -----------------------------------------------
+    z     <- as.matrix(object$model$scale$predictors)
+    k     <- k1 + ncol(z)
+    delta <- b[(k1+1):k]
+    
+    zd <- as.vector(z %*% cbind(delta))
+    xz <- x / exp(zd)
+    xb <- as.vector(xz %*% cbind(beta)) # <- this is actually xb / sigma.
+    py <- pnorm(xb)
+    pn <- pnorm(-xb)
+    den <- dnorm(xb)
+    
+    s_bb <- as.vector(w * ((1 - y) * den / pn * (xb - den / pn) -
+                             y * den / py * (xb + den / py)))
+    
+    s_bd <- as.vector(w * (y * den / py * (xb * (xb + den / py) - 1) -
+                             (1 - y) * den / pn * (xb * (xb - den / pn) - 1)))
+    
+    s_dd <- as.vector(w * xb^2 * ((1 - y) * den / pn * (xb - den / pn - 1) -
+                                    y * den / py * (xb + den / py - 1)))
+    
+    for (i in seq_len(nrow(x))) {
+      xzi <- cbind(xz[i, ])
+      zi  <- cbind(z[i, ])
+      
+      hbb <- s_bb[i] * tcrossprod(xzi)
+      hbd <- s_bd[i] * tcrossprod(xzi, zi)
+      hdd <- s_dd[i] * tcrossprod(zi)
+      
+      H_list[[i]] <- rbind(cbind(hbb, hbd),
+                           cbind(t(hbd), hdd))
+    }
+  }
+  
+  # Stack all individual Hessians
+  do.call(rbind, H_list)
+}
+
 ## ML EVALUATOR ==============================================================
 #' @keywords internal
 .ml_probit_ll <- function(b, y, x, z = NULL, w = NULL)
@@ -32,12 +107,16 @@
     zd <- as.vector(z %*% cbind(delta))
     xz <- x / exp(zd)
     xb <- as.vector(xz %*% cbind(beta)) # <- this is actually xb / sigma.
-    py <- pnorm(xb)
-    pn <- pnorm(-xb)
-    den <- dnorm(xb)
+    
+    # Clamp the linear predictor to avoid numerical overflow
+    eta <- pmin(pmax(xb, -30), 30)
+    
+    py  <- pnorm(eta)
+    pn  <- pnorm(-eta)
+    den <- dnorm(eta)
     
     # Weighted log-likelihood
-    ll <- ((1-y) * pnorm(-xb, log.p = TRUE) + y * pnorm(xb, log.p = TRUE)) * w
+    ll <- w * (y * log(py) + (1 - y) * log(pn))
     
     # Gradient
     gb <- w * as.vector(y * den / py - (1 - y) * den / pn) * xz
@@ -69,21 +148,6 @@
   
   return(ll)
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 ## VCOV HELPERS ================================================================
 # --- 1. vcov_boot -------------------------------------------------------------
@@ -263,7 +327,7 @@
     z <- NULL
   n_obs <- nrow(x)
   if(is.null(object$model$weights))
-    w <- rep(1,n)
+    w <- rep(1,n_obs)
   else
     w <- object$model$weights
   

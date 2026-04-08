@@ -144,7 +144,7 @@
 
   # Case 2: Generate variance using vcov.mlmodel()
   vcov(object,
-       type        = vcov.type,
+       type   = vcov.type,
        cl_var      = cl_var,
        repetitions = repetitions,
        seed        = seed,

@@ -292,8 +292,8 @@ ml_probit <- function(value,
   
   functions <- list(
     # predict        = predict.ml_probit,
-    # hessianObs     = .ml_probit_hessianObs,
-    # update         = update.ml_probit,
+    hessianObs     = .ml_probit_hessianObs,
+    update         = update.ml_probit,
     loglik         = .ml_probit_ll,
     fit            = .ml_probit.fit
   )

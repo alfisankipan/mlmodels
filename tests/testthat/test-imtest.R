@@ -37,8 +37,11 @@ test_that("IMtest works with bootstrap methods", {
 })
 
 test_that("print.IMtest produces output without error", {
-  data(mtcars)
-  fit <- ml_lm(mpg ~ wt + hp, data = mtcars)
+  library(wooldridge)
+  data("smoke")
+  
+  fit <- ml_lm(cigs ~ cigpric + income + age,
+                  data = smoke)
 
   im <- IMtest(fit, method = "opg")
 
