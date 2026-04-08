@@ -138,7 +138,7 @@ print.lrtest.mlmodel <- function(x, digits = 3, ...)
 #' fitted with `ml_lm()` and other `ml_*` models.
 #'
 #' @param object A fitted model object inheriting from `"mlmodel"`.
-#' @param method Character. One of `"opg"` (default), `"quad"`, `"boot_opg"`,
+#' @param method Character. One of `"opg"`, `"quad"` (default), `"boot_opg"`,
 #'   or `"boot_quad"`.
 #' @param repetitions Integer. Number of bootstrap replications
 #'   (only used for bootstrap methods). Default is 999.
@@ -154,7 +154,7 @@ IMtest <- function(object, ...) {
 #' @rdname IMtest
 #' @export
 IMtest.mlmodel <- function(object,
-                           method = "opg",
+                           method = "quad",
                            repetitions = 999,
                            seed = 1234L,
                            ...)
@@ -273,7 +273,7 @@ IMtest.mlmodel <- function(object,
 
     proj_coeff <- S %*% solve(XS, crossprod(S, M))
     R_mat      <- M - proj_coeff
-    W          <- crossprod(R_mat)
+    W          <- crossprod(R_mat) * (n / (n - k))  # <- small sample adjustment.
 
     if (method == "quad") {
       tstat <- as.numeric(t(G) %*% MASS::ginv(W) %*% G)
