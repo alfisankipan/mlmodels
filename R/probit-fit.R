@@ -397,26 +397,22 @@ new_ml_probit <- function(object, ...) {
     
     has_constant <- (ncol(x) > 0 && isTRUE(all(x[, 1] == 1)))
     
-    if (has_constant) {
-      # Model has intercept
-      b0 <- c(log(p / (1 - p)), rep(0, ncol(x) - 1))
-    } else {
-      # No-intercept case: use OLS-style starting values
-      fit_beta <- .lm.fit(x, y)
-      b0 <- fit_beta$coefficients
+    # Initial values.
+    ols <- .lm.fit(x, y)
+    b0 <- ols$coefficients
+    
+    # Amemiya's scaling.
+    if(has_constant)
+    {
+      b0[-1] <- 2.5 * b0[-1]
+      b0[1] <- 2.5 * (b0[1] - 0.5)
     }
+    else
+      b0 <- 2.5 * b0
     names(b0) <- paste0("value::", colnames(x))
     
     if (!is.null(z)) {
-      # Heteroskedastic case
-      if (has_constant) {
-        xb_init <- rep(b0[1], n)
-        resid2 <- (y - pnorm(xb_init))^2 + 1e-8
-      } else {
-        resid2 <- fit_beta$residuals^2 + 1e-8
-      }
-      fit_aux <- .lm.fit(z, log(resid2))
-      g0 <- fit_aux$coefficients / 2
+      g0 <- rep(0, ncol(z))
       names(g0) <- paste0("scale::", colnames(z))
       start_values <- c(b0, g0)
     } else {

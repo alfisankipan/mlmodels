@@ -21,12 +21,19 @@
   {
     # -- 2. Homoskedastic case -------------------------------------------------
     xb <- as.vector(x %*% cbind(beta))
-    py <- pnorm(xb)
-    pn <- pnorm(-xb)
-    den <- dnorm(xb)
     
-    s <- as.vector(w * ((1 - y) * den / pn * (xb - den / pn) -
-                          y * den / py * (xb + den / py)))
+    # Clamp the linear predictor to avoid numerical overflow
+    eta <- pmin(pmax(xb, -30), 30)
+    
+    log_py <- pnorm(eta, log.p = TRUE)
+    log_pn <- pnorm(-eta, log.p = TRUE)
+    log_den <- dnorm(eta, log = TRUE)
+    
+    lam_yes <- exp(log_den - log_py)
+    lam_no <- exp(log_den - log_pn)
+    
+    s <- as.vector(w * ((1 - y) * lam_no * (xb - lam_no) -
+                          y * lam_yes * (xb + lam_yes)))
     
     for (i in seq_len(nrow(x))) {
       xi  <- cbind(x[i, ])
@@ -43,18 +50,25 @@
     zd <- as.vector(z %*% cbind(delta))
     xz <- x / exp(zd)
     xb <- as.vector(xz %*% cbind(beta)) # <- this is actually xb / sigma.
-    py <- pnorm(xb)
-    pn <- pnorm(-xb)
-    den <- dnorm(xb)
     
-    s_bb <- as.vector(w * ((1 - y) * den / pn * (xb - den / pn) -
-                             y * den / py * (xb + den / py)))
+    # Clamp the linear predictor to avoid numerical overflow
+    eta <- pmin(pmax(xb, -30), 30)
     
-    s_bd <- as.vector(w * (y * den / py * (xb * (xb + den / py) - 1) -
-                             (1 - y) * den / pn * (xb * (xb - den / pn) - 1)))
+    log_py <- pnorm(eta, log.p = TRUE)
+    log_pn <- pnorm(-eta, log.p = TRUE)
+    log_den <- dnorm(eta, log = TRUE)
     
-    s_dd <- as.vector(w * xb^2 * ((1 - y) * den / pn * (xb - den / pn - 1) -
-                                    y * den / py * (xb + den / py - 1)))
+    lam_yes <- exp(log_den - log_py)
+    lam_no <- exp(log_den - log_pn)
+    
+    s_bb <- as.vector(w * ((1 - y) * lam_no * (xb - lam_no) -
+                             y * lam_yes * (xb + lam_yes)))
+    
+    s_bd <- as.vector(w * (y * lam_yes * (xb * (xb + lam_yes) - 1) -
+                             (1 - y) * lam_no * (xb * (xb - lam_no) - 1)))
+    
+    s_dd <- as.vector(w * xb * ((1 - y) * lam_no * (xb * (xb - lam_no) - 1) -
+                                  y * lam_yes * (xb * (xb + lam_yes) - 1)))
     
     for (i in seq_len(nrow(x))) {
       xzi <- cbind(xz[i, ])
@@ -82,19 +96,26 @@
   if (is.null(z)) {
     # -- Homoskedastic binary probit -------------------------------------------
     xb <- as.vector(x %*% cbind(b))
-    py <- pnorm(xb)
-    pn <- pnorm(-xb)
-    den <- dnorm(xb)
+    
+    # Clamp the linear predictor to avoid numerical overflow
+    eta <- pmin(pmax(xb, -30), 30)
+    
+    log_py <- pnorm(eta, log.p = TRUE)
+    log_pn <- pnorm(-eta, log.p = TRUE)
+    log_den <- dnorm(eta, log = TRUE)
+    
+    lam_yes <- exp(log_den - log_py)
+    lam_no <- exp(log_den - log_pn)
     
     # Weighted log-likelihood
-    ll <- ((1-y) * pnorm(-xb, log.p = TRUE) + y * pnorm(xb, log.p = TRUE)) * w
+    ll <- ((1-y) * log_pn + y * log_py) * w
     
     # Gradient
-    g <- as.vector(w * (y * den / py - (1 - y) * den / pn)) * x
+    g <- as.vector(w * (y * lam_yes - (1 - y) * lam_no)) * x
     
     # Hessian
-    scalar <- as.vector(w * ((1 - y) * den / pn * (xb - den / pn) -
-                               y * den / py * (xb + den / py)))
+    scalar <- as.vector(w * ((1 - y) * lam_no * (xb - lam_no) -
+                               y * lam_yes * (xb + lam_yes)))
     
     H   <- crossprod(x * scalar, x)
   } else {
@@ -111,27 +132,30 @@
     # Clamp the linear predictor to avoid numerical overflow
     eta <- pmin(pmax(xb, -30), 30)
     
-    py  <- pnorm(eta)
-    pn  <- pnorm(-eta)
-    den <- dnorm(eta)
+    log_py <- pnorm(eta, log.p = TRUE)
+    log_pn <- pnorm(-eta, log.p = TRUE)
+    log_den <- dnorm(eta, log = TRUE)
+    
+    lam_yes <- exp(log_den - log_py)
+    lam_no <- exp(log_den - log_pn)
     
     # Weighted log-likelihood
-    ll <- w * (y * log(py) + (1 - y) * log(pn))
+    ll <- ((1-y) * log_pn + y * log_py) * w
     
     # Gradient
-    gb <- w * as.vector(y * den / py - (1 - y) * den / pn) * xz
-    gd <- w * as.vector((1 - y) * den / pn - y * den / py) * xb * z
+    gb <- w * as.vector(y * lam_yes - (1 - y) * lam_no) * xz
+    gd <- w * as.vector((1 - y) * lam_no - y * lam_yes) * xb * z
     g  <- cbind(gb, gd)
     
     # Hessian
-    s_bb <- as.vector(w * ((1 - y) * den / pn * (xb - den / pn) -
-                             y * den / py * (xb + den / py)))
+    s_bb <- as.vector(w * ((1 - y) * lam_no * (xb - lam_no) -
+                             y * lam_yes * (xb + lam_yes)))
     
-    s_bd <- as.vector(w * (y * den / py * (xb * (xb + den / py) - 1) -
-                             (1 - y) * den / pn * (xb * (xb - den / pn) - 1)))
+    s_bd <- as.vector(w * (y * lam_yes * (xb * (xb + lam_yes) - 1) -
+                             (1 - y) * lam_no * (xb * (xb - lam_no) - 1)))
     
-    s_dd <- as.vector(w * xb^2 * ((1 - y) * den / pn * (xb - den / pn - 1) -
-                                    y * den / py * (xb + den / py - 1)))
+    s_dd <- as.vector(w * xb * ((1 - y) * lam_no * (xb * (xb - lam_no) - 1) -
+                                    y * lam_yes * (xb * (xb + lam_yes) - 1)))
     
     # Remember, xz has the standardized x. :D
     H_bb <- crossprod(xz * s_bb, xz)

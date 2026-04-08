@@ -28,8 +28,6 @@
   do.call(rbind, H_list)
 }
 
-
-
 ## ML EVALUATOR ==============================================================
 #' @keywords internal
 .ml_poisson_ll <- function(b, y, x, w = NULL)
