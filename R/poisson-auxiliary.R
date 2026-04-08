@@ -36,10 +36,13 @@
     w <- rep(1, nrow(x))
   
   xb <- x %*% cbind(b)
-  mu <- exp(xb)
+  
+  eta <- pmin(xb, 100)
+  
+  mu <- exp(eta)
   
   # Log-likelihood
-  ll <- w * (y * xb - mu - lfactorial(y))
+  ll <- w * (y * eta - mu - lfactorial(y))
   
   # gradient
   g <- as.vector(w * (y - mu)) * x
