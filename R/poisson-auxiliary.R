@@ -12,7 +12,8 @@
   w <- object$model$weights %||% rep(1, length(y))   # default to 1 if NULL
   
   xb <- x %*% cbind(b)
-  mu <- exp(xb)
+  eta <- pmin(xb, 100)
+  mu <- exp(eta)
   
   # Pre-allocate list to collect individual Hessians
   H_list <- vector("list", length(y))
