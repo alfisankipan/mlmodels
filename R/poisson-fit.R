@@ -1,7 +1,6 @@
-#' Fit Binary Probit Model by Maximum Likelihood
+#' Fit Poisson model by Maximum Likelihood
 #'
-#' @param value Two-sided formula for the probability equation.
-#' @param scale Optional one-sided formula for heteroskedasticity.
+#' @param value Formula for the conditional mean (value) equation.
 #' @param weights Optional weights variable. It can be either the name of the
 #'   variable in `data`, or a vector with the weights.
 #' @param data Data frame.
@@ -13,11 +12,11 @@
 #' @param constraints Optional constraints on the parameters. Can be a character
 #'   vector of string constraints, a named list of string constraints, or a raw
 #'   maxLik constraints list. See **Details**.
-#' @param method A string with the method used for optimization. See
-#'   [maxLik::maxLik()] for options, and see **Details**.
 #' @param start Numeric vector of starting values for the coefficients. Required
 #'   if constraints are being supplied. If supplied without constraints they
 #'   will be ignored. See **Details**.
+#' @param method A string with the method used for optimization. See
+#'   [maxLik::maxLik()] for options, and see **Details**.
 #' @param control A list of control parameters passed to [maxLik::maxLik()].
 #'   If `NULL` (default), a sensible set of options is chosen automatically
 #'   depending on whether constraints are used. See [maxLik::maxControl].
@@ -25,15 +24,12 @@
 #'
 #' @details
 #' **Important:** Do not use the usual R syntax to remove the intercept in the
-#' formula (`- 1` or `+ 0`) for the value equation. Use the dedicated argument
-#' `noint_value` instead. For the scale equation (if modeling heteroskedasticity),
-#' the formula must contain only the predictors (right-hand side).
+#' formula (`- 1` or `+ 0`) for the value equation. Use the dedicated
+#' argument `noint_value` instead.
 #'
-#' The dependent variable must be binary (0/1 or TRUE/FALSE).
-#'
-#' Coefficient names in the fitted object use the prefixes `value::` and
-#' `scale::` (when heteroskedasticity is modeled) to clearly identify which
-#' equation each coefficient belongs to.
+#' Coefficient names in the fitted object use the prefixes `value::`. This is for
+#' consistency with other `mlmodel` estimators that model the scale (dispersion)
+#' as well.
 #'
 #' Either inequality or equality linear constraints are accepted, but not both.
 #' A constraint cannot have a linear combination of more than two coefficients.
@@ -42,36 +38,31 @@
 #' You **must** provide initial values that yield a feasible log-likelihood.
 #' If no constraints are used, any supplied `start` is ignored.
 #'
-#' When constraints are used, `ml_probit` automatically chooses `method`:
+#' When constraints are used, `ml_lm` automatically chooses the optimizer:
 #' - Equality constraints => Nelder-Mead (`"NM"`)
 #' - Inequality constraints => BFGS (`"BFGS"`)
 #'
 #' In these cases your supplied `method` argument (if any) is ignored.
 #'
-#' @return An object of class `ml_probit` that extends `mlmodel`.
+#' @return An object of class `ml_poisson` that extends `mlmodel`.
 #'
 #' @author Alfonso Sanchez-Penalver
 #'
 #' @export
-ml_probit <- function(value,
-                     scale = NULL,
-                     weights = NULL,
-                     data,
-                     subset = NULL,
-                     noint_value = FALSE,
-                     constraints = NULL,
-                     start = NULL,
-                     method = "NR",
-                     control = NULL,
-                     ...)
+ml_poisson <- function(value,
+                       weights = NULL,
+                       data,
+                       subset = NULL,
+                       noint_value = FALSE,
+                       constraints = NULL,
+                       start = NULL,
+                       method = "NR",
+                       control = NULL,
+                       ...)
 {
+  # -- Basic input validation ------------------------------------------
   if (!rlang::is_formula(value, lhs = TRUE)) {
     cli::cli_abort("`value` must be a two-sided formula with an outcome variable on the left-hand side.",
-                   call = NULL)
-  }
-  
-  if (!is.null(scale) && !rlang::is_formula(scale, lhs = FALSE)) {
-    cli::cli_abort("`scale` must be a one-sided formula (no outcome on the left-hand side).",
                    call = NULL)
   }
   
@@ -122,13 +113,7 @@ ml_probit <- function(value,
   }
   
   # -- 3. Identify usable observations on full data ----------------
-  if (is.null(scale)) {
-    v_vars <- all.vars(value)
-  } else {
-    v_vars <- unique(c(all.vars(value), all.vars(scale)))
-  }
-  
-  cols_to_check <- v_vars
+  cols_to_check <- all.vars(value)
   if (!is.null(w_name)) {
     cols_to_check <- unique(c(cols_to_check, w_name))
   }
@@ -149,7 +134,29 @@ ml_probit <- function(value,
   # -- 4. Modify sample = subset and complete cases ----------------
   sample <- keep & usable_obs
   
-  # -- 5. Create clean dataset for modeling ----------------------
+  # -- 5. Detect log transformation ------------------------------
+  # We evaluate on the full data so invalid_idx has length = n_orig
+  log_info <- .detect_log_transformations(list(value = value),
+                                          data)
+  
+  # Count how many *additional* observations are invalid due to the log
+  # (only among those that survived subset + NAs)
+  n_invalid_log <- sum(sample & log_info$value$invalid_idx)
+  
+  if (log_info$value$is_log && n_invalid_log > 0) {
+    cli::cli_alert_info(
+      "Outcome is log-transformed. Dropped {n_invalid_log} observation(s) \\
+       because they would produce invalid values (<= 0)."
+    )
+    
+    # Final reduction of sample
+    sample <- sample & !log_info$value$invalid_idx
+  }
+  
+  # Add the actual dropped count to log_info for later use
+  log_info$value$n_invalid_log <- n_invalid_log
+  
+  # -- 6. Create clean dataset for modeling ----------------------
   data_clean <- data[sample, , drop = FALSE]
   wts_clean <- if (!is.null(wts)) wts[sample] else rep(1, sum(sample))
   
@@ -158,7 +165,6 @@ ml_probit <- function(value,
     cli::cli_abort("Final weights vector has wrong length or contains NAs.", call = NULL)
   }
   
-  # -- 6. Molding ----------------------
   model_value <- hardhat::mold(value,
                                data_clean,
                                blueprint = hardhat::default_formula_blueprint(intercept = !noint_value))
@@ -167,38 +173,13 @@ ml_probit <- function(value,
     value = model_value
   )
   
-  y <- as.numeric(model_value$outcomes[[1]])
-  
-  # -- 7. Validity of outcome variable ------------------
-  # Check binary
-  if (any(y != 0 & y != 1)) {
-    cli::cli_abort(c(
-      "Probit models require a strictly binary outcome (only 0s and 1s).",
-      "i" = "The outcome variable contains values different from 0 and 1.",
-      "i" = "For fractional responses, please use {.fn ml_logit} instead."
-    ), call = NULL)
-  }
-  
+  y <- model_value$outcomes[[1]]
   x <- as.matrix(model_value$predictors)
   
-  if(!is.null(scale))
-  {
-    # Remember Scale has no intercept.
-    model_scale <- hardhat::mold(scale,
-                                 data_clean,
-                                 blueprint = hardhat::default_formula_blueprint(intercept = FALSE))
-    
-    molds$scale <- model_scale
-    
-    z <- as.matrix(model_scale$predictors)
-  }
-  else
-    model_scale <- z <- NULL
-  
-  # -- 8. Map factor variables in relevant equations ------------------
+  # -- 7. Map factor variables in relevant equations ---------
   factor_mapping <- .build_factor_mapping(molds)
   
-  # -- 9. Managing control and constraints -------------------
+  # -- 8. Managing control and constraints -------------------
   # Default control lists
   default_NR <- list(tol = -1,
                      reltol = 1e-12,
@@ -210,15 +191,14 @@ ml_probit <- function(value,
   default_NM <- list(reltol = 1e-8,
                      iterlim = 1000)
   
-  # Set control list if user did not provide one
+  # Parse constraints (if any)
   if (!is.null(constraints)) {
     if (is.null(start))
       cli::cli_abort("Constrained optimization requires a vector of initial values (`start`).",
                      call = NULL)
     if (any(!is.numeric(start)))
       cli::cli_abort("Initial values must be numeric.", call = NULL)
-    k <- if (is.null(scale)) ncol(x) else ncol(x) + ncol(z)
-    if (length(start) != (k))
+    if (length(start) != (ncol(x) + ncol(z)))
       cli::cli_abort("The vector of initial values has the wrong dimension. It requires {.val {ncol(x) + ncol(z)}} values.")
     
     coef_names <- c(paste0("value::", colnames(x)), paste0("scale::", colnames(z)))
@@ -241,8 +221,7 @@ ml_probit <- function(value,
   } else {
     parsed_constraints <- list(names = NULL, strings = NULL, maxLik = NULL)
     start <- NULL
-    # Safety in case of silly users
-    if(is.null(method)) method <- "NR"
+    
     # Unconstrained optimization
     if (is.null(control)) {
       if (method %in% c("NR", "BHHH")) {
@@ -255,18 +234,17 @@ ml_probit <- function(value,
     }
   }
   
-  # -- 10. Fitting the model with maxLik ----------------------
-  ml <- .ml_probit.fit(y = y,
-                      x = x,
-                      z = z,
-                      w = wts_clean,
-                      constraints = parsed_constraints$maxLik,
-                      start = start,
-                      method = method,
-                      control = control,
-                      ...)
+  # -- 9. Fitting the model with maxLik ----------------------
+  ml <- .ml_poisson.fit(y = y,
+                        x = x,
+                        w = wts_clean,
+                        constraints = parsed_constraints$maxLik,
+                        start = start,
+                        method = method,
+                        control = control,
+                        ...)
   
-  # -- 11. Forming the dataset name ------------------------------
+  # -- 10. Forming the dataset name ------------------------------
   # Safely get a readable name for the dataset (for printing/storage)
   d_name <- tryCatch(
     deparse(substitute(data)),
@@ -277,7 +255,7 @@ ml_probit <- function(value,
     d_name <- "<unknown data>"
   }
   
-  # -- 12. Internal safety check(s) (for development/testing) --------
+  # -- 11. Internal safety check(s) (for development/testing) --------
   # They should be the same value, since we never indexed sample (that i can remember),
   # so if we get an alert, we must check the code.
   if (length(sample) != n_orig) {
@@ -286,25 +264,23 @@ ml_probit <- function(value,
     )
   }
   
-  # -- 13. Forming the model list ------------------------------------
+  # -- 12. Forming the the model list --------------------------------
   
-  # -- 13.a. The functions list --------------------------------------
+  # -- 12.a. The functions list --------------------------------------
   
   functions <- list(
-    predict        = predict.ml_probit,
-    hessianObs     = .ml_probit_hessianObs,
-    update         = update.ml_probit,
-    loglik         = .ml_probit_ll,
-    fit            = .ml_probit.fit
+    # predict        = predict.ml_poisson,
+    hessianObs     = .ml_poisson_hessianObs,
+    # update         = update.ml_poisson,
+    loglik         = .ml_poisson_ll,
+    fit            = .ml_poisson.fit
   )
   
-  # -- 13.b. The model_list list --------------------------------------
+  # -- 12.b. The common structure --------------------------------------
   model_list <- list(
     value         = model_value,
-    scale         = model_scale,
-    factor_mapping  = factor_mapping %||% list(value = list()),
+    factor_mapping = factor_mapping,
     formula       = model_value$blueprint$formula,
-    scale_formula = if(!is.null(scale)) model_scale$blueprint$formula else NULL,
     weights       = wts_clean,
     w_name        = w_name,
     sample        = sample,
@@ -316,7 +292,7 @@ ml_probit <- function(value,
     response_name = names(model_value$outcomes)[1],
     n_used        = sum(sample),
     n_orig        = n_orig,
-    log_info      = NULL,
+    log_info      = log_info,
     control       = control,
     constraints   = parsed_constraints,
     start         = start,
@@ -336,99 +312,93 @@ ml_probit <- function(value,
     return(ml)
   }
   
-  # Converged: compute fitted (easy calculation of pseudo R-squared)]
-  cfs <- coef(ml)
-  beta <- cfs[1:ncol(x)]
-  xb <- x %*% beta
-  if(!is.null(scale))
-  {
-    delta <- cfs[(ncol(x)+1):length(cfs)]
-    sig <- exp(z %*% delta)
-  }
-  else
-    sig <- 1
-  model_list$fitted.values <- as.vector(pnorm(xb / sig))
-  model_list$residuals <- y - model_list$fitted.values
+  # -- 12.c. The fitted values and residuals ------------------------
+  # Converged: compute fitted/residuals
+  beta <- coef(ml)[1:ncol(x)]
+  yhat <- as.vector(exp(x %*% beta))
   
-  # -- 14. Add the model to the maxLik object ----------------------
+  model_list$fitted.values <- yhat
+  model_list$residuals     <- y - yhat
+  
+  # -- 13. Add the model to the maxLik object ----------------------
   ml$model <- model_list
   ml$call <- cl
   
-  # -- 15. Call the function to create tge class and return  ----------
-  new_ml_probit(ml)
+  # -- 14. Call the function to create tge class and return  ----------
+  new_ml_poisson(ml)
 }
 
 # Hidden function to create the class and return the object.
-new_ml_probit <- function(object, ...) {
+new_ml_poisson <- function(object, ...) {
   # object is the result from maxLik::maxLik()
   structure(
     object,
-    class = unique(c("ml_probit", "mlmodel", class(object)))
+    class = unique(c("ml_poisson", "mlmodel", class(object)))
   )
 }
 
-#' Stripped down function to estimate a binary logit model.
+# ML_LM FIT --------------------------------------------------------------
+#' Internal fitting function for ml_poisson
+#'
+#' @param y Numeric vector of outcomes.
+#' @param x Design matrix for the value equation.
+#' @param w Numeric vector of weights.
+#' @param constraints Parsed constraints (internal use).
+#' @param start Numeric vector of initial values.
+#' @param control Control list passed to [maxLik::maxLik()].
+#' @param ... Further arguments passed to [maxLik::maxLik()].
 #'
 #' @keywords internal
-.ml_probit.fit <- function(y, x, z = NULL, w = NULL,
-                          constraints = NULL,
-                          start = NULL,
-                          method = NULL,
-                          control = NULL,
-                          ...)
+.ml_poisson.fit <- function(y, x, w = NULL,
+                       method = "NR",
+                       start = NULL,
+                       constraints = NULL,
+                       control = list(tol = -1,
+                                      reltol = 1e-12,
+                                      gradtol = 1e-12,
+                                      lambdatol = 1e-20,
+                                      qac = "marquardt"),
+                       ...)
 {
-  n <- length(y)
-  
-  # Starting values
-  if (!is.null(start)) {
-    # User provided start (required when constraints are used)
-    ll <- .ml_probit_ll(start, y = y, x = x, z = z, w = w)
-    if (any(!is.finite(ll)))
+  # At this point start has been checked and if supplied is numeric and
+  # has the right dimension.
+  if(!is.null(start))
+  {
+    ll <- .ml_poisson_ll(start,y,x,w)
+    
+    if(any(!is.finite(ll)))
       cli::cli_abort("Infeasible log-likelihood value at supplied `start` vector.",
                      call = NULL)
     
-    # Name the coefficients properly
-    names(start) <- c(paste0("value::", colnames(x)),
-                      if (!is.null(z)) paste0("scale::", colnames(z)) else character(0))
+    names(start) <- paste0("value::", colnames(x))
+  }
+  else
+  {
+    # Initial values for Poisson
+    mu0  <- (y + mean(y)) / 2
+    z    <- log(mu0) + (y - mu0) / mu0
+    w_st <- sqrt(mu0) # sqrt because .lm.fit applies weights linearly
     
-  } else {
-    # Default starting values for unconstrained logit
-    p <- mean(y)
+    # Weighted OLS: solve (X' W X) beta = X' W z
+    ols <- .lm.fit(x * w_st, z * w_st)
+    b0  <- ols$coefficients
     
-    has_constant <- (ncol(x) > 0 && isTRUE(all(x[, 1] == 1)))
     
-    # Initial values.
-    ols <- .lm.fit(x, y)
-    b0 <- ols$coefficients
-    
-    # Amemiya's scaling.
-    if(has_constant)
-    {
-      b0[-1] <- 2.5 * b0[-1]
-      b0[1] <- 2.5 * (b0[1] - 0.5)
-    }
-    else
-      b0 <- 2.5 * b0
+    # m <- log(y + 1e-4)
+    # ols <- .lm.fit(x, m)
+    # b0 <- ols$coefficients
+
+    # Add names for clarity in your summary output later
     names(b0) <- paste0("value::", colnames(x))
     
-    if (!is.null(z)) {
-      g0 <- rep(0, ncol(z))
-      names(g0) <- paste0("scale::", colnames(z))
-      start_values <- c(b0, g0)
-    } else {
-      # Homoskedastic case
-      start_values <- b0
-    }
-    start <- .initial_values.mlmodel(.ml_probit_ll, start_values,
-                                     y = y, x = x, z = z, w = w)
+    start <- .initial_values.mlmodel(.ml_poisson_ll, b0,
+                                     y = y, x = x, w = w)
   }
   
-  # Final estimation
-  maxLik::maxLik(.ml_probit_ll,
+  maxLik::maxLik(.ml_poisson_ll,
                  start = start,
                  y = y,
                  x = x,
-                 z = z,
                  w = w,
                  constraints = constraints,
                  method = method,

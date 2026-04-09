@@ -7,14 +7,14 @@
 \usage{
 IMtest(object, ...)
 
-\method{IMtest}{mlmodel}(object, method = "opg", repetitions = 999, seed = 1234L, ...)
+\method{IMtest}{mlmodel}(object, method = "quad", repetitions = 999, seed = 1234L, ...)
 }
 \arguments{
 \item{object}{A fitted model object inheriting from \code{"mlmodel"}.}
 
 \item{...}{Further arguments passed to methods.}
 
-\item{method}{Character. One of \code{"opg"} (default), \code{"quad"}, \code{"boot_opg"},
+\item{method}{Character. One of \code{"opg"}, \code{"quad"} (default), \code{"boot_opg"},
 or \code{"boot_quad"}.}
 
 \item{repetitions}{Integer. Number of bootstrap replications

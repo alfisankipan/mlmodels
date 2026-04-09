@@ -444,17 +444,15 @@ print.summary.ml_lm <- function(x, digits = max(3L, getOption("digits") - 3L), .
 #' @param vcov Optional user-supplied variance-covariance matrix. If provided,
 #'   it will be used instead of computing one internally.
 #' @param vcov.type Character string specifying the type of variance-covariance
-#'   matrix to use. One of `"oim"` (default), `"robust"`, `"opg"`, `"cluster"`,
-#'   or `"boot"`. See [vcov.mlmodel()] for details.
+#'   matrix to use. See [vcov][mlmodels::vcov.mlmodel].
 #' @param cl_var Character string or vector. Name of the clustering variable
-#'   or the vector itself. Only used when `vcov.type = "cluster"` or when
-#'   `vcov.type = "boot"` with clustering.
+#'   or the vector itself. See [vcov][mlmodels::vcov.mlmodel].
 #' @param repetitions Integer. Number of bootstrap replications when
 #'   `vcov.type = "boot"`. Default is 999.
 #' @param seed Integer. Random seed for reproducibility when `vcov.type = "boot"`.
 #'   If `NULL`, a random seed is generated.
 #' @param progress Logical. Should a progress bar be displayed during
-#'   bootstrapping? Default is `FALSE` (silent) when called from `summary()`.
+#'   bootstrapping or jackknifing? Default is `FALSE` (silent).
 #' @param ... Further arguments passed to methods.
 #'
 #' @details
@@ -617,7 +615,7 @@ summary.ml_lm <- function(object,
     "Homoskedastic Gaussian Linear Model"
   }
 
-  class(s) <- c("summary.ml_lm", "summary'mlmodel", "summary")
+  class(s) <- c("summary.ml_lm", "summary.mlmodel", "summary")
   s
 }
 
