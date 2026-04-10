@@ -19,8 +19,10 @@ get_predict.mlmodel <- function(model,
 }
 
 #' @export
-get_vcov.mlmodel <- function(model, ...)
+get_vcov.mlmodel <- function(model, vcov = NULL, ...)
 {
+  if(!is.null(vcov))
+    return(vcov)
   vcov(model)
 }
 
