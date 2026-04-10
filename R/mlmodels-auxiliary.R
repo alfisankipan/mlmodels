@@ -814,6 +814,87 @@
   data
 }
 
+## PREDICTION HELPERS ==========================================================
+# --- Type parsing for probabilities -------------------------------------------
+#' Internal parser for probability types.
+#' 
+#' @param type Character string passed by the user
+#' @return A list with components:
+#'   - base_type: "link", "response", or "prob"
+#'   - prob_type: NULL, "exact", "leq", "geq", or "interval"
+#'   - lower: lower bound (NULL if not applicable)
+#'   - upper: upper bound (NULL if not applicable)
+#' 
+#' @details
+#' `prob_type` can only be NULL when base_type is not "prob". So in the probability
+#' block of the prediction function, you don't need to account for NULL.
+#' 
+#' If `prob_type` is "exact" both lower and upper hold the value. So you can
+#' use either.
+#' 
+#' @keywords internal
+.predict_types_parsing <- function(type)
+{
+  type <- tolower(trimws(type))
+  
+  # Not a probability request → return as base_type
+  if (!grepl("^p\\(.*\\)$", type)) {
+    return(list(base_type = type, 
+                prob_type = NULL, 
+                lower = NULL, 
+                upper = NULL))
+  }
+  
+  # --- Probability syntax P(...) ---
+  content <- sub("^p\\((.*)\\)$", "\\1", type)
+  content <- trimws(content)
+  
+  if (content == "") {
+    cli::cli_abort("Empty P() is not allowed.", call = NULL)
+  }
+  
+  parts <- strsplit(content, ",")[[1]]
+  parts <- trimws(parts)
+  
+  if (length(parts) == 1) {
+    # P(k) → exact count
+    k <- suppressWarnings(as.numeric(parts[1]))
+    if (is.na(k) || !is.finite(k) || k < 0 || k != round(k)) {
+      cli::cli_abort("P(k) requires a non-negative integer k.", call = NULL)
+    }
+    return(list(base_type = "prob", prob_type = "exact", lower = k, upper = k))
+  }
+  
+  if (length(parts) == 2) {
+    lower_str <- parts[1]
+    upper_str <- parts[2]
+    
+    lower <- if (lower_str == "") NA_real_ else suppressWarnings(as.numeric(lower_str))
+    upper <- if (upper_str == "") NA_real_ else suppressWarnings(as.numeric(upper_str))
+    
+    # P(,k) → P(Y ≤ k)
+    if (is.na(lower) && !is.na(upper) && upper == round(upper) && upper >= 0) {
+      return(list(base_type = "prob", prob_type = "leq", lower = NULL, upper = upper))
+    }
+    
+    # P(k,) → P(Y ≥ k)
+    if (!is.na(lower) && is.na(upper) && lower == round(lower) && lower >= 0) {
+      return(list(base_type = "prob", prob_type = "geq", lower = lower, upper = NULL))
+    }
+    
+    # P(a,b) → P(a ≤ Y ≤ b)
+    if (!is.na(lower) && !is.na(upper) &&
+        lower == round(lower) && upper == round(upper) &&
+        lower >= 0 && upper >= lower) {
+      return(list(base_type = "prob", prob_type = "interval", lower = lower, upper = upper))
+    }
+  }
+  
+  cli::cli_abort("Invalid probability syntax '{type}'. Use P(k), P(,k), P(k,), or P(a,b).",
+                 call = NULL)
+}
+
+
 ## VARIANCE HELPERS ============================================================
 # --- 1. Cluster info ----------------------------------------------------------
 #' Internal helper to extract clustering information

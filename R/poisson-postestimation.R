@@ -1,3 +1,229 @@
+## FITTED VALUES ===============================================================
+#' Extract Fitted Values from ml_poisson objects
+#'
+#' Returns the fitted values (predicted conditional mean) from the value equation.
+#'
+#' @param object A fitted `ml_poisson` object.
+#' @param ... Not currently used.
+#'
+#' @return A numeric vector of fitted values with length equal to the number of
+#'   observations used in estimation.
+#'
+#' @author Alfonso Sanchez-Penalver
+#'
+#' @export
+fitted.ml_poisson <- function(object, ...)
+{
+  if (!inherits(object, "ml_poisson"))
+    cli::cli_abort("`object` must be a model of class 'ml_poisson'.",
+                   call = NULL)
+  
+  
+  if (!is.null(object$model$fitted.values))
+    return(object$model$fitted.values)
+  
+  # Fallback to predict if not stored
+  predict(object, type = "response")
+}
+
+
+
+## PREDICT =====================================================================
+# Remember that the parameter documentation is done at the generic predict for
+# mlmodel class.
+
+#' @details
+#' ### ml_poisson prediction types
+#'
+#' The `type` argument controls what quantity is returned. In addition to
+#' standard types, Poisson models support flexible probability requests
+#' using the `P(...)` syntax.
+#'
+#' | Type          | Description                              | Notes |
+#' |---------------|------------------------------------------|-------|
+#' | `"link"`      | Linear predictor ( xb )                  | log-mean |
+#' | `"response"`  | Expected count ( \code{mu} = \code{exp(xb)} )          | Default |
+#' | `"mean"`      | Alias for `"response"`                   | - |
+#' | `"fitted"`    | Alias for `"response"`                   | - |
+#' | `P(k)`        | P(Y = k)                                 | Exact probability, k integer ≥ 0 |
+#' | `P(,k)`       | P(Y ≤ k)                                 | Cumulative (lower tail) |
+#' | `P(k,)`       | P(Y ≥ k)                                 | Survival (upper tail) |
+#' | `P(a,b)`      | P(a ≤ Y ≤ b)                             | Interval probability, a ≤ b, a ≥ 0 |
+#'
+#' When `se.fit = TRUE`, standard errors are computed using the delta method
+#' for all supported types.
+#'
+#' @author Alfonso Sanchez-Penalver
+#'
+#' @rdname predict.mlmodel
+#' @export
+predict.ml_poisson <- function(object,
+                               newdata = NULL,
+                               type = "response",
+                               se.fit = FALSE,
+                               vcov = NULL,
+                               vcov.type = "oim",
+                               cl_var = NULL,
+                               repetitions = 999,
+                               seed = NULL,
+                               progress = FALSE,
+                               ...)
+{
+  if (!inherits(object, "ml_poisson"))
+    cli::cli_abort("`object` must be of class 'ml_poisson'.")
+  
+  # Send type to the parser, and then check others.
+  
+  parsed_type <- .predict_types_parsing(type)
+  
+  if(parsed_type$base_type != "prob")
+  {
+    parsed_type$base_type <- rlang::arg_match(type,
+                                              c("response", "fitted", "mean", "link"))
+  }
+  
+  # ── Prepare predictors (using hardhat) ─────────────────────────────
+  if (is.null(newdata)) {
+    val_predictors <- object$model$value$predictors
+    sample_idx <- object$model$sample
+    n_orig <- length(sample_idx)
+  } else {
+    val_bp <- object$model$value$blueprint
+    forged <- hardhat::forge(newdata, blueprint = val_bp, outcomes = FALSE)
+    val_predictors <- forged$predictors
+    sample_idx <- rep(TRUE, nrow(val_predictors))
+    n_orig <- nrow(val_predictors)
+  }
+  
+  # ── Extract coefficients and compute linear predictors ─────────────
+  beta <- coef(object)
+  X <- as.matrix(val_predictors)
+  xb <- as.vector(X %*% beta)
+  mu <- exp(xb)
+  if (parsed_type$base_type == "prob") {
+    
+    # Safety checks
+    if (parsed_type$prob_type == "exact" && parsed_type$lower < 0) {
+      cli::cli_abort("P(k) requires k >= 0.", call = NULL)
+    }
+    
+    if (parsed_type$prob_type == "geq" && parsed_type$lower < 0) {
+      cli::cli_abort("P(k,) requires k >= 0.", call = NULL)
+    }
+    
+    if (parsed_type$prob_type == "interval") {
+      if (parsed_type$lower < 0) {
+        cli::cli_abort("Lower bound in P(a,b) must be >= 0.", call = NULL)
+      }
+      if (parsed_type$upper <= parsed_type$lower) {
+        cli::cli_abort("Invalid interval P({parsed_type$lower},{parsed_type$upper}). Upper must be greater than lower.", 
+                       call = NULL)
+      }
+    }
+    
+    out <- switch(parsed_type$prob_type,
+                  "exact"    = dpois(parsed_type$lower, lambda = mu),
+                  "leq"      = ppois(parsed_type$upper, lambda = mu),
+                  "geq"      = ppois(parsed_type$lower - 1, lambda = mu, lower.tail = FALSE),
+                  "interval" = ppois(parsed_type$upper, lambda = mu) - 
+                    ppois(parsed_type$lower - 1, lambda = mu),
+                  cli::cli_abort("Unknown probability type.", call = NULL)
+    )
+    
+  } else {
+    # Standard types (link, response, mean)
+    out <- switch(parsed_type$base_type,
+                  "link"     = xb,
+                  "mean"     = ,
+                  "fitted"   = ,
+                  "response" = mu,
+                  cli::cli_abort("Unknown prediction type '{parsed_type$base_type}'.", 
+                                 call = NULL))
+  }
+  
+  # ── Align in-sample predictions to original data length ────────────
+  if (is.null(newdata) && any(!sample_idx)) {
+    full_out <- rep(NA_real_, n_orig)
+    full_out[sample_idx] <- out
+    out <- full_out
+  }
+  
+  if (!se.fit) return(out)
+  
+  n_obs <- length(mu)
+  n_beta <- length(beta)
+  if (parsed_type$base_type == "prob") {
+    
+    # Derivative of the probability w.r.t. μ
+    dP_dmu <- switch(parsed_type$prob_type,
+                     "exact" = dpois(parsed_type$lower, mu) * (parsed_type$lower / mu - 1),
+                     "leq"   = - dpois(parsed_type$upper, mu),
+                     "geq"   = if (parsed_type$lower == 0) rep(0, n_obs) 
+                               else dpois(parsed_type$lower - 1L, mu),
+                     "interval" = dpois(parsed_type$lower - 1L, mu) - 
+                       dpois(parsed_type$upper, mu),
+                     cli::cli_abort("Unknown prediction type '{parsed_type$base_type}'.", 
+                                    call = NULL)
+    )
+    
+    # Chain rule: d(prob)/dβ = d(prob)/dμ * dμ/dβ = dP_dmu * mu * X
+    g <- dP_dmu * mu * X
+    
+  } else {
+    g <- switch(parsed_type$base_type,
+                "link"     = X,
+                "mean"     = ,
+                "fitted"   = ,
+                "response" = mu * X,
+                cli::cli_abort("Unknown prediction type '{parsed_type$base_type}'.", 
+                               call = NULL))
+  }
+  
+  full_vcov <- .process_vcov(object,
+                             vcov = vcov,
+                             vcov.type = vcov.type,
+                             cl_var = cl_var,
+                             repetitions = repetitions,
+                             seed = seed,
+                             progress = progress)
+  
+  # ── Check for unusable variance matrix ─────────────────────────────
+  if (any(!is.finite(full_vcov)) || any(is.na(full_vcov))) {
+    cli::cli_warn(
+      c("Variance matrix is unusable (contains NAs or non-finite values).",
+        "i" = "This usually happens with bootstrap when constraints are present.",
+        "i" = "Standard errors will be returned as NA.")
+    )
+    se_fit <- rep(NA_real_, length(out))
+  } else {
+    # ── Delta-method standard errors ─────────────────────────────────
+    se_fit <- sqrt(rowSums(g * (g %*% full_vcov)))
+  }
+  
+  # Align in-sample SEs
+  if (is.null(newdata) && any(!sample_idx)) {
+    full_se <- rep(NA_real_, n_orig)
+    full_se[sample_idx] <- se_fit
+    se_fit <- full_se
+  }
+  list(fit = out, se.fit = se_fit)
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 ## PRINT SUMMARY ===============================================================
 #' @export
 print.summary.ml_poisson <- function(x, digits = max(3L, getOption("digits") - 3L), ...)
