@@ -119,6 +119,38 @@ coef.mlmodel <- function(object, ...) {
   object$estimate
 }
 
+## FITTED ======================================================================
+# --- mlmodel ------------------------------------------------------------------
+#' Returns the fitted values from an object of class `mlmodel`.
+#' 
+#' @param object Object of class `mlmodel` estmated with one of the models in
+#'    package.
+#' 
+#' @param ... Additional arguments passed to methods.
+#' 
+#' @returns A vector with the fitted values of the model.
+#' 
+#' @importFrom stats fitted
+#' @export
+fitted.mlmodel <- function(object, ...)
+{
+  if (!inherits(object, "mlmodel"))
+    cli::cli_abort("`object` must be a model of class 'mlmodel'.",
+                   call = NULL)
+  
+  
+  if (!is.null(object$model$fitted.values))
+    return(object$model$fitted.values)
+  
+  # Fallback to predict if not stored
+  predict(object, type = "response")
+}
+
+#' @rdname fitted.mlmodel
+#' @importFrom stats fitted.values
+#' @export
+fitted.values.mlmodel <- fitted.mlmodel
+
 ## LOGLIK ======================================================================
 # --- General ------------------------------------------------------------------
 #' Return the Log-likelihood value.

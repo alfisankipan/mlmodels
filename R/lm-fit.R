@@ -441,7 +441,7 @@ new_ml_lm <- function(object, ...) {
     # Apply scale:: prefix to all scale coefficients
     names(g0) <- paste0("scale::", colnames(z))
 
-    start = c(b0, g0)
+    start <- c(b0, g0)
   }
   maxLik::maxLik(.ml_lm_ll,
                  start = start,

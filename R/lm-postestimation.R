@@ -1,31 +1,3 @@
-## FITTED VALUES ===============================================================
-#' Extract Fitted Values from ml_lm objects
-#'
-#' Returns the fitted values (predicted conditional mean) from the value equation.
-#'
-#' @param object A fitted `ml_lm` object.
-#' @param ... Not currently used.
-#'
-#' @return A numeric vector of fitted values with length equal to the number of
-#'   observations used in estimation.
-#'
-#' @author Alfonso Sanchez-Penalver
-#'
-#' @export
-fitted.ml_lm <- function(object, ...)
-{
-  if (!inherits(object, "ml_lm"))
-    cli::cli_abort("`object` must be a model of class 'ml_lm' (from ml_lm).",
-                   call = NULL)
-  
-  
-  if (!is.null(object$model$fitted.values))
-    return(object$model$fitted.values)
-  
-  # Fallback to predict if not stored
-  predict(object, type = "response")
-}
-
 ## PREDICT =====================================================================
 #' Predictions for ml_lm objects
 #'

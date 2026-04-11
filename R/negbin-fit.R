@@ -1,6 +1,10 @@
-#' Fit Poisson model by Maximum Likelihood
+#' Fit negative binomial models by Maximum Likelihood
 #'
 #' @param value Formula for the conditional mean (value) equation.
+#' @param scale Formula for the dispersion parameter log(alpha) (optional).
+#'   If `NULL`, a constant alpha is used for all observations.
+#' @param dispersion Either NB1 (proportional to mean variance), or NB2
+#'  (quadratic to mean variance). Defaults to NB2.
 #' @param weights Optional weights variable. It can be either the name of the
 #'   variable in `data`, or a vector with the weights.
 #' @param data Data frame.
@@ -8,6 +12,8 @@
 #'   expression evaluates to `TRUE` are used in the estimation. This can be
 #'   a logical vector or an expression (e.g. `subset = age > 30`).
 #' @param noint_value Logical. Should the value equation omit the intercept?
+#'   Default is `FALSE`.
+#' @param noint_scale Logical. Should the scale equation omit the intercept?
 #'   Default is `FALSE`.
 #' @param constraints Optional constraints on the parameters. Can be a character
 #'   vector of string constraints, a named list of string constraints, or a raw
@@ -24,12 +30,13 @@
 #'
 #' @details
 #' **Important:** Do not use the usual R syntax to remove the intercept in the
-#' formula (`- 1` or `+ 0`) for the value equation. Use the dedicated
-#' argument `noint_value` instead.
+#' formula (`- 1` or `+ 0`) for the value or scale equations. Use the dedicated
+#' arguments `noint_value` and `noint_scale` instead.
 #'
-#' Coefficient names in the fitted object use the prefixes `value::`. This is for
-#' consistency with other `mlmodel` estimators that model the scale (dispersion)
-#' as well.
+#' Coefficient names in the fitted object use the prefixes `value::` and
+#' `scale::` to clearly identify to which equation each coefficient belongs to,
+#' and to avoid confusion when the same variable(s) appear(s) in both the value
+#' and scale equations.
 #'
 #' Either inequality or equality linear constraints are accepted, but not both.
 #' A constraint cannot have a linear combination of more than two coefficients.
@@ -44,27 +51,37 @@
 #'
 #' In these cases your supplied `method` argument (if any) is ignored.
 #'
-#' @return An object of class `ml_poisson` that extends `mlmodel`.
+#' @return An object of class `ml_negbin` that extends `mlmodel.count` and `mlmodel`.
 #'
 #' @author Alfonso Sanchez-Penalver
 #'
 #' @export
-ml_poisson <- function(value,
-                       weights = NULL,
-                       data,
-                       subset = NULL,
-                       noint_value = FALSE,
-                       constraints = NULL,
-                       start = NULL,
-                       method = "NR",
-                       control = NULL,
-                       ...)
+ml_negbin <- function(value,
+                      scale = NULL,
+                      dispersion = "NB2",
+                      weights = NULL,
+                      data,
+                      subset = NULL,
+                      noint_value = FALSE,
+                      noint_scale = FALSE,
+                      constraints = NULL,
+                      start = NULL,
+                      method = "NR",
+                      control = NULL,
+                      ...)
 {
   # -- Basic input validation ------------------------------------------
   if (!rlang::is_formula(value, lhs = TRUE)) {
     cli::cli_abort("`value` must be a two-sided formula with an outcome variable on the left-hand side.",
                    call = NULL)
   }
+  
+  if (!is.null(scale) && !rlang::is_formula(scale, lhs = FALSE)) {
+    cli::cli_abort("`scale` must be a one-sided formula (no outcome on the left-hand side).",
+                   call = NULL)
+  }
+  
+  dispersion <- rlang::arg_match(dispersion, c("NB1", "NB2"))
   
   cl <- match.call()
   
@@ -113,7 +130,13 @@ ml_poisson <- function(value,
   }
   
   # -- 3. Identify usable observations on full data ----------------
-  cols_to_check <- all.vars(value)
+  if (is.null(scale)) {
+    v_vars <- all.vars(value)
+  } else {
+    v_vars <- unique(c(all.vars(value), all.vars(scale)))
+  }
+  
+  cols_to_check <- v_vars
   if (!is.null(w_name)) {
     cols_to_check <- unique(c(cols_to_check, w_name))
   }
@@ -176,6 +199,26 @@ ml_poisson <- function(value,
   y <- model_value$outcomes[[1]]
   x <- as.matrix(model_value$predictors)
   
+  if(!is.null(scale))
+  {
+    model_scale <- hardhat::mold(scale,
+                                 data_clean,
+                                 blueprint = hardhat::default_formula_blueprint(intercept = !noint_scale))
+    
+    molds$scale <- model_scale
+    
+    z <- as.matrix(model_scale$predictors)
+  }
+  else
+  {
+    z <- matrix(1, nrow = nrow(x), ncol = 1,
+                dimnames = list(NULL, "lnalpha"))
+    model_scale <- list(
+      predictors = tibble::tibble(lnsigma = as.vector(z)),
+      blueprint = NULL
+    )
+  }
+  
   # -- 7. Map factor variables in relevant equations ---------
   factor_mapping <- .build_factor_mapping(molds)
   
@@ -235,14 +278,16 @@ ml_poisson <- function(value,
   }
   
   # -- 9. Fitting the model with maxLik ----------------------
-  ml <- .ml_poisson.fit(y = y,
-                        x = x,
-                        w = wts_clean,
-                        constraints = parsed_constraints$maxLik,
-                        start = start,
-                        method = method,
-                        control = control,
-                        ...)
+  ml <- .ml_negbin.fit(y = y,
+                       x = x,
+                       z = z,
+                       w = wts_clean,
+                       constraints = parsed_constraints$maxLik,
+                       start = start,
+                       method = method,
+                       control = control,
+                       dispersion = dispersion, # NB1 or NB2
+                       ...)
   
   # -- 10. Forming the dataset name ------------------------------
   # Safely get a readable name for the dataset (for printing/storage)
@@ -269,18 +314,21 @@ ml_poisson <- function(value,
   # -- 12.a. The functions list --------------------------------------
   
   functions <- list(
-    # predict        = predict.ml_poisson,
-    hessianObs     = .ml_poisson_hessianObs,
-    # update         = update.ml_poisson,
-    loglik         = .ml_poisson_ll,
-    fit            = .ml_poisson.fit
+    # predict        = predict.ml_negbin,
+    # hessianObs     = .ml_negbin_hessianObs,
+    # update         = update.ml_negbin,
+    # loglik         = if (dispersion == "NB1") .ml_nb1_ll else .ml_nb2_ll,
+    fit            = .ml_negbin.fit
   )
   
   # -- 12.b. The common structure --------------------------------------
   model_list <- list(
     value         = model_value,
+    scale         = model_scale,
+    dispersion    = dispersion,
     factor_mapping = factor_mapping,
     formula       = model_value$blueprint$formula,
+    scale_formula = if(!is.null(scale)) model_scale$blueprint$formula else NULL,
     weights       = wts_clean,
     w_name        = w_name,
     sample        = sample,
@@ -315,7 +363,7 @@ ml_poisson <- function(value,
   # -- 12.c. The fitted values and residuals ------------------------
   # Converged: compute fitted/residuals
   beta <- coef(ml)[1:ncol(x)]
-  yhat <- as.vector(exp(x %*% beta))
+  yhat <- as.vector(x %*% beta)
   
   model_list$fitted.values <- yhat
   model_list$residuals     <- y - yhat
@@ -325,34 +373,28 @@ ml_poisson <- function(value,
   ml$call <- cl
   
   # -- 14. Call the function to create tge class and return  ----------
-  new_ml_poisson(ml)
+  new_ml_negbin(ml)
 }
 
 # Hidden function to create the class and return the object.
-new_ml_poisson <- function(object, ...) {
+new_ml_negbin <- function(object, ...) {
   # object is the result from maxLik::maxLik()
   structure(
     object,
-    class = unique(c("ml_poisson", "mlmodel.count", "mlmodel", class(object)))
+    class = unique(c("ml_lm", "mlmodel.count", "mlmodel", class(object)))
   )
 }
 
-# ML_LM FIT --------------------------------------------------------------
-#' Internal fitting function for ml_poisson
+# ML_NEGBIN FIT ----------------------------------------------------------------
+#' Internal fitting function for ml_negbin
 #'
-#' @param y Numeric vector of outcomes.
-#' @param x Design matrix for the value equation.
-#' @param w Numeric vector of weights.
-#' @param constraints Parsed constraints (internal use).
-#' @param start Numeric vector of initial values.
-#' @param control Control list passed to [maxLik::maxLik()].
-#' @param ... Further arguments passed to [maxLik::maxLik()].
 #'
 #' @keywords internal
-.ml_poisson.fit <- function(y, x, w = NULL,
+.ml_negbin.fit <- function(y, x, z, w = NULL,
                        method = "NR",
                        start = NULL,
                        constraints = NULL,
+                       dispersion = "NB2",
                        control = list(tol = -1,
                                       reltol = 1e-12,
                                       gradtol = 1e-12,
@@ -360,40 +402,64 @@ new_ml_poisson <- function(object, ...) {
                                       qac = "marquardt"),
                        ...)
 {
+  fun_ll <- if(dispersion == "NB2")
+    .ml_negbin_nb2_ll
+  else
+    .ml_negbin_nb1_ll
+  
   # At this point start has been checked and if supplied is numeric and
   # has the right dimension.
   if(!is.null(start))
   {
-    ll <- .ml_poisson_ll(start,y,x,w)
-    
+    ll <- .ml_nb1_ll(start,y,x,z,w)
     if(any(!is.finite(ll)))
       cli::cli_abort("Infeasible log-likelihood value at supplied `start` vector.",
                      call = NULL)
     
-    names(start) <- paste0("value::", colnames(x))
+    names(start) <- c(paste0("value::", colnames(x)),
+                      paste0("scale::", colnames(z)))
   }
   else
   {
     # Initial values for Poisson
     mu0  <- (y + mean(y)) / 2
-    z    <- log(mu0) + (y - mu0) / mu0
+    m    <- log(mu0) + (y - mu0) / mu0
     w_st <- sqrt(mu0) # sqrt because .lm.fit applies weights linearly
     
     # Weighted OLS: solve (X' W X) beta = X' W z
-    ols <- .lm.fit(x * w_st, z * w_st)
+    ols <- .lm.fit(x * w_st, m * w_st)
     b0  <- ols$coefficients
-
+    
     # Add names for clarity in your summary output later
     names(b0) <- paste0("value::", colnames(x))
+    mu = as.vector(exp(x %*% b0))
+    phi_initial <- sum(((y - mu)^2) / mu) / (nrow(x) - ncol(x))
+    delta_guess <- max(-2, log(max(0.1, phi_initial - 1)))
     
-    start <- .initial_values.mlmodel(.ml_poisson_ll, b0,
-                                     y = y, x = x, w = w)
+    # 3. Form the full delta vector
+    g0 <- rep(0, ncol(z))
+    
+    # 4. The "Hardhat-Safe" check for the intercept
+    # Since hardhat/model.matrix puts (Intercept) at column 1
+    if (all(z[, 1] == 1)) {
+      g0[1] <- delta_guess
+    } else {
+      # If the user specified a zero-intercept dispersion model (rare but possible)
+      # We leave them at 0 or use a small value like 0.1
+      g0[1] <- 0.1 
+    }
+    # Apply scale:: prefix to all scale coefficients
+    names(g0) <- paste0("scale::", colnames(z))
+    
+    start <- .initial_values.mlmodel(fun_ll, c(b0, g0),
+                                     y = y, x = x, z = z, w = w)
   }
   
-  maxLik::maxLik(.ml_poisson_ll,
+  maxLik::maxLik(fun_ll,
                  start = start,
                  y = y,
                  x = x,
+                 z = z,
                  w = w,
                  constraints = constraints,
                  method = method,
