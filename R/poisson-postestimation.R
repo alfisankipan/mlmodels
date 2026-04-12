@@ -202,7 +202,7 @@ print.summary.ml_poisson <- function(x, digits = max(3L, getOption("digits") - 3
   } else {
     # Log-Likelihood + Joint tests (only when converged)
     cat("Log-Likelihood:", format(x$logLik, nsmall = 2, digits = digits + 1), "\n\n")
-    cat("Joint significance tests:\n")
+    cat("Wald significance tests:\n")
     
     any_test_printed <- FALSE
     for (test in c("all", "mean", "scale")) {
