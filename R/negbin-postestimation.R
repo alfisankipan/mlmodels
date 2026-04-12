@@ -1,3 +1,219 @@
+## PREDICT =====================================================================
+#' @author Alfonso Sanchez-Penalver
+#'
+#' @rdname predict.mlmodel
+#' @export
+predict.ml_negbin <- function(object,
+                              newdata = NULL,
+                              type = "response",
+                              se.fit = FALSE,
+                              vcov = NULL,
+                              vcov.type = "oim",
+                              cl_var = NULL,
+                              repetitions = 999,
+                              seed = NULL,
+                              progress = FALSE,
+                              ...)
+{
+  if (!inherits(object, "ml_negbin"))
+    cli::cli_abort("`object` must be of class 'ml_negbin'.")
+  
+  # Send type to the parser, and then check others.
+  
+  parsed_type <- .predict_types_parsing(type)
+  
+  if(parsed_type$base_type != "prob")
+  {
+    parsed_type$base_type <- rlang::arg_match(type,
+                                              c("response", "fitted", "mean", "link", "zd", "alpha", "variance", "sd", "sigma"))
+  }
+  
+  # ── Prepare predictors (using hardhat) ─────────────────────────────
+  is_heteroskedastic <- !is.null(object$model$scale_formula)
+  if (is.null(newdata)) {
+    val_predictors <- object$model$value$predictors
+    scale_predictors <- if (is_heteroskedastic)
+      object$model$scale$predictors
+    else
+      matrix(1, nrow = nrow(val_predictors), ncol = 1)
+    sample_idx <- object$model$sample
+    n_orig <- length(sample_idx)
+  } else {
+    val_bp <- object$model$value$blueprint
+    forged <- hardhat::forge(newdata, blueprint = val_bp, outcomes = FALSE)
+    val_predictors <- forged$predictors
+    scale_predictors <- if (is_heteroskedastic)
+    {
+      scale_bp <- object$model$scale$blueprint
+      forged <- hardhat::forge(newdata, blueprint = scale_bp, outcomes = FALSE)
+      forged$predictors
+    }
+    else
+      matrix(1, nrow = nrow(val_predictors), ncol = 1)
+    sample_idx <- rep(TRUE, nrow(val_predictors))
+    n_orig <- nrow(val_predictors)
+  }
+  
+  # ── Extract coefficients and compute linear predictors ─────────────
+  coefs <- coef(object)
+  k_mean <- ncol(val_predictors)
+  beta <- coefs[1:k_mean]
+  delta <- coefs[(k_mean + 1):length(coefs)]
+  X <- as.matrix(val_predictors)
+  xb <- as.vector(X %*% beta)
+  Z <- as.matrix(scale_predictors)
+  zd <- as.vector(Z %*% delta)
+  mu <- exp(xb)
+  alpha <- exp(zd)
+  
+  is_nb2 <- (object$model$dispersion == "NB2")
+  
+  var <- if(is_nb2) mu + alpha * mu^2 else mu + alpha * mu
+  
+  # Probability
+  if (parsed_type$base_type == "prob") {
+    
+    # Safety checks
+    if (parsed_type$prob_type == "exact" && parsed_type$lower < 0) {
+      cli::cli_abort("P(k) requires k >= 0.", call = NULL)
+    }
+    
+    if (parsed_type$prob_type == "geq" && parsed_type$lower < 0) {
+      cli::cli_abort("P(k,) requires k >= 0.", call = NULL)
+    }
+    
+    if (parsed_type$prob_type == "interval") {
+      if (parsed_type$lower < 0) {
+        cli::cli_abort("Lower bound in P(a,b) must be >= 0.", call = NULL)
+      }
+      if (parsed_type$upper <= parsed_type$lower) {
+        cli::cli_abort("Invalid interval P({parsed_type$lower},{parsed_type$upper}). Upper must be greater than lower.", 
+                       call = NULL)
+      }
+    }
+    
+    out <- switch(parsed_type$prob_type,
+                  "exact"    = if(is_nb2) dnbinom(parsed_type$lower,
+                                                  size = 1 / alpha,
+                                                  mu = mu)
+                               else dnbinom(parsed_type$lower,
+                                            size = mu / alpha,
+                                            prob = 1 / (1 + alpha)),
+                  "leq"      = if(is_nb2) pnbinom(parsed_type$upper,
+                                                  size = 1 / alpha,
+                                                  mu = mu)
+                               else pnbinom(parsed_type$upper,
+                                            size = mu / alpha,
+                                            prob = 1 / (1 + alpha)),
+                  "geq"      = if(is_nb2) pnbinom(parsed_type$lower - 1,
+                                                  size = 1 / alpha,
+                                                  mu = mu,
+                                                  lower.tail = FALSE)
+                               else pnbinom(parsed_type$lower - 1,
+                                            size = mu / alpha,
+                                            prob = 1 / (1 + alpha),
+                                            lower.tail = FALSE),
+                  "interval" = if(is_nb2) pnbinom(parsed_type$upper,
+                                                  size = 1 / alpha,
+                                                  mu = mu) -
+                                          pnbinom(parsed_type$lower - 1,
+                                                  size = 1 / alpha,
+                                                  mu = mu)
+                               else pnbinom(parsed_type$upper,
+                                            size = mu / alpha,
+                                            prob = 1 / (1 + alpha)) -
+                                    pnbinom(parsed_type$lower - 1,
+                                            size = mu / alpha,
+                                            prob = 1 / (1 + alpha)),
+                  cli::cli_abort("Unknown probability type.", call = NULL)
+    )
+    
+  } else {
+    # Standard types (link, response, mean)
+    out <- switch(parsed_type$base_type,
+                  "link"     = xb,
+                  "mean"     = ,
+                  "fitted"   = ,
+                  "response" = mu,
+                  "alpha"    = alpha,
+                  "zd"       = zd,
+                  "variance" = var,
+                  "sd"       = ,
+                  "sigma"    = sqrt(var),
+                  cli::cli_abort("Unknown prediction type '{parsed_type$base_type}'.", 
+                                 call = NULL))
+  }
+  
+  # ── Align in-sample predictions to original data length ────────────
+  if (is.null(newdata) && any(!sample_idx)) {
+    full_out <- rep(NA_real_, n_orig)
+    full_out[sample_idx] <- out
+    out <- full_out
+  }
+  
+  if (!se.fit) return(out)
+  
+  n_obs <- length(mu)
+  n_beta <- length(beta)
+  if (parsed_type$base_type == "prob") {
+    
+    # Derivative of the probability w.r.t. μ
+    dP_dmu <- switch(parsed_type$prob_type,
+                     "exact" = dpois(parsed_type$lower, mu) * (parsed_type$lower / mu - 1),
+                     "leq"   = - dpois(parsed_type$upper, mu),
+                     "geq"   = if (parsed_type$lower == 0) rep(0, n_obs) 
+                     else dpois(parsed_type$lower - 1L, mu),
+                     "interval" = dpois(parsed_type$lower - 1L, mu) - 
+                       dpois(parsed_type$upper, mu),
+                     cli::cli_abort("Unknown prediction type '{parsed_type$base_type}'.", 
+                                    call = NULL)
+    )
+    
+    # Chain rule: d(prob)/dβ = d(prob)/dμ * dμ/dβ = dP_dmu * mu * X
+    g <- dP_dmu * mu * X
+    
+  } else {
+    g <- switch(parsed_type$base_type,
+                "link"     = X,
+                "mean"     = ,
+                "fitted"   = ,
+                "response" = mu * X,
+                cli::cli_abort("Unknown prediction type '{parsed_type$base_type}'.", 
+                               call = NULL))
+  }
+  
+  full_vcov <- .process_vcov(object,
+                             vcov = vcov,
+                             vcov.type = vcov.type,
+                             cl_var = cl_var,
+                             repetitions = repetitions,
+                             seed = seed,
+                             progress = progress)
+  
+  # ── Check for unusable variance matrix ─────────────────────────────
+  if (any(!is.finite(full_vcov)) || any(is.na(full_vcov))) {
+    cli::cli_warn(
+      c("Variance matrix is unusable (contains NAs or non-finite values).",
+        "i" = "This usually happens with bootstrap when constraints are present.",
+        "i" = "Standard errors will be returned as NA.")
+    )
+    se_fit <- rep(NA_real_, length(out))
+  } else {
+    # ── Delta-method standard errors ─────────────────────────────────
+    se_fit <- sqrt(rowSums(g * (g %*% full_vcov)))
+  }
+  
+  # Align in-sample SEs
+  if (is.null(newdata) && any(!sample_idx)) {
+    full_se <- rep(NA_real_, n_orig)
+    full_se[sample_idx] <- se_fit
+    se_fit <- full_se
+  }
+  list(fit = out, se.fit = se_fit)
+}
+
+
+
 ## PRINT SUMMARY ===============================================================
 #' @export
 print.summary.ml_negbin <- function(x, digits = max(3L, getOption("digits") - 3L), ...)

@@ -1,3 +1,4 @@
+## ML_LM =======================================================================
 #' Fit linear model by Maximum Likelihood
 #'
 #' @param value Formula for the conditional mean (value) equation.
@@ -79,6 +80,13 @@ ml_lm <- function(value,
   }
 
   cl <- match.call()
+  
+  # Making sure we store the formulas in the call and not references to the
+  # formulas.
+  cl$value <- eval(cl$value)
+  
+  if(!is.null(scale))
+    cl$scale <- eval(scale)
 
   # -- 0. Save original data dimensions and create keep vector ------------
   n_orig <- nrow(data)

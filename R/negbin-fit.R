@@ -84,6 +84,13 @@ ml_negbin <- function(value,
   dispersion <- rlang::arg_match(dispersion, c("NB1", "NB2"))
   
   cl <- match.call()
+  # Making sure we store the formulas in the call and not references to the
+  # formulas.
+  cl$value <- eval(cl$value)
+  
+  if(!is.null(scale))
+    cl$scale <- eval(scale)
+  
   
   # -- 0. Save original data dimensions and create keep vector ------------
   n_orig <- nrow(data)

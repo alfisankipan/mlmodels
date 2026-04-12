@@ -86,7 +86,8 @@ predict.ml_lm <- function(object,
   if (!log_info$is_log) {
     # Normal case
     out <- switch(type,
-                  "link" = zd,
+                  "link" = ,
+                  "zd" = zd,
                   "fitted" = xb,
                   "response" = ,
                   "mean" = ,
@@ -110,6 +111,7 @@ predict.ml_lm <- function(object,
     Vy <- exp(2 * mu_log + sigma^2) * (exp(sigma^2) - 1)
     out <- switch(type,
                   "link" = mu_log,
+                  "zd" = zd,
                   "fitted" = xb,
                   "response" = ,
                   "mean" = Ey,
