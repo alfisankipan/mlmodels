@@ -476,18 +476,35 @@ vcov.mlmodel <- function(object,
 
   # -- 5. Now, we're ready to select the method.
   if (type == "boot")
-    return(.vcov_boot(object,
-                      repetitions = repetitions,
-                      seed = seed,
-                      cl_var = cl_var,
-                      progress = progress,
-                      ...))
+  {
+    vcov_mat <- .vcov_boot(object,
+                           repetitions = repetitions,
+                           seed = seed,
+                           cl_var = cl_var,
+                           progress = progress,
+                           ...)
+    attr(vcov_mat, "vcov.type") <- type
+    if (!is.null(cl_var)) {
+      attr(vcov_mat, "clustered") <- TRUE
+      attr(vcov_mat, "cluster.var") <- cl_var
+    }
+    attr(vcov_mat, "rep") <- repetitions
+    return(vcov_mat)
+  }
   
   if (type == "jack")
-    return(.vcov_jack(object,
-                      cl_var = cl_var,
-                      progress = progress,
-                      ...))
+  {
+    vcov_mat <- .vcov_jack(object,
+                           cl_var = cl_var,
+                           progress = progress,
+                           ...)
+    attr(vcov_mat, "vcov.type") <- type
+    if (!is.null(cl_var)) {
+      attr(vcov_mat, "clustered") <- TRUE
+      attr(vcov_mat, "cluster.var") <- cl_var
+    }
+    return(vcov_mat)
+  }
 
   # Regular (non-bootstrap or jackknife) variance types
   H <- object$hessian

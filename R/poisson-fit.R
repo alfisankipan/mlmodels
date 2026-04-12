@@ -269,9 +269,9 @@ ml_poisson <- function(value,
   # -- 12.a. The functions list --------------------------------------
   
   functions <- list(
-    # predict        = predict.ml_poisson,
+    predict        = predict.ml_poisson,
     hessianObs     = .ml_poisson_hessianObs,
-    # update         = update.ml_poisson,
+    update         = update.ml_poisson,
     loglik         = .ml_poisson_ll,
     fit            = .ml_poisson.fit
   )

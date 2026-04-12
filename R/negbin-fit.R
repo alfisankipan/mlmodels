@@ -315,9 +315,9 @@ ml_negbin <- function(value,
   
   functions <- list(
     # predict        = predict.ml_negbin,
-    # hessianObs     = .ml_negbin_hessianObs,
-    # update         = update.ml_negbin,
-    # loglik         = if (dispersion == "NB1") .ml_nb1_ll else .ml_nb2_ll,
+    hessianObs     = if (dispersion == "NB2") .ml_negbin_nb2_hessianObs else .ml_negbin_nb1_hessianObs,
+    update         = update.ml_negbin,
+    loglik         = if (dispersion == "NB2") .ml_negbin_nb2_ll else .ml_negbin_nb1_ll,
     fit            = .ml_negbin.fit
   )
   
@@ -361,12 +361,28 @@ ml_negbin <- function(value,
   }
   
   # -- 12.c. The fitted values and residuals ------------------------
-  # Converged: compute fitted/residuals
+  # Converged: compute fitted/residuals and ll0 from a constants only fit.
+  z0 <- x0 <- matrix(1, nrow = length(y), ncol = 1)
+  
+  colnames(x0) <- "(Intercept)"
+  colnames(z0) <- "lnalpha"
+  
+  ml0 <- .ml_negbin.fit(y = y, x = x0, z = z0, w = wts_clean,
+                        dispersion = dispersion)
+  model_list$ll0 <- ml0$maximum
+  
+  # Value
   beta <- coef(ml)[1:ncol(x)]
-  yhat <- as.vector(x %*% beta)
+  yhat <- as.vector(exp(x %*% beta))
   
   model_list$fitted.values <- yhat
   model_list$residuals     <- y - yhat
+  
+  # Scale
+  delta <- coef(ml)[(ncol(x) + 1):length(coef(ml))]
+  alhat <- as.vector(exp(z %*% delta))
+  
+  model_list$fitted.alpha <- alhat
   
   # -- 13. Add the model to the maxLik object ----------------------
   ml$model <- model_list
@@ -381,7 +397,7 @@ new_ml_negbin <- function(object, ...) {
   # object is the result from maxLik::maxLik()
   structure(
     object,
-    class = unique(c("ml_lm", "mlmodel.count", "mlmodel", class(object)))
+    class = unique(c("ml_negbin", "mlmodel.count", "mlmodel", class(object)))
   )
 }
 
@@ -433,16 +449,29 @@ new_ml_negbin <- function(object, ...) {
     # Add names for clarity in your summary output later
     names(b0) <- paste0("value::", colnames(x))
     mu = as.vector(exp(x %*% b0))
-    phi_initial <- sum(((y - mu)^2) / mu) / (nrow(x) - ncol(x))
-    delta_guess <- max(-2, log(max(0.1, phi_initial - 1)))
     
     # 3. Form the full delta vector
     g0 <- rep(0, ncol(z))
     
+    if (dispersion == "NB2")
+    {
+      # Moment estimate: Var(y) = mu + alpha * mu^2 
+      # Solve for alpha: alpha = ( (y - mu)^2 - mu ) / mu^2
+      alpha_start <- mean(((y - mu)^2 - mu) / (mu^2))
+      
+      # Ensure alpha is positive before taking the log
+      alpha_guess <- log(max(alpha_start, 0.01))
+    }
+    else
+    {
+      phi_initial <- sum(((y - mu)^2) / mu) / (nrow(x) - ncol(x))
+      alpha_guess <- max(-2, log(max(0.1, phi_initial - 1)))
+    }
+    
     # 4. The "Hardhat-Safe" check for the intercept
     # Since hardhat/model.matrix puts (Intercept) at column 1
     if (all(z[, 1] == 1)) {
-      g0[1] <- delta_guess
+      g0[1] <- alpha_guess
     } else {
       # If the user specified a zero-intercept dispersion model (rare but possible)
       # We leave them at 0 or use a small value like 0.1
