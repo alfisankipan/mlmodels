@@ -179,21 +179,6 @@ predict.ml_poisson <- function(object,
   list(fit = out, se.fit = se_fit)
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 ## PRINT SUMMARY ===============================================================
 #' @export
 print.summary.ml_poisson <- function(x, digits = max(3L, getOption("digits") - 3L), ...)
@@ -241,7 +226,10 @@ print.summary.ml_poisson <- function(x, digits = max(3L, getOption("digits") - 3
                          "oim" = "Original Information Matrix",
                          "opg" = "Outer Product of Gradients (BHHH)",
                          "robust" = if(is.null(x$vcov.cluster)) "Robust" else "Cluster-Robust",
-                         "boot" = if(is.null(x$vcov.cluster)) "Bootstrap" else "Cluster Bootstrap",
+                         "boot" = if(is.null(x$vcov.cluster)) paste0("Bootstrap (",
+                                                                     x$boot.reps, " repetitions)")
+                         else paste0("Cluster Bootstrap (",
+                                     x$boot.reps, " repetitions)"),
                          "jack" = if(is.null(x$vcov.cluster)) "Jackknife" else "Cluster Jackknife",
                          x$vcov.type
     )
@@ -401,6 +389,10 @@ summary.ml_poisson <- function(object,
   } else {
     s$vcov.cluster <- NULL
   }
+  
+  # Boostrap variance handling.
+  if(s$vcov.type == "boot")
+    s$boot.reps <- attr(vcov_mat, "rep")
   
   # Basic information
   s$logLik <- as.numeric(object$maximum %||% NA_real_)

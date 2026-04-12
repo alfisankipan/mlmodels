@@ -282,7 +282,10 @@ print.summary.ml_logit <- function(x, digits = max(3L, getOption("digits") - 3L)
                          "oim" = "Original Information Matrix",
                          "opg" = "Outer Product of Gradients (BHHH)",
                          "robust" = if(is.null(x$vcov.cluster)) "Robust" else "Cluster-Robust",
-                         "boot" = if(is.null(x$vcov.cluster)) "Bootstrap" else "Cluster Bootstrap",
+                         "boot" = if(is.null(x$vcov.cluster)) paste0("Bootstrap (",
+                                                                     x$boot.reps, " repetitions)")
+                         else paste0("Cluster Bootstrap (",
+                                     x$boot.reps, " repetitions)"),
                          "jack" = if(is.null(x$vcov.cluster)) "Jackknife" else "Cluster Jackknife",
                          x$vcov.type
     )
@@ -472,6 +475,10 @@ summary.ml_logit <- function(object,
   } else {
     s$vcov.cluster <- NULL
   }
+  
+  # Boostrap variance handling.
+  if(s$vcov.type == "boot")
+    s$boot.reps <- attr(vcov_mat, "rep")
   
   # Checking for fractional response estimation, and variance
   if (!object$model$is_binary) {
