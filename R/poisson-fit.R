@@ -70,7 +70,7 @@ ml_poisson <- function(value,
   
   # Making sure we store the formulas in the call and not references to the
   # formulas.
-  cl$value <- eval(cl$value)
+  cl$value <- eval(value)
   
   if(!is.null(scale))
     cl$scale <- eval(scale)

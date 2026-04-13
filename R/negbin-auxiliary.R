@@ -99,7 +99,6 @@
   if(is.null(w))
     w <- rep(1, nrow(x))
   
-  # Extract the coefficients for the mean.
   beta <- b[1:k1]
   delta <- b[(k1+1):k]
   
@@ -161,6 +160,44 @@
   attr(ll, "hessian") <- H
   
   return(ll)
+}
+
+# NB1 Scores (Gradients) Function ----------------------------------------------
+# Returns the scores of an NB1 model
+#' @keywords internal
+.ml_negbin_nb1_score <- function(b, y, x, z, w = NULL)
+{
+  if(is.null(w))
+    w <- rep(1, nrow(x))
+  
+  k1 <- ncol(x) # Number of coefficients for the mean.
+  k <- k1 + ncol(z) # Total number of coefficients.
+  
+  beta <- b[1:k1]
+  delta <- b[(k1+1):k]
+  
+  # Useful operations
+  xb <- as.vector(x %*% cbind(beta))
+  zd <- as.vector(z %*% cbind(delta))
+  
+  mu_alpha = exp(xb - zd)
+  p_disp <- plogis(zd)
+  p_ndisp <- plogis(zd, lower.tail = FALSE)
+  # ln(1 + exp(zd)) = ln(1 / (1 / (1 + exp(zd)))) = ln(1 / p_no) = ln(1) - ln(p_no) = - ln(p_no)
+  l_p_ndisp <- - plogis(zd, lower.tail = FALSE, log.p = TRUE)
+  
+  psi_mu_alpha_y <- digamma(mu_alpha + y)
+  psi_mu_alpha <- digamma(mu_alpha)
+  
+  
+  # Partial with respect to beta.
+  gb <- w * mu_alpha * (psi_mu_alpha_y - psi_mu_alpha - l_p_ndisp) * x
+  
+  # Partial with respect to delta.
+  gd <- w * (mu_alpha * ( psi_mu_alpha - psi_mu_alpha_y - p_disp
+                          + l_p_ndisp) + y * p_ndisp ) * z
+  
+  return(cbind(gb, gd))
 }
 
 ## NB2 FUNCTIONS ===============================================================
@@ -306,6 +343,40 @@
   attr(ll, "hessian") <- H
   
   return(ll)
+}
+
+# NB2 Scores (gradients) Function ----------------------------------------------
+# Returns the scores of an NB2 model
+#' @keywords internal
+.ml_negbin_nb2_score <- function(b, y, x, z, w = NULL)
+{
+  if(is.null(w))
+    w <- rep(1, nrow(x))
+  
+  k1 <- ncol(x) # Number of coefficients for the mean.
+  k <- k1 + ncol(z) # Total number of coefficients.
+  
+  beta <- b[1:k1]
+  delta <- b[(k1+1):k]
+  
+  # Useful operations
+  xb <- as.vector(x %*% cbind(beta))
+  zd <- as.vector(z %*% cbind(delta))
+  
+  alpha_inv <- exp(-zd)
+  m <- xb + zd   # To use with plogis.
+  
+  # Gradient
+  p_yes <- plogis(m)
+  p_no <- plogis(m, lower.tail = FALSE)
+  d_yes <- dlogis(m) # p_yes * p_no
+  
+  gb <- w * (y - exp(xb)) * p_no * x
+  gd <- w * alpha_inv * (digamma(alpha_inv) - digamma(alpha_inv + y)
+                         + log(alpha_inv + exp(xb)) + (y / alpha_inv + 1) * p_no
+                         + zd - 1) * z
+  
+  return(cbind(gb, gd))
 }
 
 ## VARIANCE HELPERS ============================================================

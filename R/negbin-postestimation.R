@@ -1,4 +1,34 @@
 ## PREDICT =====================================================================
+# Remember that the parameter documentation is done at the generic predict for
+# mlmodel class.
+
+#' @details
+#' ### ml_negbin prediction types
+#'
+#' The `type` argument controls what quantity is returned. In addition to
+#' standard types, Poisson models support flexible probability requests
+#' using the `P(...)` syntax.
+#'
+#' | Type          | Description                              | Notes |
+#' |---------------|------------------------------------------|-------|
+#' | `"link"`      | Linear mean predictor ( xb )                  | log-mean |
+#' | `"response"`  | Expected count ( \code{mu} = \code{exp(xb)} )          | Default |
+#' | `"mean"`      | Alias for `"response"`                   | - |
+#' | `"fitted"`    | Alias for `"response"`                   | - |
+#' | `"zd"`        | Linear dispersion predictor              | log-alpha |
+#' | `"alpha"`     | Dispersion parameter                     | - |
+#' | `"variance"`  | Variance of the outcome variable         | - |
+#' | `"var"`       | Alias for `"variance"`                   | - |
+#' | `"sigma"`     | Standard deviation of outcome variable   | sqrt(`"variance"`) |
+#' | `"sd"`        | Alias for `"sigma"`                      | - |
+#' | `P(k)`        | P(Y = k)                                 | Exact probability, k integer ≥ 0 |
+#' | `P(,k)`       | P(Y ≤ k)                                 | Cumulative (lower tail) |
+#' | `P(k,)`       | P(Y ≥ k)                                 | Survival (upper tail) |
+#' | `P(a,b)`      | P(a ≤ Y ≤ b)                             | Interval probability, a ≤ b, a ≥ 0 |
+#'
+#' When `se.fit = TRUE`, standard errors are computed using the delta method
+#' for all supported types.
+#'
 #' @author Alfonso Sanchez-Penalver
 #'
 #' @rdname predict.mlmodel
@@ -25,7 +55,7 @@ predict.ml_negbin <- function(object,
   if(parsed_type$base_type != "prob")
   {
     parsed_type$base_type <- rlang::arg_match(type,
-                                              c("response", "fitted", "mean", "link", "zd", "alpha", "variance", "sd", "sigma"))
+                                              c("response", "fitted", "mean", "fitted", "link", "zd", "alpha", "variance", "var", "sd", "sigma"))
   }
   
   # ── Prepare predictors (using hardhat) ─────────────────────────────
@@ -137,6 +167,7 @@ predict.ml_negbin <- function(object,
                   "response" = mu,
                   "alpha"    = alpha,
                   "zd"       = zd,
+                  "var"      = ,
                   "variance" = var,
                   "sd"       = ,
                   "sigma"    = sqrt(var),
@@ -156,28 +187,109 @@ predict.ml_negbin <- function(object,
   n_obs <- length(mu)
   n_beta <- length(beta)
   if (parsed_type$base_type == "prob") {
-    
-    # Derivative of the probability w.r.t. μ
-    dP_dmu <- switch(parsed_type$prob_type,
-                     "exact" = dpois(parsed_type$lower, mu) * (parsed_type$lower / mu - 1),
-                     "leq"   = - dpois(parsed_type$upper, mu),
-                     "geq"   = if (parsed_type$lower == 0) rep(0, n_obs) 
-                     else dpois(parsed_type$lower - 1L, mu),
-                     "interval" = dpois(parsed_type$lower - 1L, mu) - 
-                       dpois(parsed_type$upper, mu),
-                     cli::cli_abort("Unknown prediction type '{parsed_type$base_type}'.", 
-                                    call = NULL)
-    )
-    
-    # Chain rule: d(prob)/dβ = d(prob)/dμ * dμ/dβ = dP_dmu * mu * X
-    g <- dP_dmu * mu * X
-    
+    # should already have coefs but let's make sure
+    coefs <- coef(object)
+    # create dummy weights so we can pass them to the score function
+    w <- rep(1, nrow(X))
+    if(parsed_type$prob_type == "exact")   # P(k)
+    {
+       y_star <- rep(parsed_type$lower, nrow(X)) # vector with the y value to pass to the scores.
+       scrs <- if(is_nb2)
+         .ml_negbin_nb2_score(coefs, y_star, X, Z, w)
+       else
+         .ml_negbin_nb1_score(coefs, y_star, X, Z, w)
+       g <- out * scrs # out holds the vector with the predictions.
+    }
+    else if(parsed_type$prob_type == "leq") # P(y <= b)
+    {
+      b <- parsed_type$upper
+      # Initialize a matrix of zeros for the cumulative gradient
+      g <- matrix(0, nrow = nrow(X), ncol = length(coefs))
+      
+      for (j in 0:b) {
+        # 1. Calculate the point probability for this specific j
+        p_j <- if(is_nb2) {
+          dnbinom(j, size = 1 / alpha, mu = mu)
+        } else {
+          dnbinom(j, size = mu / alpha, prob = 1 / (1 + alpha))
+        }
+        
+        # 2. Get the score matrix for this specific j
+        y_star <- rep(j, nrow(X))
+        scrs_j <- if(is_nb2) {
+          .ml_negbin_nb2_score(coefs, y_star, X, Z, w)
+        } else {
+          .ml_negbin_nb1_score(coefs, y_star, X, Z, w)
+        }
+        
+        # 3. Add this point's contribution to the total gradient
+        g <- g + (p_j * scrs_j)
+      }
+    }
+    else if(parsed_type$prob_type == "geq") # P(y >= k)
+    {
+      b_limit <- parsed_type$lower - 1
+      g <- matrix(0, nrow = nrow(X), ncol = length(coefs))
+      
+      # Sum the gradients from 0 to k-1
+      for (j in 0:b_limit) {
+        p_j <- if(is_nb2) dnbinom(j, size = 1 / alpha, mu = mu)
+        else       dnbinom(j, size = mu / alpha, prob = 1 / (1 + alpha))
+        
+        y_star <- rep(j, nrow(X))
+        scrs_j <- if(is_nb2) .ml_negbin_nb2_score(coefs, y_star, X, Z, w)
+        else       .ml_negbin_nb1_score(coefs, y_star, X, Z, w)
+        
+        g <- g + (p_j * scrs_j)
+      }
+      # The gradient of (1 - sum) is -sum
+      g <- -g 
+    }
+    else if(parsed_type$prob_type == "interval")
+    {
+      a <- parsed_type$lower
+      b <- parsed_type$upper
+      g <- matrix(0, nrow = nrow(X), ncol = length(coefs))
+      # Sum the gradients from 0 to k-1
+      for (j in a:b) {
+        p_j <- if(is_nb2) dnbinom(j, size = 1 / alpha, mu = mu)
+        else       dnbinom(j, size = mu / alpha, prob = 1 / (1 + alpha))
+        
+        y_star <- rep(j, nrow(X))
+        scrs_j <- if(is_nb2) .ml_negbin_nb2_score(coefs, y_star, X, Z, w)
+        else       .ml_negbin_nb1_score(coefs, y_star, X, Z, w)
+        
+        g <- g + (p_j * scrs_j)
+      }
+    }
+    else
+    {
+      # We never should be here because we matched the cases, in the parsing but
+      # just in case
+      cli::cli_abort("Unknown probability type '{type}'.",
+                     call = NULL)
+    }
   } else {
+    g_null_delta <- matrix(0, nrow = nrow(X), ncol = ncol(Z))
+    g_null_beta <- matrix(0, nrow = nrow(X), ncol = ncol(X))
+    g_mu_b <- mu * X
+    g_alpha_d <- alpha * Z
+    g_var_b <- if(is_nb2) (mu + 2 * alpha * mu^2) * X else var * X
+    g_var_d <- if(is_nb2) alpha * mu^2 * Z else alpha * mu * Z
+    g_sig_b <- 0.5 * var^(-0.5) * g_var_b
+    g_sig_d <- 0.5 * var^(-0.5) & g_var_d
+    
     g <- switch(parsed_type$base_type,
-                "link"     = X,
+                "link"     = cbind(X, g_null_delta),
                 "mean"     = ,
                 "fitted"   = ,
-                "response" = mu * X,
+                "response" = cbind(g_mu_b, g_null_delta),
+                "alpha"    = cbind(g_null_beta, g_alpha_d),
+                "zd"       = cbind(g_null_beta, Z),
+                "var"      = ,
+                "variance" = cbind(g_var_b, g_var_d),
+                "sd"       = ,
+                "sigma"    = cbind(g_sig_b, g_sig_d),
                 cli::cli_abort("Unknown prediction type '{parsed_type$base_type}'.", 
                                call = NULL))
   }
