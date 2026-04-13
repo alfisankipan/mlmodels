@@ -321,7 +321,7 @@ ml_negbin <- function(value,
   # -- 12.a. The functions list --------------------------------------
   
   functions <- list(
-    # predict        = predict.ml_negbin,
+    predict        = predict.ml_negbin,
     hessianObs     = if (dispersion == "NB2") .ml_negbin_nb2_hessianObs else .ml_negbin_nb1_hessianObs,
     update         = update.ml_negbin,
     loglik         = if (dispersion == "NB2") .ml_negbin_nb2_ll else .ml_negbin_nb1_ll,
