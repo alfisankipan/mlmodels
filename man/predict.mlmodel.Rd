@@ -100,10 +100,10 @@
 
 \item{repetitions}{Number of bootstrap replications when \code{vcov.type = "boot"}.}
 
-\item{seed}{Random seed for reproducibility.}
+\item{seed}{Random seed for bootstrapping, for reproducibility.}
 
-\item{progress}{Logical. Show bootstrap progress bar? Default is \code{FALSE} in
-higher-level functions.}
+\item{progress}{Logical. Show bootstrap/jackknife progress bar? Default is
+\code{FALSE} in higher-level functions.}
 
 \item{...}{Additional arguments passed to methods.}
 }

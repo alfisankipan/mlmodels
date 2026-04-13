@@ -892,7 +892,7 @@
       if (is.na(lower) || !is.finite(lower) || lower < 0 || lower != round(lower)) {
         cli::cli_abort("In P(a,b), a and b need to be non-negative integers.", call = NULL)
       }
-      if (is.na(upper) || !is.finite(upper) || upper < 0 || lower != round(upper)) {
+      if (is.na(upper) || !is.finite(upper) || upper < 0 || upper != round(upper)) {
         cli::cli_abort("In P(a,b), a and b need to be non-negative integers.", call = NULL)
       }
       if (upper <= lower)

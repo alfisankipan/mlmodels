@@ -113,7 +113,7 @@ predict.ml_negbin <- function(object,
       cli::cli_abort("P(k,) requires k >= 0.", call = NULL)
     }
     
-    if (parsed_type$prob_type == "leq" && parsed_type$lower < 0) {
+    if (parsed_type$prob_type == "leq" && parsed_type$upper < 0) {
       cli::cli_abort("P(,k) requires k >= 0.", call = NULL)
     }
     

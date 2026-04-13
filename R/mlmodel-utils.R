@@ -119,6 +119,102 @@ coef.mlmodel <- function(object, ...) {
   object$estimate
 }
 
+## CONFINT =====================================================================
+#' Gets the confidence interval for an estimated model.
+#' 
+#' @param object Any model estimated with one of our estimators.
+#' @param parm A vector with the names or indices of the parameters you want the
+#'    interval for. If missing all parameters are considered.
+#' @param level The confidence level for the interval.
+#' @param vcov Optional user-supplied variance-covariance matrix.
+#' @param vcov.type Type of variance-covariance matrix. See [vcov][vcov.mlmodel].
+#' @param cl_var Clustering variable (name or vector).
+#' @param repetitions Number of bootstrap replications when `vcov.type = "boot"`.
+#' @param seed Random seed for the boostrapping, for reproducibility.
+#' @param progress Logical. Show bootstrap/jackknife progress bar? Default is
+#'   `FALSE` in higher-level functions.
+#' @param ... Additional arguments for methods.
+#' 
+#' @method confint mlmodel
+#' @export
+confint.mlmodel <- function(object,
+                            parm,
+                            level = 0.95,
+                            vcov = NULL,
+                            vcov.type = "oim",
+                            cl_var = NULL,
+                            repetitions = 999,
+                            seed = NULL,
+                            progress = FALSE,
+                            ...)
+{
+  if (!inherits(object, "mlmodel"))
+    cli::cli_abort("`object` must be a model of class 'mlmodel'.", call = NULL)
+  
+  coefs <- coef(object)
+  
+  if(missing(parm))
+    cfs_idx <- rep(TRUE, length(coefs))
+  else
+  {
+    if (is.numeric(parm))
+    {
+      # indices
+      if (any(is.na(parm)) || any(parm > length(coefs)) || any(parm < 1) ||
+          any(parm != floor(parm)))
+        cli::cli_abort("Invalid indices in `parm`.", call = NULL)
+      cfs_idx <- seq_along(coefs) %in% parm
+    }
+    else
+    {
+      if(!is.character(parm))
+        cli::cli_abort("Invalid format for `parm`.", call = NULL)
+      cfs_idx <- names(coefs) %in% parm
+    }
+  }
+  # This could happen if the names in parm are not in the coefficient names, but
+  # it is safer to do it out of the if statement in case I missed something in
+  # the is.numeric part.
+  if (!any(cfs_idx))
+    cli::cli_abort("Invalid parameters in `parm`.", call = NULL)
+  
+  # Preliminary values.
+  a <- (1 - level) / 2
+  crit <- qnorm(c(a, 1 - a))
+  parm_names <- names(coefs)[cfs_idx]
+  pct <- paste(format(100 * c(a, 1 - a), trim = TRUE, scientific = FALSE, digits = 3), "%")
+  
+  # Process the vcov
+  vcov <- .process_vcov(object,
+                        vcov = vcov,
+                        vcov.type = vcov.type,
+                        cl_var = cl_var,
+                        repetitions = repetitions,
+                        seed = seed,
+                        progress = progress)
+  
+  
+  # ── Check for unusable variance matrix ─────────────────────────────
+  if (any(!is.finite(vcov)) || any(is.na(vcov))) {
+    cli::cli_warn(
+      c("Variance matrix is unusable (contains NAs or non-finite values).",
+        "i" = "This usually happens with bootstrap when constraints are present.",
+        "i" = "Standard errors will be returned as NA.")
+    )
+    ci_matrix <- matrix(NA, nrow = length(parm_names), ncol = 2)
+  }
+  else
+  {
+    ses <- sqrt(diag(vcov))
+    ci_matrix <- coefs + ses %o% crit
+    ci_matrix <- ci_matrix[cfs_idx, , drop = FALSE]
+  }
+  rownames(ci_matrix) <- parm_names
+  colnames(ci_matrix) <- pct
+  
+  ci_matrix
+}
+
 ## FITTED ======================================================================
 # --- mlmodel ------------------------------------------------------------------
 #' Returns the fitted values from an object of class `mlmodel`.
@@ -262,9 +358,9 @@ nobs.mlmodel <- function(object, ...) {
 #' @param vcov.type Type of variance-covariance matrix. See [vcov][vcov.mlmodel].
 #' @param cl_var Clustering variable (name or vector).
 #' @param repetitions Number of bootstrap replications when `vcov.type = "boot"`.
-#' @param seed Random seed for reproducibility.
-#' @param progress Logical. Show bootstrap progress bar? Default is `FALSE` in
-#' higher-level functions.
+#' @param seed Random seed for bootstrapping, for reproducibility.
+#' @param progress Logical. Show bootstrap/jackknife progress bar? Default is
+#'    `FALSE` in higher-level functions.
 #' @param ... Additional arguments passed to methods.
 #'
 #' @return If `se.fit = FALSE` (default), a numeric vector of predictions.
