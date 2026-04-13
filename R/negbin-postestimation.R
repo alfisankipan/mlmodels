@@ -103,13 +103,18 @@ predict.ml_negbin <- function(object,
   # Probability
   if (parsed_type$base_type == "prob") {
     
-    # Safety checks
+    # Safety checks. These have been done at the parser, but they're safety
+    # checks.
     if (parsed_type$prob_type == "exact" && parsed_type$lower < 0) {
       cli::cli_abort("P(k) requires k >= 0.", call = NULL)
     }
     
     if (parsed_type$prob_type == "geq" && parsed_type$lower < 0) {
       cli::cli_abort("P(k,) requires k >= 0.", call = NULL)
+    }
+    
+    if (parsed_type$prob_type == "leq" && parsed_type$lower < 0) {
+      cli::cli_abort("P(,k) requires k >= 0.", call = NULL)
     }
     
     if (parsed_type$prob_type == "interval") {

@@ -853,43 +853,53 @@
     cli::cli_abort("Empty P() is not allowed.", call = NULL)
   }
   
-  parts <- strsplit(content, ",")[[1]]
-  parts <- trimws(parts)
-  
-  if (length(parts) == 1) {
+  if (!grepl(",", content))
+  {
     # P(k) → exact count
-    k <- suppressWarnings(as.numeric(parts[1]))
+    k <- suppressWarnings(as.numeric(content))
     if (is.na(k) || !is.finite(k) || k < 0 || k != round(k)) {
       cli::cli_abort("P(k) requires a non-negative integer k.", call = NULL)
     }
     return(list(base_type = "prob", prob_type = "exact", lower = k, upper = k))
   }
-  
-  if (length(parts) == 2) {
-    lower_str <- parts[1]
-    upper_str <- parts[2]
+  else
+  {
+    parts <- strsplit(content, ",")[[1]]
+    parts <- trimws(parts)
     
-    lower <- if (lower_str == "") NA_real_ else suppressWarnings(as.numeric(lower_str))
-    upper <- if (upper_str == "") NA_real_ else suppressWarnings(as.numeric(upper_str))
-    
-    # P(,k) → P(Y ≤ k)
-    if (is.na(lower) && !is.na(upper) && upper == round(upper) && upper >= 0) {
-      return(list(base_type = "prob", prob_type = "leq", lower = NULL, upper = upper))
+    if (length(parts) == 1) {
+      # GEQ
+      k <- suppressWarnings(as.numeric(parts[1]))
+      if (is.na(k) || !is.finite(k) || k < 0 || k != round(k)) {
+        cli::cli_abort("P(k,) requires a non-negative integer k.", call = NULL)
+      }
+      return(list(base_type = "prob", prob_type = "geq", lower = k, upper = NULL))
     }
-    
-    # P(k,) → P(Y ≥ k)
-    if (!is.na(lower) && is.na(upper) && lower == round(lower) && lower >= 0) {
-      return(list(base_type = "prob", prob_type = "geq", lower = lower, upper = NULL))
+    else if(parts[1] == "")
+    {
+      # LEQ
+      k <- suppressWarnings(as.numeric(parts[2]))
+      if (is.na(k) || !is.finite(k) || k < 0 || k != round(k)) {
+        cli::cli_abort("P(,k) requires a non-negative integer k.", call = NULL)
+      }
+      return(list(base_type = "prob", prob_type = "leq", lower = NULL, upper = k))
     }
-    
-    # P(a,b) → P(a ≤ Y ≤ b)
-    if (!is.na(lower) && !is.na(upper) &&
-        lower == round(lower) && upper == round(upper) &&
-        lower >= 0 && upper >= lower) {
+    else
+    {
+      # interval
+      lower <- suppressWarnings(as.numeric(parts[1]))
+      upper <- suppressWarnings(as.numeric(parts[2]))
+      if (is.na(lower) || !is.finite(lower) || lower < 0 || lower != round(lower)) {
+        cli::cli_abort("In P(a,b), a and b need to be non-negative integers.", call = NULL)
+      }
+      if (is.na(upper) || !is.finite(upper) || upper < 0 || lower != round(upper)) {
+        cli::cli_abort("In P(a,b), a and b need to be non-negative integers.", call = NULL)
+      }
+      if (upper <= lower)
+        cli::cli_abort("In P(a,b), b needs to be greater than a.", call = NULL)
       return(list(base_type = "prob", prob_type = "interval", lower = lower, upper = upper))
     }
   }
-  
   cli::cli_abort("Invalid probability syntax '{type}'. Use P(k), P(,k), P(k,), or P(a,b).",
                  call = NULL)
 }
