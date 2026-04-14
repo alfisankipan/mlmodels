@@ -584,8 +584,10 @@ summary.ml_negbin <- function(object,
     s$AIC            <- -2 * ll + 2 * k_total
     s$BIC            <- -2 * ll + log(n) * k_total
     
+    vnb <- if(object$model$dispersion == "NB2") yhat + alphahat * yhat^2 else yhat + alphahat * yhat
+    
     # overdispersion
-    s$ov <- sum((y - yhat)^2 / yhat) / (n - k_total)
+    s$ov <- sum((y - yhat)^2 / vnb) / (n - k_total)
     
     # Null logLik
     y_bar <- mean(y)
