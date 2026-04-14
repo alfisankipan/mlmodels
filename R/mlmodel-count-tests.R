@@ -65,10 +65,26 @@ GOFtest <- function(object, bins = 0:5)
     cli::cli_abort("All values in {.arg bins} must be non-negative.", call = NULL)
   }
   
-  # if (!(0 %in% bins))
-  #   bins <- c(0, bins)
-  # 
-  # bins <- sort(bins)
+  # 4. Check the estimator for two things:
+  #    - a. Set the name of the model.
+  #    - b. Add zero to the bins if not there, for the appropriate estimators
+  if(inherits(object, "ml_poisson"))
+  {
+    model <- "Poisson"
+    if(!(0 %in% bins))
+      bins <- c(0, bins)
+  }
+  else if (inherits(object, "ml_negbin"))
+  {
+    if(is.null(object$model$scale_formula))
+      model <- paste0("Homoskedastic Negative Binomial (", object$model$dispersion, ")")
+    else
+      model <- paste0("Heteroskedastic Negative Binomial (", object$model$dispersion, ")")
+    if(!(0 %in% bins))
+      bins <- c(0, bins)
+  }
+  else
+    model <- NULL  # For later models we will check here.
   
   y <- as.vector(object$model$value$outcomes[[1]])
   n_obs <- length(y)
@@ -149,18 +165,6 @@ GOFtest <- function(object, bins = 0:5)
   teststat <- n_obs - sum(ols$residuals^2)
   df <- n_bins
   pval <- pchisq(teststat, df, lower.tail = FALSE)
-  
-  if(inherits(object, "ml_poisson"))
-    model <- "Poisson"
-  else if (inherits(object, "ml_negbin"))
-  {
-    if(is.null(object$model$scale_formula))
-      model <- paste0("Homoskedastic Negative Binomial (", object$model$dispersion, ")")
-    else
-      model <- paste0("Heteroskedastic Negative Binomial (", object$model$dispersion, ")")
-  }
-  else
-    model <- NULL  # For later models we will check here.
   
   out <- list(
     model = model,

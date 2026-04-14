@@ -322,7 +322,9 @@ ml_negbin <- function(value,
   
   functions <- list(
     predict        = predict.ml_negbin,
+    gradientObs    = if (dispersion == "NB2") .ml_negbin_nb2_gradientObs else .ml_negbin_nb1_gradientObs,
     hessianObs     = if (dispersion == "NB2") .ml_negbin_nb2_hessianObs else .ml_negbin_nb1_hessianObs,
+    loglikeObs     = if (dispersion == "NB2") .ml_negbin_nb2_loglikeObs else .ml_negbin_nb1_loglikeObs, 
     update         = update.ml_negbin,
     loglik         = if (dispersion == "NB2") .ml_negbin_nb2_ll else .ml_negbin_nb1_ll,
     fit            = .ml_negbin.fit
@@ -378,15 +380,17 @@ ml_negbin <- function(value,
                         dispersion = dispersion)
   model_list$ll0 <- ml0$maximum
   
+  
+  coefs <- coef(ml)
   # Value
-  beta <- coef(ml)[1:ncol(x)]
+  beta <- coefs[1:ncol(x)]
   yhat <- as.vector(exp(x %*% beta))
   
   model_list$fitted.values <- yhat
   model_list$residuals     <- y - yhat
   
   # Scale
-  delta <- coef(ml)[(ncol(x) + 1):length(coef(ml))]
+  delta <- coefs[(ncol(x) + 1):length(coefs)]
   alhat <- as.vector(exp(z %*% delta))
   
   model_list$fitted.alpha <- alhat

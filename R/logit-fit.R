@@ -298,7 +298,9 @@ ml_logit <- function(value,
 
   functions <- list(
     predict        = predict.ml_logit,
+    gradientObs    = .ml_logit_gradientObs,
     hessianObs     = .ml_logit_hessianObs,
+    loglikeObs     = .ml_logit_loglikeObs,
     update         = update.ml_logit,
     loglik         = .ml_logit_ll,
     fit            = .ml_logit.fit
@@ -344,12 +346,12 @@ ml_logit <- function(value,
   }
 
   # Converged: compute fitted (easy calculation of pseudo R-squared)]
-  cfs <- coef(ml)
-  beta <- cfs[1:ncol(x)]
+  coefs <- coef(ml)
+  beta <- coefs[1:ncol(x)]
   xb <- x %*% beta
   if(!is.null(scale))
   {
-    delta <- cfs[(ncol(x)+1):length(cfs)]
+    delta <- coefs[(ncol(x)+1):length(coefs)]
     sig <- exp(z %*% delta)
   }
   else

@@ -321,7 +321,7 @@ ml_poisson <- function(value,
   
   # -- 12.c. The fitted values and residuals ------------------------
   # Converged: compute fitted/residuals
-  beta <- coef(ml)[1:ncol(x)]
+  beta <- coef(ml)
   yhat <- as.vector(exp(x %*% beta))
   
   model_list$fitted.values <- yhat
@@ -330,6 +330,12 @@ ml_poisson <- function(value,
   # -- 13. Add the model to the maxLik object ----------------------
   ml$model <- model_list
   ml$call <- cl
+  
+  # -- 14. Get the vector of log-likelihood observations at the solution.
+  
+  ll <- .ml_poisson_ll(beta, y, x, wts_clean)
+  
+  ml$logLikeObs <- as.vector(ll)
   
   # -- 14. Call the function to create tge class and return  ----------
   new_ml_poisson(ml)

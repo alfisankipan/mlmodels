@@ -318,7 +318,9 @@ ml_lm <- function(value,
 
   functions <- list(
     predict        = predict.ml_lm,
+    gradientObs    = .ml_lm_gradientObs,
     hessianObs     = .ml_lm_hessianObs,
+    loglikeObs     = .ml_lm_loglikeObs,
     update         = update.ml_lm,
     loglik         = .ml_lm_ll,
     fit            = .ml_lm.fit
@@ -364,7 +366,9 @@ ml_lm <- function(value,
 
   # -- 12.c. The fitted values and residuals ------------------------
   # Converged: compute fitted/residuals
-  beta <- coef(ml)[1:ncol(x)]
+  coefs <- coef(ml)
+  
+  beta <- coefs[1:ncol(x)]
   yhat <- as.vector(x %*% beta)
 
   model_list$fitted.values <- yhat
@@ -374,7 +378,7 @@ ml_lm <- function(value,
   ml$model <- model_list
   ml$call <- cl
 
-  # -- 14. Call the function to create tge class and return  ----------
+  # -- 14. Call the function to create the class and return  ----------
   new_ml_lm(ml)
 }
 

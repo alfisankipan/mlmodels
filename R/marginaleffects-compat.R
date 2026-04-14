@@ -5,7 +5,6 @@
 
 # --- S3 methods for mlmodel class ----------------------------------------
 
-#' @rawNamespace S3method(marginaleffects::get_predict, mlmodel)
 #' @export
 get_predict.mlmodel <- function(model,
                                 newdata = NULL,
@@ -20,23 +19,26 @@ get_predict.mlmodel <- function(model,
   )
 }
 
-#' @rawNamespace S3method(marginaleffects::get_vcov, mlmodel)
 #' @export
-get_vcov.mlmodel <- function(model, vcov = NULL, ...)
+get_vcov.mlmodel <- function(model, vcov = NULL, cl_var = NULL, ...)
 {
-  if(!is.null(vcov))
+  if(is.matrix(vcov))
     return(vcov)
-  vcov(model)
+  
+  valid_types <- c("oim", "robust", "opg", "cluster", "boot", "jack", "jackknife")
+  
+  if(is.character(vcov) && vcov %in% valid_types)
+    return(vcov(model, type = vcov, cl_var = cl_var))
+  
+  return(vcov(model))
 }
 
-#' @rawNamespace S3method(marginaleffects::get_coef, mlmodel)
 #' @export
 get_coef.mlmodel <- function(model, ...)
 {
   coef(model, ...)
 }
 
-#' @rawNamespace S3method(marginaleffects::set_coef, mlmodel)
 #' @export
 set_coef.mlmodel <- function(model, coefs, ...)
 {

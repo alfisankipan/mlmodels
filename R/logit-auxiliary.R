@@ -1,4 +1,50 @@
-## HESSIANS ====================================================================
+## Gradient by Observation =====================================================
+.ml_logit_gradientObs <- function(object)
+{
+  if (!inherits(object, "ml_logit"))
+    cli::cli_abort("`object` must be a model of class 'ml_logit' (from ml_logit).",
+                   call = NULL)
+  
+  # -- 1. Common elements for both hetero and homo -----------------------------
+  b <- coef(object)
+  y <- object$model$value$outcomes[[1]]
+  x <- as.matrix(object$model$value$predictors)
+  w <- object$model$weights %||% rep(1, length(y))   # default to 1 if NULL
+  
+  k1   <- ncol(x)
+  beta <- b[1:k1]
+  
+  if (is.null(z)) {
+    # -- Homoskedastic binary logit --------------------------------------------
+    xb <- as.vector(x %*% cbind(b))
+    xb <- as.vector(x %*% cbind(b))
+    
+    # Gradient
+    g <- w * as.vector(y - plogis(xb)) * x
+    
+  } else {
+    # -- Heteroskedastic binary logit ------------------------------------------
+    k1   <- ncol(x)
+    k    <- k1 + ncol(z)
+    beta <- b[1:k1]
+    delta <- b[(k1+1):k]
+    
+    zd <- as.vector(z %*% cbind(delta))
+    xz <- x / exp(zd)
+    xb <- as.vector(xz %*% cbind(beta))
+    
+    # Gradient
+    py <- plogis(xb)
+    
+    gb <- w * as.vector(y - py) * xz
+    gd <- w * as.vector((py - y) * xb) * z
+    
+    g  <- cbind(gb, gd)
+  }
+  return(g)
+}
+
+## Hessian by Observations =====================================================
 .ml_logit_hessianObs <- function(object)
 {
   if (!inherits(object, "ml_logit"))
@@ -14,21 +60,23 @@
   k1   <- ncol(x)
   beta <- b[1:k1]
 
-  # Pre-allocate list to collect individual Hessians
-  H_list <- vector("list", length(y))
-
   if (is.null(object$model$scale))
   {
     # -- 2. Homoskedastic case -------------------------------------------------
     xb <- as.vector(x %*% cbind(beta))
-    py <- plogis(xb)
-    pn <- 1 - py
     
-    s <- as.vector(-w * py * pn)
-      
+    s <- as.vector(-w * dlogis(xb))
+    
+    H_stacked <- matrix(0, nrow = nrow(x) * k1, ncol = k1)
+    
     for (i in seq_len(nrow(x))) {
       xi  <- cbind(x[i, ])
-      H_list[[i]] <- s[i] * tcrossprod(xi)
+      
+      start_row <- (i - 1) * k + 1
+      end_row <- i * k
+      
+      # Form the observation's Hessian
+      H_stacked[start_row:end_row, ] <-  s[i] * tcrossprod(xi)
     }
   }
   else
@@ -38,15 +86,19 @@
     k     <- k1 + ncol(z)
     delta <- b[(k1+1):k]
 
-    zg <- as.vector(z %*% cbind(delta))
-    xz <- x / exp(zg)
+    zd <- as.vector(z %*% cbind(delta))
+    xz <- x / exp(zd)
     xb <- as.vector(xz %*% cbind(beta))
-    py <- plogis(xb)
-    pn <- 1 - py
     
-    s_bb <- as.vector(-w * py * pn)
-    s_bd <- as.vector(w * (py * pn * xb - (y - py)))
-    s_dd <- as.vector(w * ((y - py) * xb - py * pn * xb^2))
+    # Gradient
+    py <- plogis(xb)
+    d_py <- dlogis(xb)
+    
+    s_bb <- as.vector(- w * d_py)
+    s_bd <- as.vector(w * (d_py * xb + py - y))
+    s_dd <- as.vector(w * (y - py - d_py * xb) * xb)
+    
+    H_stacked <- matrix(0, nrow = nrow(x) * k, ncol = k)
     
     for (i in seq_len(nrow(x))) {
       xzi <- cbind(xz[i, ])
@@ -56,16 +108,20 @@
       hbd <- s_bd[i] * tcrossprod(xzi, zi)
       hdd <- s_dd[i] * tcrossprod(zi)
 
-      H_list[[i]] <- rbind(cbind(hbb, hbd),
+      start_row <- (i - 1) * k + 1
+      end_row <- i * k
+      
+      # Form the observation's Hessian
+      H_stacked[start_row:end_row, ] <- rbind(cbind(hbb, hbd),
                            cbind(t(hbd), hdd))
     }
   }
 
   # Stack all individual Hessians
-  do.call(rbind, H_list)
+  return(H_stacked)
 }
 
-## ML EVALUATOR ==============================================================
+## ML EVALUATOR ================================================================
 #' @keywords internal
 .ml_logit_ll <- function(b, y, x, z = NULL, w)
 {
@@ -74,17 +130,16 @@
   if (is.null(z)) {
     # -- Homoskedastic binary logit --------------------------------------------
     xb <- as.vector(x %*% cbind(b))
-    py <- plogis(xb)
-    pn <- 1 - py
     
     # Weighted log-likelihood
-    ll <- y * xb - log(1 + exp(xb))
+    ll <- y * plogis(xb, log.p = TRUE) + (1 - y) * plogis(xb, log.p = TRUE, lower.tail = FALSE)
     
     # Gradient
-    g <- w * as.vector(y - py) * x
-    
+    g <- w * as.vector(y - plogis(xb)) * x
+
     # Hessian
-    s_bb <- as.vector(- w * py * pn)
+    s_bb <- as.vector(- w * dlogis(xb))
+    
     H <- crossprod(x * s_bb, x)
   } else {
     # -- Heteroskedastic binary logit ------------------------------------------
@@ -96,21 +151,24 @@
     zd <- as.vector(z %*% cbind(delta))
     xz <- x / exp(zd)
     xb <- as.vector(xz %*% cbind(beta))
-    py <- plogis(xb)
-    pn <- 1 - py
     
     # Weighted log-likelihood
-    ll <- w * (y * xb - log(1 + exp(xb)))
+    ll <- y * plogis(xb, log.p = TRUE) + (1 - y) * plogis(xb, log.p = TRUE, lower.tail = FALSE)
     
     # Gradient
+    py <- plogis(xb)
+    
     gb <- w * as.vector(y - py) * xz
     gd <- w * as.vector((py - y) * xb) * z
+    
     g  <- cbind(gb, gd)
     
     # Hessian
-    s_bb <- as.vector(- w * py * pn)
-    s_bd <- as.vector(w * (py * pn * xb - (y - py)))
-    s_dd <- as.vector(w * ((y - py) * xb - py * pn * xb^2))
+    d_py <- dlogis(xb)
+    
+    s_bb <- as.vector(- w * d_py)
+    s_bd <- as.vector(w * (d_py * xb + py - y))
+    s_dd <- as.vector(w * (y - py - d_py * xb) * xb)
     
     H_bb <- crossprod(xz * s_bb, xz)
     H_bd <- crossprod(xz * s_bd, z)
@@ -124,6 +182,45 @@
   attr(ll, "gradient") <- g
   attr(ll, "hessian")  <- H
   
+  return(ll)
+}
+
+## Log-likelihood by observation ===============================================
+.ml_logit_loglikeObs <- function(object)
+{
+  if (!inherits(object, "ml_logit"))
+    cli::cli_abort("`object` must be a model of class 'ml_logit' (from ml_logit).",
+                   call = NULL)
+  
+  # -- 1. Common elements for both hetero and homo -----------------------------
+  b <- coef(object)
+  y <- object$model$value$outcomes[[1]]
+  x <- as.matrix(object$model$value$predictors)
+  w <- object$model$weights %||% rep(1, length(y))   # default to 1 if NULL
+  
+  k1   <- ncol(x)
+  beta <- b[1:k1]
+  
+  if (is.null(z)) {
+    # -- Homoskedastic binary logit --------------------------------------------
+    xb <- as.vector(x %*% cbind(b))
+    
+    # Weighted log-likelihood
+    ll <- y * plogis(xb, log.p = TRUE) + (1 - y) * plogis(xb, log.p = TRUE, lower.tail = FALSE)
+  } else {
+    # -- Heteroskedastic binary logit ------------------------------------------
+    k1   <- ncol(x)
+    k    <- k1 + ncol(z)
+    beta <- b[1:k1]
+    delta <- b[(k1+1):k]
+    
+    zd <- as.vector(z %*% cbind(delta))
+    xz <- x / exp(zd)
+    xb <- as.vector(xz %*% cbind(beta))
+    
+    # Weighted log-likelihood
+    ll <- y * plogis(xb, log.p = TRUE) + (1 - y) * plogis(xb, log.p = TRUE, lower.tail = FALSE)
+  }
   return(ll)
 }
 

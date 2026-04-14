@@ -1,4 +1,70 @@
 ## NB1 FUNCTIONS ===============================================================
+# NB1 Gradient Observations ----------------------------------------------------
+#' Gradient by Observations for an `ml_negbin` model with NB1 dispersion.
+#' 
+#' @param object An `ml_negbin` object with `object$model$dispersion = 'NB1'`
+#' 
+#' @details
+#' The difference between this function and `.ml_negbin_nb1_score` is that this
+#' one pulls the data used in estimation from `object$model`, and that one you
+#' feed the data directly into the function.
+#' 
+#' Usually there is no need for this function, because [maxLik][maxLik::maxLik]
+#' stores this in `gradientObs`, so it will be at the root of the object.
+#' Programmed for consistency since the `hessianObs` and `loglikeObs` functions
+#' were programmed for use with different tests.
+#' 
+#' @keywords internal
+.ml_negbin_nb1_gradientObs <- function(object)
+{
+  if (!inherits(object, "ml_negbin"))
+    cli::cli_abort("`object` must be a model of class 'ml_negbin' (from ml_negin).",
+                   call = NULL)
+  
+  if(object$model$dispersion != "NB1")
+    cli::cli_abort("`object` must be from a NB1 model.",
+                   call = NULL)
+  
+  b <- coef(object)
+  y <- object$model$value$outcomes[[1]]
+  x <- as.matrix(object$model$value$predictors)
+  z <- as.matrix(object$model$scale$predictors)
+  w <- if(is.null(object$model$weights))
+    rep(1, nrow(x))
+  else
+    object$model$weights
+  k1 <- ncol(x)
+  k <- k1 + ncol(z)
+  
+  if (length(b) != k)
+    cli::cli_abort("The length of the coefficients ({length(b)}) \\
+                   does not match with the number of parameters ({k}).",
+                   call = NULL)
+  
+  beta <- b[1:k1]
+  delta <- b[(k1+1):k]
+  
+  xb <- as.vector(x %*% cbind(beta))
+  zd <- as.vector(z %*% cbind(delta))
+  mu_alpha = exp(xb - zd)
+  
+  p_disp <- plogis(zd)
+  p_ndisp <- plogis(zd, lower.tail = FALSE)
+  l_p_ndisp <- - plogis(zd, lower.tail = FALSE, log.p = TRUE)
+  psi_mu_alpha_y <- digamma(mu_alpha + y)
+  psi_mu_alpha <- digamma(mu_alpha)
+  
+  
+  # Partial with respect to beta.
+  gb <- w * mu_alpha * (psi_mu_alpha_y - psi_mu_alpha - l_p_ndisp) * x
+  
+  # Partial with respect to delta.
+  gd <- w * (mu_alpha * ( psi_mu_alpha - psi_mu_alpha_y - p_disp
+                          + l_p_ndisp) + y * p_ndisp ) * z
+  
+  return(cbind(gb, gd))
+}
+
 # NB1 Hessian Observations -----------------------------------------------------
 #' @keywords internal
 .ml_negbin_nb1_hessianObs <- function(object)
@@ -162,8 +228,83 @@
   return(ll)
 }
 
+# NB1 Log-Likelihood by Observation --------------------------------------------
+#' Log-likelihood by Observations of an NB1 model.
+#' 
+#' Extracts the log-likelihood by observation from a model estimated by
+#' `ml_negbin` with `dispersion = 'NB1'`.
+#' 
+#' @param object An object of class `ml_negbin` and `object$model$dispersion = 'NB1'`.
+#' 
+#' @details
+#' For an estimated model it extracts the log-likelihood by observations.
+#' 
+#' @returns Vector with the log-likelihoods, with length equal to the length of 
+#' the sample used in estimation.
+#' 
+#' @keywords internal
+.ml_negbin_nb1_loglikeObs <- function(object)
+{
+  if (!inherits(object, "ml_negbin"))
+    cli::cli_abort("`object` must be a model of class 'ml_negbin' (from ml_negin).",
+                   call = NULL)
+  
+  if(object$model$dispersion != "NB1")
+    cli::cli_abort("`object` must be from a NB1 model.",
+                   call = NULL)
+  
+  b <- coef(object)
+  y <- object$model$value$outcomes[[1]]
+  x <- as.matrix(object$model$value$predictors)
+  z <- as.matrix(object$model$scale$predictors)
+  w <- if(is.null(object$model$weights))
+    rep(1, nrow(x))
+  else
+    object$model$weights
+  k1 <- ncol(x)
+  k <- k1 + ncol(z)
+  
+  if (length(b) != k)
+    cli::cli_abort("The length of the coefficients ({length(b)}) \\
+                   does not match with the number of parameters ({k}).",
+                   call = NULL)
+  
+  beta <- b[1:k1]
+  delta <- b[(k1+1):k]
+  
+  # Useful operations
+  xb <- as.vector(x %*% cbind(beta))
+  zd <- as.vector(z %*% cbind(delta))
+  
+  mu_alpha = exp(xb - zd)
+  p_disp <- plogis(zd)
+  p_ndisp <- plogis(zd, lower.tail = FALSE)
+  
+  # ln(1 + exp(zd)) = ln(1 / (1 / (1 + exp(zd)))) = ln(1 / p_no) = ln(1) - ln(p_no) = - ln(p_no)
+  l_p_ndisp <- - plogis(zd, lower.tail = FALSE, log.p = TRUE)
+  
+  ## LL
+  ll <- w * (lgamma(mu_alpha + y) - lgamma(mu_alpha) - lgamma(y + 1)
+             - l_p_ndisp * (mu_alpha + y) + y * zd)
+  
+  return(ll)
+}
+
 # NB1 Scores (Gradients) Function ----------------------------------------------
-# Returns the scores of an NB1 model
+#' Scores of an NB1 model
+#' 
+#' Scores of an NB1 model at for a specific set of data and vector of coefficients.
+#' 
+#' @param b Vector of coefficients.
+#' @param y Vector of the outcome variable.
+#' @param x Matrix with predictors of value equation.
+#' @param z Matrix with predictors of scale (dispersion) equation.
+#' @param w Vector with weights for estimation.
+#' 
+#' @details
+#' Programmed to use from within `predict.ml_negbin`, to get the gradient of the
+#' probabilities for the delta method standard errors of those predictions.
+#' 
 #' @keywords internal
 .ml_negbin_nb1_score <- function(b, y, x, z, w = NULL)
 {
@@ -201,6 +342,69 @@
 }
 
 ## NB2 FUNCTIONS ===============================================================
+# NB2 Gradient Observations ----------------------------------------------------
+#' Gradient by Observations for an `ml_negbin` model with NB2 dispersion.
+#' 
+#' @param object An `ml_negbin` object with `object$model$dispersion = 'NB2'`
+#' 
+#' @details
+#' The difference between this function and `.ml_negbin_nb2_score` is that this
+#' one pulls the data used in estimation from `object$model`, and that one you
+#' feed the data directly into the function.
+#' 
+#' Usually there is no need for this function, because [maxLik][maxLik::maxLik]
+#' stores this in `gradientObs`, so it will be at the root of the object.
+#' Programmed for consistency since the `hessianObs` and `loglikeObs` functions
+#' were programmed for use with different tests.
+#' 
+#' @keywords internal
+.ml_negbin_nb2_gradientObs <- function(object)
+{
+  if (!inherits(object, "ml_negbin"))
+    cli::cli_abort("`object` must be a model of class 'ml_negbin' (from ml_negin).",
+                   call = NULL)
+  
+  if(object$model$dispersion != "NB2")
+    cli::cli_abort("`object` must be from a NB2 model.",
+                   call = NULL)
+  
+  b <- coef(object)
+  y <- object$model$value$outcomes[[1]]
+  x <- as.matrix(object$model$value$predictors)
+  z <- as.matrix(object$model$scale$predictors)
+  w <- if(is.null(object$model$weights))
+    rep(1, nrow(x))
+  else
+    object$model$weights
+  k1 <- ncol(x)
+  k <- k1 + ncol(z)
+  
+  if (length(b) != k)
+    cli::cli_abort("The length of the coefficients ({length(b)}) \\
+                   does not match with the number of parameters ({k}).",
+                   call = NULL)
+  
+  beta <- b[1:k1]
+  delta <- b[(k1+1):k]
+  
+  # Useful operations
+  xb <- as.vector(x %*% cbind(beta))
+  zd <- as.vector(z %*% cbind(delta))
+  
+  alpha_inv <- exp(-zd)
+  m <- xb + zd   # To use with plogis.
+  p_yes <- plogis(m)
+  p_no <- plogis(m, lower.tail = FALSE)
+  d_yes <- dlogis(m) # p_yes * p_no
+  
+  gb <- w * (y - exp(xb)) * p_no * x
+  gd <- w * alpha_inv * (digamma(alpha_inv) - digamma(alpha_inv + y)
+                         + log(alpha_inv + exp(xb)) + (y / alpha_inv + 1) * p_no
+                         + zd - 1) * z
+  
+  return(cbind(gb, gd))
+}
+
 # NB2 Hessian Observations -----------------------------------------------------
 #' @keywords internal
 .ml_negbin_nb2_hessianObs <- function(object)
@@ -284,7 +488,6 @@
   H_stacked
 }
 
-
 # NB2 Likelihood Evaluator -----------------------------------------------------
 .ml_negbin_nb2_ll <- function(b, y, x, z, w = NULL)
 {
@@ -345,8 +548,83 @@
   return(ll)
 }
 
+# NB2 Log-Likelihood by Observation --------------------------------------------
+#' Log-likelihood by Observations of an NB2 model.
+#' 
+#' Extracts the log-likelihood by observation from a model estimated by
+#' `ml_negbin` with `dispersion = 'NB2'`.
+#' 
+#' @param object An object of class `ml_negbin` and `object$model$dispersion = 'NB2'`.
+#' 
+#' @details
+#' For an estimated model it extracts the log-likelihood by observations.
+#' 
+#' @returns Vector with the log-likelihoods, with length equal to the length of 
+#' the sample used in estimation.
+#' 
+#' @keywords internal
+.ml_negbin_nb2_loglikeObs <- function(object)
+{
+  if (!inherits(object, "ml_negbin"))
+    cli::cli_abort("`object` must be a model of class 'ml_negbin' (from ml_negin).",
+                   call = NULL)
+  
+  if(object$model$dispersion != "NB2")
+    cli::cli_abort("`object` must be from a NB2 model.",
+                   call = NULL)
+  
+  b <- coef(object)
+  y <- object$model$value$outcomes[[1]]
+  x <- as.matrix(object$model$value$predictors)
+  z <- as.matrix(object$model$scale$predictors)
+  w <- if(is.null(object$model$weights))
+    rep(1, nrow(x))
+  else
+    object$model$weights
+  k1 <- ncol(x)
+  k <- k1 + ncol(z)
+  
+  if (length(b) != k)
+    cli::cli_abort("The length of the coefficients ({length(b)}) \\
+                   does not match with the number of parameters ({k}).",
+                   call = NULL)
+  
+  beta <- b[1:k1]
+  delta <- b[(k1+1):k]
+  
+  # Useful operations
+  xb <- as.vector(x %*% cbind(beta))
+  zd <- as.vector(z %*% cbind(delta))
+  
+  # Useful operations
+  xb <- as.vector(x %*% cbind(beta))
+  zd <- as.vector(z %*% cbind(delta))
+  
+  alpha_inv <- exp(-zd)
+  
+  # Log Likelihood
+  
+  ll <- w * (lgamma(alpha_inv + y) - lgamma(alpha_inv) - lgamma(y + 1)
+             - (y + alpha_inv) * log(alpha_inv + exp(xb)) + y * xb - alpha_inv * zd)
+  
+  return(ll)
+}
+
 # NB2 Scores (gradients) Function ----------------------------------------------
-# Returns the scores of an NB2 model
+#' Scores of an NB2 model
+#' 
+#' Scores of an NB2 model at for a specific set of data and vector of coefficients.
+#' 
+#' @param b Vector of coefficients.
+#' @param y Vector of the outcome variable.
+#' @param x Matrix with predictors of value equation.
+#' @param z Matrix with predictors of scale (dispersion) equation.
+#' @param w Vector with weights for estimation.
+#' 
+#' @details
+#' Programmed to use from within `predict.ml_negbin`, to get the gradient of the
+#' probabilities for the delta method standard errors of those predictions.
+#' 
 #' @keywords internal
 .ml_negbin_nb2_score <- function(b, y, x, z, w = NULL)
 {

@@ -5,7 +5,6 @@
     cli::cli_abort("`object` must be a model of class 'ml_poisson' (from ml_poisson).",
                    call = NULL)
   
-  # -- 1. Common elements for both hetero and homo -----------------------------
   b <- coef(object)
   y <- object$model$value$outcomes[[1]]
   x <- as.matrix(object$model$value$predictors)

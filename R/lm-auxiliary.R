@@ -1,4 +1,44 @@
-## HESSIANS ====================================================================
+## Gradients by Observation ====================================================
+#' @keywords internal
+.ml_lm_gradientObs <- function(object)
+{
+  if (!inherits(object, "ml_lm"))
+    cli::cli_abort("`object` must be a model of class 'ml_lm' (from ml_lm).",
+                   call = NULL)
+  
+  b <- coef(object)
+  y <- object$model$value$outcomes[[1]]
+  x <- as.matrix(object$model$value$predictors)
+  z <- as.matrix(object$model$scale$predictors)
+  w <- if(is.null(object$model$weights))
+    rep(1, nrow(x))
+  else
+    object$model$weights
+  k1 <- ncol(x)
+  k <- k1 + ncol(z)
+  
+  if (length(b) != k)
+    cli::cli_abort("The length of the coefficients ({length(b)}) \\
+                   does not match with the number of parameters ({k}).",
+                   call = NULL)
+  
+  beta <- b[1:k1]
+  delta <- b[(k1+1):k]
+  
+  xb <- x %*% cbind(beta)
+  zd <- z %*% cbind(delta)
+  s <- exp(zd)
+  u <- y - xb
+  
+  gb <- w * as.vector(u / s^2) * x
+  
+  # Partial with respect to delta.
+  gd <- w * as.vector((u / s)^2 - 1) * z
+  
+  return(cbind(gb,gd))
+}
+
+## Hessians by Observation =====================================================
 #' Observed Hessian by observation for ml_lm models
 #'
 #' Returns the Hessian matrix evaluated at each observation. Used internally
@@ -40,13 +80,11 @@
   s <- exp(zd)
   u <- y - xb
   
-  # For each observation we form the hessian and we add it as a new row on an
-  # overall matrix to return.
-  H_list <- vector("list", length(y))
-  
   s_bb <- as.vector(- w * s^(-2))
   s_bd <- as.vector(- 2 * w * (u / s^2))
   s_dd <- as.vector(- 2 * w * (u / s)^2)
+  
+  H_stacked <- matrix(0, nrow = nrow(x) * k, ncol = k)
   
   for(i in seq_len(nrow(x)))
   {
@@ -66,13 +104,56 @@
     # Second partial with respect both times to lnsigma.
     hss <- s_dd[i] * tcrossprod(zi)
     
+    
+    start_row <- (i - 1) * k + 1
+    end_row <- i * k
+    
     # Form the observation's Hessian
-    H_list[[i]] <- rbind(cbind(hbb, hbs),
-                         cbind(hsb, hss))
+    H_stacked[start_row:end_row, ] <- rbind(cbind(hbb, hbs),
+                                            cbind(hsb, hss))
   }
   
   # Stack all individual Hessians
-  do.call(rbind, H_list)
+  H_stacked
+}
+
+## Log-likelihood by observations ==============================================
+#' @keywords internal
+.ml_lm_loglikeObs <- function(object)
+{
+  if (!inherits(object, "ml_lm"))
+    cli::cli_abort("`object` must be a model of class 'ml_lm' (from ml_lm).",
+                   call = NULL)
+  
+  b <- coef(object)
+  y <- object$model$value$outcomes[[1]]
+  x <- as.matrix(object$model$value$predictors)
+  z <- as.matrix(object$model$scale$predictors)
+  w <- if(is.null(object$model$weights))
+    rep(1, nrow(x))
+  else
+    object$model$weights
+  k1 <- ncol(x)
+  k <- k1 + ncol(z)
+  
+  if (length(b) != k)
+    cli::cli_abort("The length of the coefficients ({length(b)}) \\
+                   does not match with the number of parameters ({k}).",
+                   call = NULL)
+  
+  beta <- b[1:k1]
+  delta <- b[(k1+1):k]
+  
+  xb <- x %*% cbind(beta)
+  zd <- z %*% cbind(delta)
+  s <- exp(zd)
+  u <- y - xb
+  
+  ll <- dnorm(u / s, log = TRUE) - zd
+  if(object$model$log_info$value$is_log) ll <- ll - y # y because it's already log-transformed
+  ll <- ll * w
+  
+  return(ll)
 }
 
 ## ML EVALUATOR ================================================================
