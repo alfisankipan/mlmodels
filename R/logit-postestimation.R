@@ -572,13 +572,7 @@ summary.ml_logit <- function(object,
   else
     s$correlation <- NULL
   
-  
-  s$model_type <- if (is_heteroskedastic) {
-    "Heteroskedastic Binary Logit"
-  } else {
-    "Homoskedastic Binary Logit"
-  }
-  
+  s$model_type <- object$model$description
   class(s) <- c("summary.ml_logit", "summary.mlmodel", "summary")
   s
 }

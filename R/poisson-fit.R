@@ -287,6 +287,7 @@ ml_poisson <- function(value,
   
   # -- 12.b. The common structure --------------------------------------
   model_list <- list(
+    description   = "Poisson",
     value         = model_value,
     factor_mapping = factor_mapping,
     formula       = model_value$blueprint$formula,

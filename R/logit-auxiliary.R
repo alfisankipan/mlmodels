@@ -24,6 +24,7 @@
     
   } else {
     # -- Heteroskedastic binary logit ------------------------------------------
+    z    <- as.matrix(object$model$scale$predictors)
     k1   <- ncol(x)
     k    <- k1 + ncol(z)
     beta <- b[1:k1]
@@ -209,6 +210,7 @@
     ll <- y * plogis(xb, log.p = TRUE) + (1 - y) * plogis(xb, log.p = TRUE, lower.tail = FALSE)
   } else {
     # -- Heteroskedastic binary logit ------------------------------------------
+    z    <- as.matrix(object$model$scale$predictors)
     k1   <- ncol(x)
     k    <- k1 + ncol(z)
     beta <- b[1:k1]

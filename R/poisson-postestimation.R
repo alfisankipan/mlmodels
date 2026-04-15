@@ -469,9 +469,7 @@ summary.ml_poisson <- function(object,
   else
     s$correlation <- NULL
   
-  
-  s$model_type <- "Poisson"
-  
+  s$model_type <- object$model$description
   class(s) <- c("summary.ml_poisson", "summary.mlmodel", "summary")
   s
 }

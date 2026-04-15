@@ -310,6 +310,8 @@ ml_probit <- function(value,
   
   # -- 13.b. The model_list list --------------------------------------
   model_list <- list(
+    description   = if (!is.null(scale)) "Heteroskedastic Binary Probit"
+                    else "Homoskedastic Binary Probit",
     value         = model_value,
     scale         = model_scale,
     factor_mapping  = factor_mapping %||% list(value = list()),

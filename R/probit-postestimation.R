@@ -556,12 +556,7 @@ summary.ml_probit <- function(object,
   else
     s$correlation <- NULL
   
-  s$model_type <- if (is_heteroskedastic) {
-    "Heteroskedastic Binary Probit"
-  } else {
-    "Homoskedastic Binary Probit"
-  }
-  
+  s$model_type <- object$model$description
   class(s) <- c("summary.ml_probit", "summary.mlmodel", "summary")
   s
 }

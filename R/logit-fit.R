@@ -308,6 +308,8 @@ ml_logit <- function(value,
 
   # -- 13.b. The model_list list --------------------------------------
   model_list <- list(
+    description   = if (!is.null(scale)) "Heteroskedastic Binary Logit"
+                    else "Homoskedastic Binary Logit",
     value         = model_value,
     scale         = model_scale,
     factor_mapping  = factor_mapping %||% list(value = list()),

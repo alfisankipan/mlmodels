@@ -589,13 +589,7 @@ summary.ml_lm <- function(object,
   else
     s$correlation <- NULL
   
-
-  s$model_type <- if (is_heteroskedastic) {
-    "Heteroskedastic Gaussian Linear Model"
-  } else {
-    "Homoskedastic Gaussian Linear Model"
-  }
-
+  s$model_type <- object$model$description
   class(s) <- c("summary.ml_lm", "summary.mlmodel", "summary")
   s
 }

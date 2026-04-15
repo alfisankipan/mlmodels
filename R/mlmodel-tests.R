@@ -236,7 +236,7 @@ IMtest.mlmodel <- function(object,
         )
 
         if (is.null(boot_obj) || !(boot_obj$code %in% c(1L, 2L, 8L))) {
-          boot_stats[r] <- NA
+          boot_stats[r] <- NA_real_
           next
         }
 
@@ -259,8 +259,8 @@ IMtest.mlmodel <- function(object,
       }
 
       res$pval$bootstrapped <- mean(boot_stats >= tstat, na.rm = TRUE)
-      res$repetitions <- repetitions
-      res$version$description <- "Chesher/Lancaster OPG + model-based bootstrap"
+      res$repetitions <- list(total = repetitions, valid = n_success)
+      res$version$description <- "Chesher/Lancaster OPG + Model-based bootstrap"
     }
   }
   else
@@ -276,75 +276,214 @@ IMtest.mlmodel <- function(object,
     proj_coeff <- S %*% solve(XS, crossprod(S, M))
     R_mat      <- M - proj_coeff
     W          <- crossprod(R_mat) * (n / (n - k))  # <- small sample adjustment.
+    
+    tstat <- as.numeric(t(G) %*% MASS::ginv(W) %*% G)
+    res <- list(
+      tstat   = tstat,
+      df      = m,
+      pval = list(analytical = pchisq(tstat, m, lower.tail = FALSE)),   # analytical is primary
+      version = list(description = "Orthogonalized Quadratic Form", method = method)
+    )
 
-    if (method == "quad") {
-      tstat <- as.numeric(t(G) %*% MASS::ginv(W) %*% G)
-      res <- list(
-        tstat   = tstat,
-        df      = m,
-        pval    = pchisq(tstat, df = m, lower.tail = FALSE),
-        version = list(description = "Orthogonalized Quadratic Form", method = method)
-      )
-    } else { # boot_quad
+    if (method == "boot_quad") {
       set.seed(seed)
-      boot_D <- matrix(0, nrow = repetitions, ncol = m)
-
-      for (r in seq_len(repetitions)) {
-        idx   <- sample.int(n, n, replace = TRUE)
-        M_r   <- M[idx, , drop = FALSE]
-        S_r   <- S[idx, , drop = FALSE]
-        proj_r <- S_r %*% solve(crossprod(S_r), crossprod(S_r, M_r))
-        boot_D[r, ] <- colMeans(M_r - proj_r)
+      boot_stats <- numeric(repetitions)
+      n_success  <- 0
+      
+      w <- object$model$weights
+      
+      if (!is.null(object$model$data) && is.data.frame(object$model$data)) {
+        orig_data <- object$model$data
+      } else if (!is.null(object$model$d_name) && object$model$d_name != "<unknown data>") {
+        orig_data <- tryCatch(get(object$model$d_name), error = function(e) {
+          cli::cli_abort("Cannot retrieve the dataset to get the clustering variable.",
+                         call = NULL)
+        })
+      } else {
+        cli::cli_abort("Dataset and its name not stored; cannot retrieve clustering variable.",
+                       call = NULL)
       }
-
-      V_boot <- cov(boot_D)
-      tstat  <- as.numeric(t(G/n) %*% MASS::ginv(V_boot) %*% (G/n))
-
-      res <- list(
-        tstat   = tstat,
-        df      = m,
-        pval    = pchisq(tstat, df = m, lower.tail = FALSE),
-        version = list(description = "Orthogonalized Quadratic Form with bootstrapped variance",
-                       method = method),
-        repetitions = repetitions
-      )
+      
+      # Loop, with re-estimation and storing the results.
+      for (r in seq_len(repetitions)) {
+        idx <- sample.int(n, n, replace = TRUE)
+        
+        suppressMessages(
+          boot_obj <- tryCatch({
+            object$model$functions$update(
+              object,
+              data   = orig_data[idx, , drop = FALSE],
+              weights = w[idx]
+            )
+          }, error = function(e) NULL)
+        )
+        
+        if (is.null(boot_obj) || !(boot_obj$code %in% c(1L, 2L, 8L))) {
+          boot_stats[r] <- NA_real_
+          next
+        }
+        
+        S_r <- boot_obj$gradientObs
+        H_r <- boot_obj$model$functions$hessianObs(boot_obj)
+        
+        ID_r <- matrix(0, nrow = n, ncol = m)
+        for (i in seq_len(n)) {
+          start <- (i-1)*k + 1
+          end   <- i*k
+          si <- S_r[i, , drop = FALSE]
+          Hi <- H_r[start:end, , drop = FALSE]
+          ID_r[i, ] <- matrixcalc::vech(Hi + crossprod(si))
+        }
+        
+        G_r <- colSums(ID_r)
+        
+        XS_r <- crossprod(S_r)
+        
+        proj_coeff_r <- tryCatch({
+          S_r %*% solve(XS_r, crossprod(S_r, ID_r))
+        }, error = function(e) NULL)
+        
+        if(is.null(proj_coeff_r))
+        {
+          boot_stats[r] = NA_real_
+          next
+        }
+        
+        R_mat_r      <- ID_r - proj_coeff_r
+        W_r          <- crossprod(R_mat_r) * (n / (n - k))  # <- small sample adjustment.
+        
+        boot_stats[r] <- as.numeric(t(G_r) %*% MASS::ginv(W_r) %*% G_r)
+        n_success <- n_success + 1
+      }
+      
+      res$pval$bootstrapped <- mean(boot_stats >= tstat, na.rm = TRUE)
+      res$repetitions <- list(total = repetitions, valid = n_success)
+      res$version$description <- "Orthogonalized Quadratic Form + Model-based bootstrap"
     }
   }
-
-  class(res) <- "IMtest"
+  
+  res$model <- object$model$description
+  
+  class(res) <- "IMtest.mlmodel"
   res
 }
 
-
+#' Prints the results of an object of class `IMtest.mlmodel`
+#' 
 #' @export
-print.IMtest <- function(x, digits = 3, ...)
+print.IMtest.mlmodel <- function(x, digits = 4, ...)
 {
-  if (!inherits(x, "IMtest"))
-    cli::cli_abort("`x` must be an object of class 'IMtest'.")
+  if (!inherits(x, "IMtest.mlmodel"))
+    cli::cli_abort("`x` must be an object of class 'IMtest.mlmodel'.")
 
   cat("Information Matrix Test\n")
   cat(" Method:", x$version$description, "\n")
+  cat(" Model: ", x$model, "\n")
   cat("--------------------------------------------\n")
 
   if (x$version$method %in% c("boot_opg", "boot_quad")) {
-    cat(" Repetitions:", x$repetitions, "\n")
+    cat(" Repetitions: Total", x$repetitions$total, "Successful", x$repetitions$valid,  "\n")
   }
 
   cat(sprintf(" Chisq(%i) = %.3f", x$df, x$tstat))
 
-  if (x$version$method == "boot_opg") {
+  if (x$version$method %in% c("boot_opg", "boot_quad")) {
     cat("\n P(>Chisq): Analytical   =", sprintf("%.4f", x$pval$analytical),
         "\n            Bootstrapped =", sprintf("%.4f", x$pval$bootstrapped))
   } else {
-    cat("    Pr(>Chisq) =", sprintf("%.4f", x$pval))
+    cat("    Pr(>Chisq) =", sprintf("%.4f", x$pval$analytical))
   }
 
   cat("\n--------------------------------------------\n")
   invisible(x)
 }
 
+## VUONG's TEST ================================================================
+#' Vuong's Test for `mlmodel` objects
+#' 
+#' Performs Vuong's test between two models estimated via maximum likelihood.
+#' 
+#' @param object_1 A fitted model object inheriting from `"mlmodel"`.
+#' @param object_2 A fitted model object inheriting from `"mlmodel"`.
+#' @param ... Further arguments passed to methods (not currently implemented).
+#' 
+#' @returns An object of class `vuongtest.mlmodel`
+#' 
+#' @author Alfonso Sanchez-Penalver
+#' 
+#' @references
+#' Vuong, Q. H. (1989). Likelihood Ratio Tests for Model Selection and Non-Nested 
+#' Hypotheses. *Econometrica*, 57(2), 307-333. \doi{10.2307/1912557}
+#' 
+#' @export
+vuongtest <- function(object_1, object_2, ...) UseMethod("vuongtest")
+
+#' @rdname vuongtest
+#' @export
+vuongtest.mlmodel <- function(object_1, object_2, ...)
+{
+  if(!inherits(object_1, "mlmodel") || !inherits(object_2, "mlmodel"))
+    cli::cli_abort("Both `object_1` and `object_2` must inherit from `mlmodel`.")
+  
+  # -- 1. Extract log-likelihoods and check same length ------------------------
+  ll_1 <- object_1$model$functions$loglikeObs(object_1)
+  ll_2 <- object_2$model$functions$loglikeObs(object_2)
+  
+  if(length(ll_1) != length(ll_2))
+    cli::cli_abort("Different number of observations. `object_1`: {.val {length(ll_1)}} `object_2`: {.val {length(ll_2)}}")
+  
+  # -- 2. Calculate difference vector ------------------------------------------
+  diff <- ll_1 - ll_2 # If negative ll_2 has higher log-likelihood, if positive it's ll_1 (So later we can decide which one's better)
+  n <- length(diff)
+  
+  # -- 3. Do the test ----------------------------------------------------------
+  v_stat <- (sqrt(n) * mean(diff)) / sd(diff)
+  p_val <- 2 * pnorm(abs(v_stat), lower.tail = FALSE)
+  
+  # -- 4. Create list ----------------------------------------------------------
+  res <- list(
+    teststat = v_stat,
+    pval = p_val,
+    models = c(object_1$model$description, object_2$model$description)
+  )
+  
+  # -- 5. Set Class and return
+  class(res) <- "vuongtest.mlmodel"
+  return(res)
+}
+
+
+#' Prints the result of an object of class `vuongtest.mlmodel`
+#' 
+#' @export
+print.vuongtest.mlmodel <- function(x, digits = 4, ...)
+{
+  if(!inherits(x, "vuongtest.mlmodel"))
+    cli::cli_abort("`x` needs to be an object of class `vuongtest.mlmodel`")
+  
+  cat("\nVuong's (1989) Test\n")
+  cat("--------------------------------------------------\n")
+  cat("  Model 1:", x$models[1], "\n")
+  cat("  Model 2:", x$models[2], "\n")
+  cat("--------------------------------------------------\n")
+  cat(sprintf("  z-stat:  %.3f\n",
+              x$teststat))
+  cat(sprintf("  p-value: %.4f\n",
+              x$pval))
+  cat("--------------------------------------------------\n")
+  # Decision Logic
+  if(x$pval < 0.1) {
+    winner <- if(x$teststat < 0) x$models[2] else x$models[1]
+    cat(" ", winner, "seems to be preferred.\n")
+  } else {
+    cat(" Inconclusive test: neither model is preferred.\n")
+  }
+  
+  invisible(x)
+}
+
 ## WALDTEST --------------------------------------------------------------------
-#' Wald Test for mlmodel objects
+#' Wald Test for `mlmodel` objects
 #'
 #' Performs a Wald test of linear restrictions on the parameters.
 #'

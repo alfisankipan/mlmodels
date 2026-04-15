@@ -3,7 +3,7 @@
 \name{waldtest}
 \alias{waldtest}
 \alias{waldtest.mlmodel}
-\title{Wald Test for mlmodel objects}
+\title{Wald Test for \code{mlmodel} objects}
 \usage{
 waldtest(object, ...)
 

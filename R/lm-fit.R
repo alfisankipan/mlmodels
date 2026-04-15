@@ -328,6 +328,8 @@ ml_lm <- function(value,
 
   # -- 12.b. The common structure --------------------------------------
   model_list <- list(
+    description   = if (!is.null(scale)) "Heteroskedastic Gaussian Linear Model"
+                    else "Homoskedastic Gaussian Linear Model",
     value         = model_value,
     scale         = model_scale,
     factor_mapping = factor_mapping,

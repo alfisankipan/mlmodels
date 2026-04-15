@@ -649,13 +649,7 @@ summary.ml_negbin <- function(object,
   else
     s$correlation <- NULL
   
-  
-  s$model_type <- if (is_heteroskedastic) {
-    paste0("Heteroskedastic Negative Binomial (", object$model$dispersion, ") Model")
-  } else {
-    paste0("Homoskedastic Negative Binomial (", object$model$dispersion, ") Model")
-  }
-  
+  s$model_type <- object$model$description
   class(s) <- c("summary.ml_negbin", "summary.mlmodel", "summary")
   s
 }

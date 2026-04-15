@@ -29,7 +29,8 @@
     g <- as.vector(w * (y * lam_yes - (1 - y) * lam_no)) * x
     
   } else {
-    # -- Heteroskedastic binary probit ------------------------------------------
+    # -- Heteroskedastic binary probit -----------------------------------------
+    z    <- as.matrix(object$model$scale$predictors)
     k1   <- ncol(x)
     k    <- k1 + ncol(z)
     beta <- b[1:k1]
@@ -182,6 +183,7 @@
     
   } else {
     # -- Heteroskedastic binary probit ------------------------------------------
+    z    <- as.matrix(object$model$scale$predictors)
     k1   <- ncol(x)
     k    <- k1 + ncol(z)
     beta <- b[1:k1]

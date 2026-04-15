@@ -332,6 +332,8 @@ ml_negbin <- function(value,
   
   # -- 12.b. The common structure --------------------------------------
   model_list <- list(
+    description   = if (!is.null(scale)) paste0("Heteroskedastic Negative Binomial (", dispersion, ") Model")
+                    else paste0("Homoskedastic Negative Binomial (", dispersion, ") Model"),
     value         = model_value,
     scale         = model_scale,
     dispersion    = dispersion,
