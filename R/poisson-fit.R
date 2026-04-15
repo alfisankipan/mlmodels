@@ -277,7 +277,9 @@ ml_poisson <- function(value,
   
   functions <- list(
     predict        = predict.ml_poisson,
+    gradientObs    = .ml_poisson_gradientObs,
     hessianObs     = .ml_poisson_hessianObs,
+    loglikeObs     = .ml_poisson_loglikeObs,
     update         = update.ml_poisson,
     loglik         = .ml_poisson_ll,
     fit            = .ml_poisson.fit
@@ -330,12 +332,6 @@ ml_poisson <- function(value,
   # -- 13. Add the model to the maxLik object ----------------------
   ml$model <- model_list
   ml$call <- cl
-  
-  # -- 14. Get the vector of log-likelihood observations at the solution.
-  
-  ll <- .ml_poisson_ll(beta, y, x, wts_clean)
-  
-  ml$logLikeObs <- as.vector(ll)
   
   # -- 14. Call the function to create tge class and return  ----------
   new_ml_poisson(ml)

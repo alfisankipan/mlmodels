@@ -14,7 +14,7 @@
   k1   <- ncol(x)
   beta <- b[1:k1]
   
-  if (is.null(z)) {
+  if (is.null(object$model$scale)) {
     # -- Homoskedastic binary logit --------------------------------------------
     xb <- as.vector(x %*% cbind(b))
     xb <- as.vector(x %*% cbind(b))
@@ -201,7 +201,7 @@
   k1   <- ncol(x)
   beta <- b[1:k1]
   
-  if (is.null(z)) {
+  if (is.null(object$model$scale)) {
     # -- Homoskedastic binary logit --------------------------------------------
     xb <- as.vector(x %*% cbind(b))
     

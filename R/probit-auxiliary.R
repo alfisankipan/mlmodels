@@ -1,5 +1,5 @@
-## HESSIANS ====================================================================
-.ml_probit_hessianObs <- function(object)
+## Gradients by Observation ====================================================
+.ml_probit_gradientObs <- function(object)
 {
   if (!inherits(object, "ml_probit"))
     cli::cli_abort("`object` must be a model of class 'ml_probit' (from ml_probit).",
@@ -14,8 +14,63 @@
   k1   <- ncol(x)
   beta <- b[1:k1]
   
-  # Pre-allocate list to collect individual Hessians
-  H_list <- vector("list", length(y))
+  if (is.null(object$model$scale)) {
+    # -- Homoskedastic binary probit -------------------------------------------
+    xb <- as.vector(x %*% cbind(b))
+    
+    log_py <- pnorm(xb, log.p = TRUE)
+    log_pn <- pnorm(-xb, log.p = TRUE)
+    log_den <- dnorm(xb, log = TRUE)
+    
+    lam_yes <- exp(log_den - log_py)
+    lam_no <- exp(log_den - log_pn)
+    
+    # Gradient
+    g <- as.vector(w * (y * lam_yes - (1 - y) * lam_no)) * x
+    
+  } else {
+    # -- Heteroskedastic binary probit ------------------------------------------
+    k1   <- ncol(x)
+    k    <- k1 + ncol(z)
+    beta <- b[1:k1]
+    delta <- b[(k1+1):k]
+    
+    zd <- as.vector(z %*% cbind(delta))
+    xz <- x / exp(zd)
+    xb <- as.vector(xz %*% cbind(beta)) # <- this is actually xb / sigma.
+    
+    # Clamp the linear predictor to avoid numerical overflow
+    log_py <- pnorm(xb, log.p = TRUE)
+    log_pn <- pnorm(-xb, log.p = TRUE)
+    log_den <- dnorm(xb, log = TRUE)
+    
+    lam_yes <- exp(log_den - log_py)
+    lam_no <- exp(log_den - log_pn)
+    
+    # Gradient
+    gb <- w * as.vector(y * lam_yes - (1 - y) * lam_no) * xz
+    gd <- w * as.vector((1 - y) * lam_no - y * lam_yes) * xb * z
+    
+    g  <- cbind(gb, gd)
+  }
+  return(g)
+}
+
+## Hessians by Observation =====================================================
+.ml_probit_hessianObs <- function(object)
+{
+  if (!inherits(object, "ml_probit"))
+    cli::cli_abort("`object` must be a model of class 'ml_probit' (from ml_probit).",
+                   call = NULL)
+  
+  # -- 1. Common elements for both hetero and homo -----------------------------
+  b <- coef(object)
+  y <- object$model$value$outcomes[[1]]
+  x <- as.matrix(object$model$value$predictors)
+  w <- object$model$weights %||% rep(1, length(y))   # default to 1 if NULL
+  
+  k1   <- ncol(x)
+  beta <- b[1:k1]
   
   if (is.null(object$model$scale))
   {
@@ -35,9 +90,16 @@
     s <- as.vector(w * ((1 - y) * lam_no * (xb - lam_no) -
                           y * lam_yes * (xb + lam_yes)))
     
+    H_stacked <- matrix(0, nrow = nrow(x) * k1, ncol = k1)
+    
     for (i in seq_len(nrow(x))) {
       xi  <- cbind(x[i, ])
-      H_list[[i]] <- s[i] * tcrossprod(xi)
+      
+      start_row <- (i - 1) * k + 1
+      end_row <- i * k
+      
+      # Form the observation's Hessian
+      H_stacked[start_row:end_row, ] <-  s[i] * tcrossprod(xi)
     }
   }
   else
@@ -70,6 +132,8 @@
     s_dd <- as.vector(w * xb * ((1 - y) * lam_no * (xb * (xb - lam_no) - 1) -
                                   y * lam_yes * (xb * (xb + lam_yes) - 1)))
     
+    H_stacked <- matrix(0, nrow = nrow(x) * k, ncol = k)
+    
     for (i in seq_len(nrow(x))) {
       xzi <- cbind(xz[i, ])
       zi  <- cbind(z[i, ])
@@ -78,13 +142,62 @@
       hbd <- s_bd[i] * tcrossprod(xzi, zi)
       hdd <- s_dd[i] * tcrossprod(zi)
       
-      H_list[[i]] <- rbind(cbind(hbb, hbd),
+      start_row <- (i - 1) * k + 1
+      end_row <- i * k
+      
+      # Form the observation's Hessian
+      H_stacked[start_row:end_row, ] <- rbind(cbind(hbb, hbd),
                            cbind(t(hbd), hdd))
     }
   }
   
-  # Stack all individual Hessians
-  do.call(rbind, H_list)
+  return(H_stacked)
+}
+
+## Log-likelihood by Observation ===============================================
+.ml_probit_loglikeObs <- function(object)
+{
+  if (!inherits(object, "ml_probit"))
+    cli::cli_abort("`object` must be a model of class 'ml_probit' (from ml_probit).",
+                   call = NULL)
+  
+  # -- 1. Common elements for both hetero and homo -----------------------------
+  b <- coef(object)
+  y <- object$model$value$outcomes[[1]]
+  x <- as.matrix(object$model$value$predictors)
+  w <- object$model$weights %||% rep(1, length(y))   # default to 1 if NULL
+  
+  k1   <- ncol(x)
+  beta <- b[1:k1]
+  
+  if (is.null(object$model$scale)) {
+    # -- Homoskedastic binary probit -------------------------------------------
+    xb <- as.vector(x %*% cbind(b))
+    
+    log_py <- pnorm(xb, log.p = TRUE)
+    log_pn <- pnorm(-xb, log.p = TRUE)
+    
+    # Weighted log-likelihood
+    ll <- ((1-y) * log_pn + y * log_py) * w
+    
+  } else {
+    # -- Heteroskedastic binary probit ------------------------------------------
+    k1   <- ncol(x)
+    k    <- k1 + ncol(z)
+    beta <- b[1:k1]
+    delta <- b[(k1+1):k]
+    
+    zd <- as.vector(z %*% cbind(delta))
+    xz <- x / exp(zd)
+    xb <- as.vector(xz %*% cbind(beta)) # <- this is actually xb / sigma.
+    
+    log_py <- pnorm(xb, log.p = TRUE)
+    log_pn <- pnorm(-xb, log.p = TRUE)
+    
+    # Weighted log-likelihood
+    ll <- ((1-y) * log_pn + y * log_py) * w
+  }
+  return(ll)
 }
 
 ## ML EVALUATOR ==============================================================

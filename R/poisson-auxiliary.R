@@ -1,4 +1,26 @@
-## HESSIANS ====================================================================
+## Gradients by Observation ====================================================
+.ml_poisson_gradientObs <- function(object)
+{
+  if (!inherits(object, "ml_poisson"))
+    cli::cli_abort("`object` must be a model of class 'ml_poisson' (from ml_poisson).",
+                   call = NULL)
+  
+  b <- coef(object)
+  y <- object$model$value$outcomes[[1]]
+  x <- as.matrix(object$model$value$predictors)
+  w <- object$model$weights %||% rep(1, length(y))   # default to 1 if NULL
+  
+  k <- length(b)
+  
+  xb <- x %*% cbind(b)
+  mu <- exp(xb)
+  
+  g <- as.vector(w * (y - mu)) * x
+  
+  return(g)
+}
+
+## Hessians by Observation =====================================================
 .ml_poisson_hessianObs <- function(object)
 {
   if (!inherits(object, "ml_poisson"))
@@ -10,25 +32,50 @@
   x <- as.matrix(object$model$value$predictors)
   w <- object$model$weights %||% rep(1, length(y))   # default to 1 if NULL
   
-  xb <- x %*% cbind(b)
-  eta <- pmin(pmax(xb, -100), 100)
-  mu <- exp(eta)
+  k <- length(b)
   
-  # Pre-allocate list to collect individual Hessians
-  H_list <- vector("list", length(y))
+  xb <- x %*% cbind(b)
+  mu <- exp(xb)
   
   s <- as.vector(- mu * w)
   
+  H_stacked <- matrix(0, nrow = nrow(x) * k, ncol = k)
+  
   for (i in seq_len(nrow(x))) {
     xi  <- cbind(x[i, ])
-    H_list[[i]] <- s[i] * tcrossprod(xi)
+    
+    start_row <- (i - 1) * k + 1
+    end_row <- i * k
+    
+    H_stacked[start_row:end_row, ] <- s[i] * tcrossprod(xi)
   }
   
-  # Stack all individual Hessians
-  do.call(rbind, H_list)
+  return(H_stacked)
 }
 
-## ML EVALUATOR ==============================================================
+## Log-likelihood by Observation ===============================================
+.ml_poisson_loglikeObs <- function(object)
+{
+  if (!inherits(object, "ml_poisson"))
+    cli::cli_abort("`object` must be a model of class 'ml_poisson' (from ml_poisson).",
+                   call = NULL)
+  
+  b <- coef(object)
+  y <- object$model$value$outcomes[[1]]
+  x <- as.matrix(object$model$value$predictors)
+  w <- object$model$weights %||% rep(1, length(y))   # default to 1 if NULL
+  
+  k <- length(b)
+  
+  xb <- x %*% cbind(b)
+  mu <- exp(xb)
+  
+  ll <- w * (y * eta - mu - lfactorial(y))
+  
+  return(ll)
+}
+
+## ML EVALUATOR ================================================================
 #' @keywords internal
 .ml_poisson_ll <- function(b, y, x, w = NULL)
 {

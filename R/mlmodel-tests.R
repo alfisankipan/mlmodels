@@ -225,13 +225,15 @@ IMtest.mlmodel <- function(object,
       for (r in seq_len(repetitions)) {
         idx <- sample.int(n, n, replace = TRUE)
 
-        boot_obj <- tryCatch({
-          object$model$functions$update(
-            object,
-            data   = orig_data[idx, , drop = FALSE],
-            weights = w[idx]
-          )
-        }, error = function(e) NULL)
+        suppressMessages(
+          boot_obj <- tryCatch({
+            object$model$functions$update(
+              object,
+              data   = orig_data[idx, , drop = FALSE],
+              weights = w[idx]
+            )
+          }, error = function(e) NULL)
+        )
 
         if (is.null(boot_obj) || !(boot_obj$code %in% c(1L, 2L, 8L))) {
           boot_stats[r] <- NA
@@ -257,7 +259,7 @@ IMtest.mlmodel <- function(object,
       }
 
       res$pval$bootstrapped <- mean(boot_stats >= tstat, na.rm = TRUE)
-      res$repetitions <- list(total = repetitions, valid = n_success)
+      res$repetitions <- repetitions
       res$version$description <- "Chesher/Lancaster OPG + model-based bootstrap"
     }
   }
@@ -325,7 +327,7 @@ print.IMtest <- function(x, digits = 3, ...)
   cat("--------------------------------------------\n")
 
   if (x$version$method %in% c("boot_opg", "boot_quad")) {
-    cat(" Repetitions:", x$repetitions$total, "\n")
+    cat(" Repetitions:", x$repetitions, "\n")
   }
 
   cat(sprintf(" Chisq(%i) = %.3f", x$df, x$tstat))
