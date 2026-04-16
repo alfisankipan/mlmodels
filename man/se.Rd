@@ -51,7 +51,7 @@ Extracts standard errors for an \code{mlmodel} object.
 Extracts standard errors for an \code{mlmodel} object.
 }
 \seealso{
-\code{\link[=vcov.mlmodel]{vcov.mlmodel()}}, \code{\link[=summary.ml_lm]{summary.ml_lm()}}
+\link{vcov.mlmodel}
 }
 \author{
 Alfonso Sanchez-Penalver

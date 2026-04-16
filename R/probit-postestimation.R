@@ -367,42 +367,7 @@ print.summary.ml_probit <- function(x, digits = max(3L, getOption("digits") - 3L
 }
 
 ## SUMMARY =====================================================================
-#' Summary for ml_probit objects
-#'
-#' @param object A fitted model object of class `"ml_logit"`.
-#' @param correlation Logical. Should the correlation matrix of the estimated
-#'   parameters be computed and stored in the returned summary object as
-#'   `$correlation`? Default is `FALSE`. This is provided for compatibility
-#'   with `maxLik::summary`. The matrix is **not** printed automatically.
-#' @param vcov Optional user-supplied variance-covariance matrix. If provided,
-#'   it will be used instead of computing one internally.
-#' @param vcov.type Character string specifying the type of variance-covariance
-#'   matrix to use. One of `"oim"` (default), `"robust"`, `"opg"`, `"cluster"`,
-#'   or `"boot"`. See [vcov.mlmodel()] for details.
-#' @param cl_var Character string or vector. Name of the clustering variable
-#'   or the vector itself. Only used when `vcov.type = "cluster"` or when
-#'   `vcov.type = "boot"` with clustering.
-#' @param repetitions Integer. Number of bootstrap replications when
-#'   `vcov.type = "boot"`. Default is 999.
-#' @param seed Integer. Random seed for reproducibility when `vcov.type = "boot"`.
-#'   If `NULL`, a random seed is generated.
-#' @param progress Logical. Should a progress bar be displayed during
-#'   bootstrapping? Default is `FALSE` (silent) when called from `summary()`.
-#' @param ... Further arguments passed to methods.
-#'
-#' @details
-#' Coefficient names in the fitted object use the prefixes `value::` and
-#' `scale::` to identify to which equation they belong to, and to avoid
-#' confusion when the same variable(s) appear(s) in both the value and scale
-#' equations.
-#'
-#' For binary probit models, two pseudo-R-squared measures are computed and
-#' stored in the `$r.squared` component:
-#' - `cor`: Squared correlation between observed and fitted values.
-#' - `mczav`: McKelvey & Zavoina's pseudo-R².
-#'
-#' @return An object of class `summary.ml_probit`.
-#'
+#' @rdname summary.mlmodel
 #' @export
 summary.ml_probit <- function(object,
                               correlation = FALSE,
@@ -562,31 +527,7 @@ summary.ml_probit <- function(object,
 }
 
 ## UPDATE ======================================================================
-#' Update method for ml_probit objects
-#' 
-#' @param object An `ml_probit` estimation object.
-#' @param formula. The formula of the value equation (optional).
-#' @param scale. The formula of the scale equation (optional).
-#' @param data A data.frame with the data to do the estimation (optional).
-#' @param weights A vector with the weights (optional).
-#' @param ... Currently not implemented.
-#' @param evaluate Should the updated call be evaluated? Defaults to `TRUE`.
-#'
-#' @details
-#' Designed to work with sandwich::vcovBS() and our internal bootstrap.
-#' Re-evaluates the original call with new data/weights while preserving
-#' the original scale formula, constraints, control, etc.
-#'
-#' **Note on weights**: If the original model was weighted, sandwich::vcovBS()
-#' usually passes weights = NULL. In that case we keep the original weights.
-#' This means the bootstrap may not be properly re-weighted. For accurate
-#' weighted bootstrap use our own `vcov(..., type = "boot")` instead.
-#' 
-#' **Note on sandwich::vcovBS()**: This function does not work reliably with 
-#' `ml_probit` objects, even in simple homoskedastic cases.  We, therefore, built
-#' our own bootstrap implementation. We strongly recommend using
-#' `vcov(object, type = "boot")` instead.
-#'
+#' @rdname update.mlmodel
 #' @export
 update.ml_probit <- function(object,
                              formula. = NULL,

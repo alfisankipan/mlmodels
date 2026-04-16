@@ -454,35 +454,7 @@ print.summary.ml_negbin <- function(x, digits = max(3L, getOption("digits") - 3L
 }
 
 ## SUMMARY =====================================================================
-#' Summary for ml_negbin objects
-#'
-#' @param object A fitted model object of class `"ml_negbin"`.
-#' @param correlation Logical. Should the correlation matrix of the estimated
-#'   parameters be included in the output? Default is `FALSE`. If `TRUE` the
-#'   correlation matrix will be computed, and stored in the `'summary.ml_lm'`
-#'   object the function returns.
-#' @param vcov Optional user-supplied variance-covariance matrix. If provided,
-#'   it will be used instead of computing one internally.
-#' @param vcov.type Character string specifying the type of variance-covariance
-#'   matrix to use. See [vcov][mlmodels::vcov.mlmodel].
-#' @param cl_var Character string or vector. Name of the clustering variable
-#'   or the vector itself. See [vcov][mlmodels::vcov.mlmodel].
-#' @param repetitions Integer. Number of bootstrap replications when
-#'   `vcov.type = "boot"`. Default is 999.
-#' @param seed Integer. Random seed for reproducibility when `vcov.type = "boot"`.
-#'   If `NULL`, a random seed is generated.
-#' @param progress Logical. Should a progress bar be displayed during
-#'   bootstrapping or jackknifing? Default is `FALSE` (silent).
-#' @param ... Further arguments passed to methods.
-#'
-#' @details
-#' Coefficient names in the fitted object use the prefixes `value::` for
-#' consistency with our other estimators that model the scale as well.
-#' 
-#' @return An object of class `c("summary.ml_negbin", "summary.mlmodel", "summary")`.
-#'
-#' @author Alfonso Sanchez-Penalver
-#'
+#' @rdname summary.mlmodel
 #' @export
 summary.ml_negbin <- function(object,
                               correlation = FALSE,
@@ -656,29 +628,7 @@ summary.ml_negbin <- function(object,
 
 
 ## UPDATE ======================================================================
-#' Update method for ml_negbin objects
-#' 
-#' @param object An `ml_negbin` estimation object.
-#' @param formula. The formula of the value equation (optional).
-#' @param scale. The formula of the scale equation (optional).
-#' @param data A data.frame with the data to do the estimation (optional).
-#' @param weights A vector with the weights (optional).
-#' @param ... Currently not implemented.
-#' @param evaluate Should the updated call be evaluated? Defaults to `TRUE`.
-#'
-#' @details
-#' Re-evaluates the original call with new data/weights while preserving
-#' the original scale formula, constraints, control, etc.
-#'
-#' **Note on weights**: If the original model was weighted, sandwich
-#' usually passes weights = NULL. In that case we keep the original weights.
-#' This means the bootstrap may not be properly re-weighted. For accurate
-#' weighted bootstrap use our own [vcov()][mlmodels::vcov.mlmodel] instead.
-#' 
-#' **Note on sandwich**: This package's functions does not work reliably with 
-#' `ml_negbin` objects.  We, therefore, built our own bootstrap and jackknife
-#' implementations. We strongly recommend using [vcov()][mlmodels::vcov.mlmodel] instead.
-#'
+#' @rdname update.mlmodel
 #' @export
 update.ml_negbin <- function(object,
                              formula. = NULL,

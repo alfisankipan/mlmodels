@@ -70,7 +70,7 @@
   xb <- x %*% cbind(b)
   mu <- exp(xb)
   
-  ll <- w * (y * eta - mu - lfactorial(y))
+  ll <- w * (y * xb - mu - lfactorial(y))
   
   return(ll)
 }

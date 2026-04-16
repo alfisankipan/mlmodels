@@ -394,7 +394,7 @@ predict.mlmodel <- function(object, ...) {
 #'
 #' @return A named numeric vector of standard errors.
 #'
-#' @seealso [vcov.mlmodel()], [summary.ml_lm()]
+#' @seealso [vcov.mlmodel]
 #'
 #' @author Alfonso Sanchez-Penalver
 #' 
@@ -432,6 +432,51 @@ se.mlmodel <- function(object,
   return(se)
 }
 
+## SUMMARY GENERIC =============================================================
+#' Summary for ml_lm objects
+#'
+#' @param object A fitted model object of class `"ml_lm"`.
+#' @param correlation Logical. Should the correlation matrix of the estimated
+#'   parameters be included in the output? Default is `FALSE`. If `TRUE` the
+#'   correlation matrix will be computed, and stored in the `'summary.ml_lm'`
+#'   object the function returns.
+#' @param vcov Optional user-supplied variance-covariance matrix. If provided,
+#'   it will be used instead of computing one internally.
+#' @param vcov.type Character string specifying the type of variance-covariance
+#'   matrix to use. See [vcov][mlmodels::vcov.mlmodel].
+#' @param cl_var Character string or vector. Name of the clustering variable
+#'   or the vector itself. See [vcov][mlmodels::vcov.mlmodel].
+#' @param repetitions Integer. Number of bootstrap replications when
+#'   `vcov.type = "boot"`. Default is 999.
+#' @param seed Integer. Random seed for reproducibility when `vcov.type = "boot"`.
+#'   If `NULL`, a random seed is generated.
+#' @param progress Logical. Should a progress bar be displayed during
+#'   bootstrapping or jackknifing? Default is `FALSE` (silent).
+#' @param ... Further arguments passed to methods.
+#'
+#' @details
+#' Coefficient names in the fitted object use the prefixes `value::` and
+#' `scale::` to identify to which equation they belong to, and to avoid
+#' confusion when the same variable(s) appear(s) in both the value and scale
+#' equations.
+#' 
+#' @author Alfonso Sanchez-Penalver
+#' 
+#' @method summary mlmodel
+#' @export
+summary.mlmodel <- function(object,
+                            correlation = FALSE,
+                            vcov = NULL,           # User-supplied variance matrix
+                            vcov.type = "oim",
+                            cl_var = NULL,
+                            repetitions = 999,
+                            seed = NULL,
+                            progress = FALSE,
+                            ...)
+{
+  UseMethod("summary")
+}
+
 # TERMS ========================================================================
 #' Extract terms from mlmodel objects
 #'
@@ -456,7 +501,40 @@ terms.mlmodel <- function(x, ...) {
   }
 }
 
-# VARIANCE =====================================================================
+## UPDATE GENERIC ==============================================================
+#' Update method for ml_lm objects
+#' 
+#' @param object An `mlmodel` estimation object.
+#' @param formula. The formula of the value equation (optional).
+#' @param scale. The formula of the scale equation (optional).
+#' @param data A data.frame with the data to do the estimation (optional).
+#' @param weights A vector with the weights (optional).
+#' @param ... Currently not implemented.
+#' @param evaluate Should the updated call be evaluated? Defaults to `TRUE`.
+#'
+#' @details
+#' Used in bootstrapping of tests. Re-evaluates the original call with arguments
+#' passed into the function.
+#' 
+#' **Note on sandwich::vcovBS()**: This function does not work reliably with 
+#' `mlmodel` objects, even in simple homoskedastic cases.  We, therefore, built
+#' our own bootstrap implementation. We strongly recommend using
+#' `vcov(object, type = "boot")` instead. See [vcov][mlmodels::vcov.mlmodel].
+#' 
+#' @author Alfonso Sanchez-Penalver
+#' @export
+update.mlmodel <- function(object,
+                           formula. = NULL,
+                           scale. = NULL,
+                           data = NULL,
+                           weights = NULL,
+                           ...,
+                           evaluate = TRUE)
+{
+  UseMethod("update")
+}
+
+## VARIANCE ====================================================================
 #' Variance-Covariance Matrix for mlmodel Objects
 #'
 #' Returns the variance-covariance matrix of the estimated parameters
