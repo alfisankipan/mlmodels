@@ -22,11 +22,11 @@
   zd_clamp <- pmax(pmin(zd, up_bound), lo_bound)
   
   mu_y <- plogis(xb)
-  mu_n <- plogis(xb, lower.tail = TRUE)
+  mu_n <- plogis(xb, lower.tail = FALSE)
   phi <- exp(zd_clamp)
   
   ll <- w * (lgamma(phi) - lgamma(mu_y * phi) - lgamma(mu_n * phi) +
-               (mu_y * phi -1) * log(y) + (mu_n * phi - 1) * log(1 - y))
+               (mu_y * phi - 1) * log(y) + (mu_n * phi - 1) * log(1 - y))
   
   # Gradient
   d_mu <- dlogis(xb)
