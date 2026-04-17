@@ -35,7 +35,8 @@
   gb <- w * (y * e_zd_xb - nu) * x
   gd <- w * (nu * (- digamma(nu) + zd - xb + log(y) + 1) - y * e_zd_xb) * z
   
-  g <- c(gb, gd)
+  g <- cbind(gb, gd)
+  return(g)
 }
 
 # Hessians by Observation ======================================================
@@ -104,7 +105,7 @@
                                             cbind(h_db, h_dd))
   }
   # Stack all individual Hessians
-  H_stacked
+  return(H_stacked)
 }
 
 # Log-likelihood by Observations ===============================================
@@ -140,7 +141,7 @@
   e_zd_xb <- exp(zd - xb)
   
   ll <- w * (- lgamma(nu) + nu * (zd - xb) + (nu - 1) * log(y) - y * e_zd_xb)
-  ll
+  return(ll)
 }
 
 ## ML EVALUATOR ================================================================
@@ -174,8 +175,6 @@
   # Gradient
   gb <- w * (y * e_zd_xb - nu) * x
   gd <- w * (nu * (- digamma(nu) + zd - xb + log(y) + 1) - y * e_zd_xb) * z
-  
-  g <- c(gb, gd)
   
   # Hessian
   s_bb <- w * (- y * e_zd_xb)
