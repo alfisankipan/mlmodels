@@ -411,8 +411,22 @@ print.summary.ml_negbin <- function(x, digits = max(3L, getOption("digits") - 3L
   old_pen <- getOption("scipen")
   options(scipen = .mlmodels_get_default("scipen"))
   
+  # Determining the number of leading zeroes in the estimates and standard errors.
+  format_coef <- x$coefficients
+  checkvals <- abs(format_coef[, 1:2])
+  checkvals <- checkvals[checkvals > 0 & !is.na(checkvals)]
+  # - log10() gives us the number of leading zeroes (and decimal). Floor then
+  # tells us where the first nonzero value is. Then max() gets us the maximum, so
+  # using that + 2 guarantees that the number with more leading zeroes has two
+  # nonzero decimals. Finally, max(digits, -) ensures that at least we have digits
+  # decimal places (for estimations with few decimal places)
+  num_digits <- if(length(checkvals) > 0) max(digits, max(floor(-log10(checkvals))) + 2)
+  else digits
+  # Rounding the estimate and standard errors.
+  format_coef[, 1:2] <- round(format_coef[, 1:2], num_digits)
+  
   # Capture the whole output of printCoefmat into a vector of strings.
-  captured <- capture.output(printCoefmat(x$coefficients,
+  captured <- capture.output(printCoefmat(format_coef,
                                           digits = digits,
                                           signif.legend = TRUE))
   
@@ -458,6 +472,15 @@ print.summary.ml_negbin <- function(x, digits = max(3L, getOption("digits") - 3L
     cat("\nCount Diagnostics:\n")
     cat("  Dispersion Ratio (Pearson):", format(x$ov, nsmall = 2, digits = digits + 1), "\n")
     cat("  Zeros - Observed:", x$zero$count, "Predicted:", round(x$zero$pred, 2), "\n")
+    
+    if(x$is_heteroskedastic)
+    {
+      cat("\nDistribution of Dispersion (alpha):",
+          "---------------------------------------",
+          sep = "\n")
+      print(x$alpha, digits = 2)
+      cat("\n")
+    }
   } else {
     cat("\nGoodness-of-fit statistics not available (model did not converge).\n")
   }
@@ -591,6 +614,8 @@ summary.ml_negbin <- function(object,
       count = sum(y == 0),
       pred = pred_zero
     )
+    
+    s$alpha <- summary(as.vector(alphahat))
     
     if(usable_vcov)
     {

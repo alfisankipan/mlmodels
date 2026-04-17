@@ -343,12 +343,13 @@ ml_probit <- function(value,
   if(!is.null(scale))
   {
     delta <- cfs[(ncol(x)+1):length(cfs)]
-    sig <- exp(z %*% delta)
+    sig <- as.vector(exp(z %*% delta))
   }
   else
     sig <- 1
   model_list$fitted.values <- as.vector(pnorm(xb / sig))
   model_list$residuals <- y - model_list$fitted.values
+  model_list$sigma <- sig
   
   # -- 14. Add the model to the maxLik object ----------------------
   ml$model <- model_list

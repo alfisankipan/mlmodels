@@ -385,7 +385,7 @@ ml_gamma <- function(value,
   beta <- coefs[1:ncol(x)]
   delta <- coefs[(ncol(x) + 1):length(coefs)]
   yhat <- as.vector(x %*% beta)
-  nuhat <- mean(as.vector(exp(z %*% delta)))
+  nuhat <- as.vector(exp(z %*% delta))
   
   model_list$fitted.values <- exp(yhat)
   model_list$residuals     <- y - exp(yhat)

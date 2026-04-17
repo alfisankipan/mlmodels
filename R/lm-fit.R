@@ -269,7 +269,7 @@ ml_lm <- function(value,
     }
   }
 
-  # -- 9. Fitting the model with maxLik ----------------------
+  # -- 9. Using the internal fit function to estimate ----------------------
   ml <- .ml_lm.fit(y = y,
                    x = x,
                    z = z,
@@ -316,9 +316,23 @@ ml_lm <- function(value,
   )
 
   # -- 12.b. The common structure --------------------------------------
+  if(!is.null(scale))
+  {
+    description <- if(log_info$value$is_log)
+      "Heteroskedastic Lognormal Model"
+    else
+      "Heteroskedastic Linear Model"
+  }
+  else
+  {
+    description <- if(log_info$value$is_log)
+      "Homoskedastic Lognormal Model"
+    else
+      "Homoskedastic Linear Model"
+  }
+  
   model_list <- list(
-    description   = if (!is.null(scale)) "Heteroskedastic Gaussian Linear Model"
-                    else "Homoskedastic Gaussian Linear Model",
+    description   = description,
     value         = model_value,
     scale         = model_scale,
     factor_mapping = factor_mapping,
@@ -361,9 +375,12 @@ ml_lm <- function(value,
   
   beta <- coefs[1:ncol(x)]
   yhat <- as.vector(x %*% beta)
+  delta <- coefs[(ncol(x) + 1):length(coefs)]
+  sigma <- as.vector(exp(z %*% delta))
 
   model_list$fitted.values <- yhat
   model_list$residuals     <- y - yhat
+  model_list$sigma         <- sigma
 
   # -- 13. Add the model to the maxLik object ----------------------
   ml$model <- model_list

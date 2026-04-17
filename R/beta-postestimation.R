@@ -1,184 +1,9 @@
-## PREDICT =====================================================================
-# Remember that the parameter documentation is done at the generic predict for
-# mlmodel class.
-
-#' @details
-#' ### ml_gamma prediction types
-#'
-#' The `type` argument controls what quantity is returned.
-#'
-#' | Type          | Description                              | Notes |
-#' |---------------|------------------------------------------|-------|
-#' | `"link"`      | Linear mean predictor ( xb )                  | log-mean |
-#' | `"response"`  | Expected count ( \code{mu} = \code{exp(xb)} )          | Default |
-#' | `"mean"`      | Alias for `"response"`                   | - |
-#' | `"fitted"`    | Alias for `"response"`                   | - |
-#' | `"zd"`        | Linear shape predictor.                  | log-nu |
-#' | `"nu"`     | Dispersion parameter                        | - |
-#' | `"variance"`  | Variance of the outcome variable         | - |
-#' | `"var"`       | Alias for `"variance"`                   | - |
-#' | `"sigma"`     | Standard deviation of outcome variable   | sqrt(`"variance"`) |
-#' | `"sd"`        | Alias for `"sigma"`                      | - |
-#'
-#' When `se.fit = TRUE`, standard errors are computed using the delta method
-#' for all supported types.
-#'
-#' @author Alfonso Sanchez-Penalver
-#'
-#' @rdname predict.mlmodel
-#' @export
-predict.ml_gamma <- function(object,
-                             newdata = NULL,
-                             type = "response",
-                             se.fit = FALSE,
-                             vcov = NULL,
-                             vcov.type = "oim",
-                             cl_var = NULL,
-                             repetitions = 999,
-                             seed = NULL,
-                             progress = FALSE,
-                             ...)
-{
-  if (!inherits(object, "ml_gamma"))
-    cli::cli_abort("`object` must be of class 'ml_gamma'.")
-  
-  type <-  rlang::arg_match(type, c("response", "fitted", "mean", "fitted", "link", "zd", "alpha", "variance", "var", "sd", "sigma"))
-  
-  # ── Prepare predictors (using hardhat) ─────────────────────────────
-  is_heteroskedastic <- !is.null(object$model$scale_formula)
-  if (is.null(newdata)) {
-    val_predictors <- object$model$value$predictors
-    scale_predictors <- if (is_heteroskedastic)
-      object$model$scale$predictors
-    else
-      matrix(1, nrow = nrow(val_predictors), ncol = 1)
-    sample_idx <- object$model$sample
-    n_orig <- length(sample_idx)
-  } else {
-    val_bp <- object$model$value$blueprint
-    forged <- hardhat::forge(newdata, blueprint = val_bp, outcomes = FALSE)
-    val_predictors <- forged$predictors
-    scale_predictors <- if (is_heteroskedastic)
-    {
-      scale_bp <- object$model$scale$blueprint
-      forged <- hardhat::forge(newdata, blueprint = scale_bp, outcomes = FALSE)
-      forged$predictors
-    }
-    else
-      matrix(1, nrow = nrow(val_predictors), ncol = 1)
-    sample_idx <- rep(TRUE, nrow(val_predictors))
-    n_orig <- nrow(val_predictors)
-  }
-  
-  # ── Extract coefficients and compute linear predictors ─────────────
-  coefs <- coef(object)
-  k_mean <- ncol(val_predictors)
-  beta <- coefs[1:k_mean]
-  delta <- coefs[(k_mean + 1):length(coefs)]
-  X <- as.matrix(val_predictors)
-  xb <- as.vector(X %*% beta)
-  Z <- as.matrix(scale_predictors)
-  zd <- as.vector(Z %*% delta)
-  mu <- exp(xb)
-  nu <- exp(zd)
-  var <- exp(2 * xb - zd)
-  
-  out <- switch(type,
-                "link"     = xb,
-                "mean"     = ,
-                "fitted"   = ,
-                "response" = mu,
-                "nu"       = nu,
-                "zd"       = zd,
-                "var"      = ,
-                "variance" = var,
-                "sd"       = ,
-                "sigma"    = sqrt(var),
-                cli::cli_abort("Unknown prediction type '{type}'.", 
-                               call = NULL))
-
-  # ── Align in-sample predictions to original data length ────────────
-  if (is.null(newdata) && any(!sample_idx)) {
-    full_out <- rep(NA_real_, n_orig)
-    full_out[sample_idx] <- out
-    out <- full_out
-  }
-  
-  if (!se.fit)
-  {
-    res <- list(
-      fit = out,
-      se.fit = NULL
-    )
-    class(res) <- c("predict.ml_gamma", "predict.mlmodel")
-    return(res)
-  }
-  
-  g_null_delta <- matrix(0, nrow = nrow(X), ncol = ncol(Z))
-  g_null_beta <- matrix(0, nrow = nrow(X), ncol = ncol(X))
-  g_mu_b <- mu * X
-  g_nu_d <- nu * Z
-  g_var_b <- 2 * var * X
-  g_var_d <- - var * Z
-  g_sig_b <- 0.5 * var^(-0.5) * g_var_b
-  g_sig_d <- 0.5 * var^(-0.5) * g_var_d
-  
-  g <- switch(type,
-              "link"     = cbind(X, g_null_delta),
-              "mean"     = ,
-              "fitted"   = ,
-              "response" = cbind(g_mu_b, g_null_delta),
-              "nu"       = cbind(g_null_beta, g_nu_d),
-              "zd"       = cbind(g_null_beta, Z),
-              "var"      = ,
-              "variance" = cbind(g_var_b, g_var_d),
-              "sd"       = ,
-              "sigma"    = cbind(g_sig_b, g_sig_d),
-              cli::cli_abort("Unknown prediction type '{parsed_type$base_type}'.", 
-                             call = NULL))
-  
-  full_vcov <- .process_vcov(object,
-                             vcov = vcov,
-                             vcov.type = vcov.type,
-                             cl_var = cl_var,
-                             repetitions = repetitions,
-                             seed = seed,
-                             progress = progress)
-  
-  # ── Check for unusable variance matrix ─────────────────────────────
-  if (any(!is.finite(full_vcov)) || any(is.na(full_vcov))) {
-    cli::cli_warn(
-      c("Variance matrix is unusable (contains NAs or non-finite values).",
-        "i" = "This usually happens with bootstrap when constraints are present.",
-        "i" = "Standard errors will be returned as NA.")
-    )
-    se_fit <- rep(NA_real_, length(out))
-  } else {
-    # ── Delta-method standard errors ─────────────────────────────────
-    se_fit <- sqrt(rowSums(g * (g %*% full_vcov)))
-  }
-  
-  # Align in-sample SEs
-  if (is.null(newdata) && any(!sample_idx)) {
-    full_se <- rep(NA_real_, n_orig)
-    full_se[sample_idx] <- se_fit
-    se_fit <- full_se
-  }
-  
-  res <- list(
-    fit = out,
-    se.fit = se_fit
-  )
-  class(res) <- c("predict.ml_gamma", "predict.mlmodel")
-  return(res)
-}
-
 ## PRINT SUMMARY ===============================================================
 #' @export
-print.summary.ml_gamma <- function(x, digits = max(4L, getOption("digits") - 4L), ...)
+print.summary.ml_beta <- function(x, digits = max(4L, getOption("digits") - 4L), ...)
 {
-  if (!inherits(x, "summary.ml_gamma"))
-    cli::cli_abort("`x` needs to be a `summary.ml_gamma` object.")
+  if (!inherits(x, "summary.ml_beta"))
+    cli::cli_abort("`x` needs to be a `summary.ml_beta` object.")
   
   cat("\nMaximum Likelihood Model\n")
   cat(" Type:", x$model_type, "\n")
@@ -251,7 +76,7 @@ print.summary.ml_gamma <- function(x, digits = max(4L, getOption("digits") - 4L)
   # nonzero decimals. Finally, max(digits, -) ensures that at least we have digits
   # decimal places (for estimations with few decimal places)
   num_digits <- if(length(checkvals) > 0) max(digits, max(floor(-log10(checkvals))) + 2)
-  else digits
+                else digits
   # Rounding the estimate and standard errors.
   format_coef[, 1:2] <- round(format_coef[, 1:2], num_digits)
   
@@ -277,7 +102,7 @@ print.summary.ml_gamma <- function(x, digits = max(4L, getOption("digits") - 4L)
   cat(val_head)
   cat("  ", captured[2:(k1+1)],
       sep = "\n  ")
-  cat("Scale (log(nu)):")
+  cat("Scale (log(phi)):")
   cat("  ", captured[(k1+2):(k1+k2+1)],
       sep = "\n  ")
   # It seems as if there is an empty line between the coefficients and the legend
@@ -294,27 +119,20 @@ print.summary.ml_gamma <- function(x, digits = max(4L, getOption("digits") - 4L)
         " Deg. of freedom: ", x$df.residual, "\n", sep = "")
     cat("Pseudo R-squared - Cor.Sq.: ",
         format(x$r.squared$cor, digits = digits),
-        " McFadden: ", format(x$r.squared$mcfadden, digits = digits),
         "\n",
         sep = "")
     cat("AIC:", format(x$AIC, nsmall = 2, digits = digits + 1),
         " BIC:", format(x$BIC, nsmall = 2, digits = digits + 1), "\n")
-    
     if(x$is_heteroskedastic)
     {
-      shape <- rbind(x$nuhat,
-                     x$cv)
-      rownames(shape) <- c("Shape (nu)",
-                           "Coef. Var.")
-      cat("\nDistribution of Shape Related Params.:",
+      cat("\nDistribution of Predicted Precision (phi):",
           "---------------------------------------",
           sep = "\n")
-      print(shape, digits = 2)
+      print(x$phihat, digits = 2)
       cat("\n")
     }
     else
-      cat(sprintf("Shape Param.: %.2f  - Coef.Var.: %.2f \n",
-                  x$nuhat[1], x$cv[1]))
+      cat(sprintf("Dispersion Param.: %.2f\n", x$phihat[1]))
   } else {
     cat("\nGoodness-of-fit statistics not available (model did not converge).\n")
   }
@@ -325,18 +143,18 @@ print.summary.ml_gamma <- function(x, digits = max(4L, getOption("digits") - 4L)
 ## SUMMARY =====================================================================
 #' @rdname summary.mlmodel
 #' @export
-summary.ml_gamma <- function(object,
-                             correlation = FALSE,
-                             vcov = NULL,           # User-supplied variance matrix
-                             vcov.type = "oim",
-                             cl_var = NULL,
-                             repetitions = 999,
-                             seed = NULL,
-                             progress = FALSE,
-                             ...)
+summary.ml_beta <- function(object,
+                            correlation = FALSE,
+                            vcov = NULL,           # User-supplied variance matrix
+                            vcov.type = "oim",
+                            cl_var = NULL,
+                            repetitions = 999,
+                            seed = NULL,
+                            progress = FALSE,
+                            ...)
 {
-  if (!inherits(object, "ml_gamma"))
-    cli::cli_abort("`object` must be a model of class 'ml_gamma'.")
+  if (!inherits(object, "ml_beta"))
+    cli::cli_abort("`object` must be a model of class 'ml_beta'.")
   
   converged <- object$code %in% c(0, 1, 2, 8)
   # Get variance-covariance matrix once
@@ -418,20 +236,16 @@ summary.ml_gamma <- function(object,
   if (converged) {
     y <- object$model$value$outcomes[[1]]
     yhat <- object$model$fitted.values
-    
-    s$nuhat <- summary(object$model$nuhat)
-    s$cv    <- summary(1 / sqrt(object$model$nuhat))
+    s$phihat <- summary(object$model$phihat)
     
     ll <- s$logLik
     s$AIC            <- -2 * ll + 2 * k_total
     s$BIC            <- -2 * ll + log(n) * k_total
     
     y_bar <- mean(y)
-    ll0 <- object$model$ll0
     
     s$r.squared <- list(
-      cor = cor(y, yhat)^2,
-      mcfadden = 1 - ll / ll0
+      cor = cor(y, yhat)^2
     )
     
     if(usable_vcov)
@@ -473,50 +287,6 @@ summary.ml_gamma <- function(object,
   else
     s$correlation <- NULL
   
-  class(s) <- c("summary.ml_gamma", "summary.mlmodel", "summary")
+  class(s) <- c("summary.ml_beta", "summary.mlmodel", "summary")
   s
-}
-
-## UPDATE ======================================================================
-#' @rdname update.mlmodel
-#' @export
-update.ml_gamma <- function(object,
-                            formula. = NULL,
-                            data = NULL,
-                            weights = NULL,
-                            ...,
-                            evaluate = TRUE)
-{
-  if (is.null(call <- object$call))
-    cli::cli_abort("`object` does not contain a `call` component.", call = NULL)
-  
-  # Update value formula if explicitly requested
-  if (!is.null(formula.)) {
-    call$value <- update.formula(formula(object), formula.)
-  }
-  
-  # Update data if supplied (what vcovBS passes)
-  if (!is.null(data)) {
-    call$data <- data
-  }
-  
-  # Update weights ONLY if explicitly supplied and non-NULL
-  if (!is.null(weights)) {
-    call$weights <- weights
-  }
-  
-  # Forward any extra arguments
-  extras <- match.call(expand.dots = FALSE)$...
-  if (length(extras) > 0) {
-    for (arg in names(extras)) {
-      call[[arg]] <- extras[[arg]]
-    }
-  }
-  
-  # Evaluate or return the call
-  if (evaluate) {
-    eval(call, envir = parent.frame())
-  } else {
-    call
-  }
 }

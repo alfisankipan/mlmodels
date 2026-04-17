@@ -359,8 +359,22 @@ print.summary.ml_lm <- function(x, digits = max(3L, getOption("digits") - 3L), .
   old_pen <- getOption("scipen")
   options(scipen = .mlmodels_get_default("scipen"))
   
+  # Determining the number of leading zeroes in the estimates and standard errors.
+  format_coef <- x$coefficients
+  checkvals <- abs(format_coef[, 1:2])
+  checkvals <- checkvals[checkvals > 0 & !is.na(checkvals)]
+  # - log10() gives us the number of leading zeroes (and decimal). Floor then
+  # tells us where the first nonzero value is. Then max() gets us the maximum, so
+  # using that + 2 guarantees that the number with more leading zeroes has two
+  # nonzero decimals. Finally, max(digits, -) ensures that at least we have digits
+  # decimal places (for estimations with few decimal places)
+  num_digits <- if(length(checkvals) > 0) max(digits, max(floor(-log10(checkvals))) + 2)
+  else digits
+  # Rounding the estimate and standard errors.
+  format_coef[, 1:2] <- round(format_coef[, 1:2], num_digits)
+  
   # Capture the whole output of printCoefmat into a vector of strings.
-  captured <- capture.output(printCoefmat(x$coefficients,
+  captured <- capture.output(printCoefmat(format_coef,
                                           digits = digits,
                                           signif.legend = TRUE))
   
@@ -397,12 +411,22 @@ print.summary.ml_lm <- function(x, digits = max(3L, getOption("digits") - 3L), .
     cat("Number of observations:", x$nobs, "\n")
     if (!is.null(x$df.residual))
       cat("Residual degrees of freedom:", x$df.residual, "\n")
-    if (!is.null(x$sigma))
-      cat("Residual standard error (sigma):", format(x$sigma, digits = digits), "\n")
     cat("Multiple R-squared: ", format(x$r.squared, digits = digits),
         " Adjusted R-squared: ", format(x$adj.r.squared, digits = digits), "\n", sep = "")
     cat("AIC:", format(x$AIC, nsmall = 2, digits = digits + 1),
         " BIC:", format(x$BIC, nsmall = 2, digits = digits + 1), "\n")
+    if(x$is_heteroskedastic)
+    {
+      cat("\nDistribution of Std. Deviation (sigma):",
+          "---------------------------------------",
+          sep = "\n")
+      print(x$sigma, digits = 2)
+      cat("\n")
+    }
+    else
+    {
+      cat("Residual standard error (sigma):", format(x$sigma[1], digits = digits), "\n")
+    }
   } else {
     cat("\nGoodness-of-fit statistics not available (model did not converge).\n")
   }
@@ -513,9 +537,7 @@ summary.ml_lm <- function(object,
     s$AIC            <- -2 * ll + 2 * k_total
     s$BIC            <- -2 * ll + log(n) * k_total
 
-    if (!is_heteroskedastic) {
-      s$sigma <- exp(coef(object)[k_mean + 1])
-    }
+    s$sigma <- summary(object$model$sigma)
 
 
     if(usable_vcov)

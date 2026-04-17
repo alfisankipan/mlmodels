@@ -338,16 +338,17 @@ ml_logit <- function(value,
   # Converged: compute fitted (easy calculation of pseudo R-squared)]
   coefs <- coef(ml)
   beta <- coefs[1:ncol(x)]
-  xb <- x %*% beta
+  xb <- as.vector(x %*% beta)
   if(!is.null(scale))
   {
     delta <- coefs[(ncol(x)+1):length(coefs)]
-    sig <- exp(z %*% delta)
+    sig <- as.vector(exp(z %*% delta))
   }
   else
     sig <- 1
   model_list$fitted.values <- as.vector(1 / (1 + exp(- xb / sig)))
   model_list$residuals <- y - model_list$fitted.values
+  model_list$sigma <- sig
 
   # -- 14. Add the model to the maxLik object ----------------------
   ml$model <- model_list
@@ -373,7 +374,11 @@ new_ml_logit <- function(object, ...) {
                           constraints = NULL,
                           start = NULL,
                           method = "NR",
-                          control = NULL,
+                          control = list(tol = -1,
+                                         reltol = 1e-12,
+                                         gradtol = 1e-12,
+                                         lambdatol = 1e-20,
+                                         qac = "marquardt"),
                           ...)
 {
   n <- length(y)

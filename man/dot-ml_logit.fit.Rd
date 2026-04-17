@@ -12,7 +12,8 @@
   constraints = NULL,
   start = NULL,
   method = "NR",
-  control = NULL,
+  control = list(tol = -1, reltol = 1e-12, gradtol = 1e-12, lambdatol = 1e-20, qac =
+    "marquardt"),
   ...
 )
 }

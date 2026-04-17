@@ -127,6 +127,8 @@ GOFtest <- function(object, bins = 0:5)
         p_j <- predict(object, type = paste0("P(", low, ",", high, ")"))
       }
     }
+    # Extract the actual prediction from the new class object
+    p_j <- p_j$fit
     R[, i] <- d_j - p_j
     D[i, ] <- rbind(
       sum(d_j),                                # Frequency
@@ -141,7 +143,7 @@ GOFtest <- function(object, bins = 0:5)
   # greater than the last value.
   k <- bins[n_bins] + 1
   d_j <- y >= k
-  p_j <- predict(object, type = paste0("P(", k, ",)"))
+  p_j <- predict(object, type = paste0("P(", k, ",)"))$fit
   D[nrow(D), ] <- rbind(
     sum(d_j),                                # Frequency
     mean(d_j),                               # Proportion

@@ -764,7 +764,6 @@
   b1
 }
 
-
 # Changing ptypes from a mold --------------------------------------------------
 #' Function to change ptypes in a mold from int to double.
 #' 

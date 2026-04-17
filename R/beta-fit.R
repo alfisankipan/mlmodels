@@ -310,8 +310,8 @@ ml_beta <- function(value,
   
   functions <- list(
     # predict        = predict.ml_beta,
-    # gradientObs    = .ml_beta_gradientObs,
-    # hessianObs     = .ml_beta_hessianObs,
+    gradientObs    = .ml_beta_gradientObs,
+    hessianObs     = .ml_beta_hessianObs,
     # loglikeObs     = .ml_beta_loglikeObs,
     # update         = update.ml_beta,
     loglik         = .ml_beta_ll,
@@ -360,22 +360,22 @@ ml_beta <- function(value,
   
   # -- 12.c. The fitted values and residuals ------------------------
   # Converged: compute fitted/residuals and ll0 from a constants only fit.
-  z0 <- x0 <- matrix(1, nrow = length(y), ncol = 1)
-  
-  colnames(x0) <- "(Intercept)"
-  colnames(z0) <- "lnphi"
-  
-  suppressMessages({
-    ml0 <- .ml_gamma.fit(y = y, x = x0, z = z0, w = wts_clean)
-  })
-  model_list$ll0 <- ml0$maximum
+  # z0 <- x0 <- matrix(1, nrow = length(y), ncol = 1)
+  # 
+  # colnames(x0) <- "(Intercept)"
+  # colnames(z0) <- "lnphi"
+  # 
+  # suppressMessages({
+  #   ml0 <- .ml_beta.fit(y = y, x = x0, z = z0, w = wts_clean)
+  # })
+  # model_list$ll0 <- ml0$maximum
   
   coefs <- coef(ml)
   
   beta <- coefs[1:ncol(x)]
   delta <- coefs[(ncol(x) + 1):length(coefs)]
   yhat <- as.vector(x %*% beta)
-  phihat <- mean(as.vector(exp(z %*% delta)))
+  phihat <- as.vector(exp(z %*% delta))
   
   model_list$fitted.values <- exp(yhat)
   model_list$residuals     <- y - exp(yhat)
