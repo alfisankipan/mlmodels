@@ -316,13 +316,17 @@ logLik.summary.mlmodel <- function(object, ...)
 #' 
 #' @author Alfonso Sanchez-Penalver
 #' 
-#' @method gradientObs mlmodel
+#' @export
+gradientObs <- function(object)
+  UseMethod("gradientObs")
+
+#' @rdname gradientObs
 #' @export
 gradientObs.mlmodel <- function(object)
 {
   if(!inherits(object, "mlmodel"))
     cli::cli_abort("`object` needs to be of class `'mlmodel'`")
-  object$functions$gradientObs(object)
+  object$model$functions$gradientObs(object)
 }
 
 # -- hessianObs ----------------------------------------------------------------
@@ -343,13 +347,17 @@ gradientObs.mlmodel <- function(object)
 #' 
 #' @author Alfonso Sanchez-Penalver
 #' 
-#' @method hessianObs mlmodel
+#' @export
+hessianObs <- function(object)
+  UseMethod("hessianObs")
+
+#' @rdname hessianObs
 #' @export
 hessianObs.mlmodel <- function(object)
 {
   if(!inherits(object, "mlmodel"))
     cli::cli_abort("`object` needs to be of class `'mlmodel'`")
-  object$functions$hessianObs(object)
+  object$model$functions$hessianObs(object)
 }
 
 # -- loglikeObs ----------------------------------------------------------------
@@ -365,13 +373,17 @@ hessianObs.mlmodel <- function(object)
 #' 
 #' @author Alfonso Sanchez-Penalver
 #' 
-#' @method loglikeObs mlmodel
+#' @export
+loglikeObs <- function(object)
+  UseMethod("loglikeObs")
+
+#' @rdname loglikeObs
 #' @export
 loglikeObs.mlmodel <- function(object)
 {
   if(!inherits(object, "mlmodel"))
     cli::cli_abort("`object` needs to be of class `'mlmodel'`")
-  object$functions$loglikeObs(object)
+  object$model$functions$loglikeObs(object)
 }
 
 # NOBS =========================================================================
