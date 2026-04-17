@@ -302,6 +302,78 @@ logLik.summary.mlmodel <- function(object, ...)
   ll
 }
 
+## MLE FUNCTIONS ===============================================================
+# -- gradientObs ----------------------------------------------------------------
+#' Gradient by observation
+#' 
+#' Get the gradients (scores), evaluated at the optimum from an object of class
+#' `mlmodel`.
+#' 
+#' @param object An object of class `mlmodel`, i.e. an model estimated with one
+#'               of the estimators in the package.
+#' 
+#' @returns Matrix with each observation's gradient (score) in a row.
+#' 
+#' @author Alfonso Sanchez-Penalver
+#' 
+#' @method gradientObs mlmodel
+#' @export
+gradientObs.mlmodel <- function(object)
+{
+  if(!inherits(object, "mlmodel"))
+    cli::cli_abort("`object` needs to be of class `'mlmodel'`")
+  object$functions$gradientObs(object)
+}
+
+# -- hessianObs ----------------------------------------------------------------
+#' Hessian matrix by observation
+#' 
+#' Get the hessian matrix, evaluated at the optimum, by observation from an
+#' object of class `mlmodel`.
+#' 
+#' @param object An object of class `mlmodel`, i.e. an model estimated with one
+#'               of the estimators in the package.
+#' 
+#' @returns Matrix with the evaluated Hessian matrices per observation.
+#' 
+#' @details
+#' If there are N observations in the estimation, and the model has K parameters,
+#' this method returns a (N * K) by K matrix. The Hessian for each observation
+#' stacked on top of each other.
+#' 
+#' @author Alfonso Sanchez-Penalver
+#' 
+#' @method hessianObs mlmodel
+#' @export
+hessianObs.mlmodel <- function(object)
+{
+  if(!inherits(object, "mlmodel"))
+    cli::cli_abort("`object` needs to be of class `'mlmodel'`")
+  object$functions$hessianObs(object)
+}
+
+# -- loglikeObs ----------------------------------------------------------------
+#' Log-Likelihood by observation
+#' 
+#' Get the log-likelihood, evaluated at the optimum from an object of class
+#' `mlmodel`.
+#' 
+#' @param object An object of class `mlmodel`, i.e. an model estimated with one
+#'               of the estimators in the package.
+#' 
+#' @returns Vector with the evaluated log-likelihoods per observation.
+#' 
+#' @author Alfonso Sanchez-Penalver
+#' 
+#' @method loglikeObs mlmodel
+#' @export
+loglikeObs.mlmodel <- function(object)
+{
+  if(!inherits(object, "mlmodel"))
+    cli::cli_abort("`object` needs to be of class `'mlmodel'`")
+  object$functions$loglikeObs(object)
+}
+
 # NOBS =========================================================================
 #' Returns the number of observations used in an estimation of an `mlmodel` model.
 #' 
@@ -313,6 +385,9 @@ logLik.summary.mlmodel <- function(object, ...)
 #' @importFrom stats nobs
 #' @export
 nobs.mlmodel <- function(object, ...) {
+  if(!inherits(object, "mlmodel"))
+    cli::cli_abort("`object` must be of class `'mlmodel'`",
+                   call = NULL)
   n <- object$model$n_used %||% 
     object$nobs %||% 
     length(object$model$sample) %||% 

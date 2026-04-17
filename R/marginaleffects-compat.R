@@ -14,8 +14,8 @@ get_predict.mlmodel <- function(model,
 {
   pred <- predict(model, newdata = newdata, type = type, vcov.type = vcov.type, ...)
   data.frame(
-    rowid = seq_len(length(pred)),
-    estimate = pred
+    rowid = seq_len(length(pred$fit)),
+    estimate = pred$fit
   )
 }
 

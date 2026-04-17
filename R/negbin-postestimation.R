@@ -6,7 +6,7 @@
 #' ### ml_negbin prediction types
 #'
 #' The `type` argument controls what quantity is returned. In addition to
-#' standard types, Poisson models support flexible probability requests
+#' standard types, Negative Binomial models support flexible probability requests
 #' using the `P(...)` syntax.
 #'
 #' | Type          | Description                              | Notes |
@@ -187,7 +187,15 @@ predict.ml_negbin <- function(object,
     out <- full_out
   }
   
-  if (!se.fit) return(out)
+  if (!se.fit)
+  {
+    res <- list(
+      fit = out,
+      se.fit = NULL
+    )
+    class(res) <- c("predict.ml_negbin", "predict.mlmodel")
+    return(res)
+  }
   
   n_obs <- length(mu)
   n_beta <- length(beta)
@@ -282,7 +290,7 @@ predict.ml_negbin <- function(object,
     g_var_b <- if(is_nb2) (mu + 2 * alpha * mu^2) * X else var * X
     g_var_d <- if(is_nb2) alpha * mu^2 * Z else alpha * mu * Z
     g_sig_b <- 0.5 * var^(-0.5) * g_var_b
-    g_sig_d <- 0.5 * var^(-0.5) & g_var_d
+    g_sig_d <- 0.5 * var^(-0.5) * g_var_d
     
     g <- switch(parsed_type$base_type,
                 "link"     = cbind(X, g_null_delta),
@@ -326,10 +334,14 @@ predict.ml_negbin <- function(object,
     full_se[sample_idx] <- se_fit
     se_fit <- full_se
   }
-  list(fit = out, se.fit = se_fit)
+  
+  res <- list(
+    fit = out,
+    se.fit = se_fit
+  )
+  class(res) <- c("predict.ml_negbin", "predict.mlmodel")
+  return(res)
 }
-
-
 
 ## PRINT SUMMARY ===============================================================
 #' @export
@@ -625,7 +637,6 @@ summary.ml_negbin <- function(object,
   class(s) <- c("summary.ml_negbin", "summary.mlmodel", "summary")
   s
 }
-
 
 ## UPDATE ======================================================================
 #' @rdname update.mlmodel

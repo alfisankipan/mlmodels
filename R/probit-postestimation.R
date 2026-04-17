@@ -134,7 +134,15 @@ predict.ml_probit <- function(object,
     out <- full_out
   }
   
-  if (!se.fit) return(out)
+  if (!se.fit)
+  {
+    res <- list(
+      fit = out,
+      se.fit = NULL
+    )
+    class(res) <- c("predict.ml_probit", "predict.mlmodel")
+    return(res)
+  }
   # ── Standard errors (delta method) ─────────────────────────────────────
   se_fit <- NULL
   # Common dimensions
@@ -238,7 +246,12 @@ predict.ml_probit <- function(object,
     full_se[sample_idx] <- se_fit
     se_fit <- full_se
   }
-  list(fit = out, se.fit = se_fit)
+  res <- list(
+    fit = out,
+    se.fit = se_fit
+  )
+  class(res) <- c("predict.ml_probit", "predict.mlmodel")
+  return(res)
 }
 
 ## PRINT SUMMARY ===============================================================

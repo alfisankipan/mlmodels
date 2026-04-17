@@ -118,7 +118,15 @@ predict.ml_poisson <- function(object,
     out <- full_out
   }
   
-  if (!se.fit) return(out)
+  if (!se.fit)
+  {
+    res <- list(
+      fit = out,
+      se.fit = NULL
+    )
+    class(res) <- c("predict.ml_poisson", "predict.mlmodel")
+    return(res)
+  }
   
   n_obs <- length(mu)
   n_beta <- length(beta)
@@ -176,7 +184,12 @@ predict.ml_poisson <- function(object,
     full_se[sample_idx] <- se_fit
     se_fit <- full_se
   }
-  list(fit = out, se.fit = se_fit)
+  res <- list(
+    fit = out,
+    se.fit = se_fit
+  )
+  class(res) <- c("predict.ml_poisson", "predict.mlmodel")
+  return(res)
 }
 
 ## PRINT SUMMARY ===============================================================

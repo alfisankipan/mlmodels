@@ -22,8 +22,6 @@
 #' correct lognormal expected value on the original scale of y. The `median`
 #' is the simple exponential back-transform.
 #'
-#' Coefficient names in the object use the prefixes `value::` and `scale::`.
-#'
 #' @author Alfonso Sanchez-Penalver
 #'
 #' @rdname predict.mlmodel
@@ -131,7 +129,15 @@ predict.ml_lm <- function(object,
     out <- full_out
   }
   
-  if (!se.fit) return(out)
+  if (!se.fit)
+  {
+    res <- list(
+      fit = out,
+      se.fit = NULL
+    )
+    class(res) <- c("predict.ml_lm", "predict.mlmodel")
+    return(res)
+  }
   # ── Delta-method standard errors ───────────────────────────────────
   n_obs   <- length(xb)
   n_beta  <- length(beta)
@@ -245,7 +251,12 @@ predict.ml_lm <- function(object,
     full_se[sample_idx] <- se_fit
     se_fit <- full_se
   }
-  list(fit = out, se.fit = se_fit)
+  res <- list(
+    fit = out,
+    se.fit = se_fit
+  )
+  class(res) <- c("predict.ml_negbin", "predict.mlmodel")
+  return(res)
 }
 
 ## RESIDUALS ===================================================================
@@ -281,17 +292,6 @@ residuals.ml_lm <- function(object, ...)
 }
 
 ## PRINT SUMMARY ===============================================================
-#' Print the summary statistics from an `ml_lm` estimation.
-#'
-#' @param x An object of class `summary.ml_lm`, usually from [summary.ml_lm()][mlmodels::summary.ml_lm()].
-#'
-#' @param digits A numeric scalar with the number of decimal places to use in
-#'    the statistics
-#'
-#' @param ... Currently not implemented.
-#'
-#' @author Alfonso Sanchez-Penalver
-#'
 #' @export
 print.summary.ml_lm <- function(x, digits = max(3L, getOption("digits") - 3L), ...)
 {

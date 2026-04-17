@@ -332,10 +332,10 @@ ml_gamma <- function(value,
   
   functions <- list(
     #predict        = predict.ml_lm,
-    #gradientObs    = .ml_lm_gradientObs,
-    #hessianObs     = .ml_lm_hessianObs,
-    #loglikeObs     = .ml_lm_loglikeObs,
-    #update         = update.ml_lm,
+    gradientObs    = .ml_gamma_gradientObs,
+    hessianObs     = .ml_gamma_hessianObs,
+    loglikeObs     = .ml_gamma_loglikeObs,
+    update         = update.ml_gamma,
     loglik         = .ml_gamma_ll,
     fit            = .ml_gamma.fit
   )
@@ -343,7 +343,7 @@ ml_gamma <- function(value,
   # -- 12.b. The common structure --------------------------------------
   model_list <- list(
     description   = if (!is.null(scale)) "Heteroskedastic Gamma Model"
-                    else "Homoskedastic Exponential Gamma Model",
+                    else "Homoskedastic Gamma Model",
     value         = model_value,
     scale         = model_scale,
     factor_mapping = factor_mapping,
@@ -381,14 +381,27 @@ ml_gamma <- function(value,
   }
   
   # -- 12.c. The fitted values and residuals ------------------------
-  # Converged: compute fitted/residuals
+  # Converged: compute fitted/residuals and ll0 from a constants only fit.
+  z0 <- x0 <- matrix(1, nrow = length(y), ncol = 1)
+  
+  colnames(x0) <- "(Intercept)"
+  colnames(z0) <- "lnnu"
+  
+  suppressMessages({
+    ml0 <- .ml_gamma.fit(y = y, x = x0, z = z0, w = wts_clean)
+  })
+  model_list$ll0 <- ml0$maximum
+  
   coefs <- coef(ml)
   
   beta <- coefs[1:ncol(x)]
+  delta <- coefs[(ncol(x) + 1):length(coefs)]
   yhat <- as.vector(x %*% beta)
+  nuhat <- mean(as.vector(exp(z %*% delta)))
   
   model_list$fitted.values <- exp(yhat)
   model_list$residuals     <- y - exp(yhat)
+  model_list$nuhat         <- nuhat
   
   # -- 13. Add the model to the maxLik object ----------------------
   ml$model <- model_list
@@ -451,10 +464,8 @@ new_ml_gamma <- function(object, ...) {
     b0 <- fit_beta$coefficients
     names(b0) <- paste0("value::", colnames(x))
     
-    l_nu <- 2 * fit_beta$fitted.values - log(pmax(fit_beta$residuals^2, .Machine$double.eps))
-    fit_nu <- .lm.fit(z, l_nu)
-    # Scale starting values
-    g0 <- fit_nu$coefficients
+    # Initial values for nu
+    g0 <- rep(0, ncol(z))
     
     # Apply scale:: prefix to all scale coefficients
     names(g0) <- paste0("scale::", colnames(z))
