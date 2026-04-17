@@ -904,6 +904,39 @@
                  call = NULL)
 }
 
+## SUBSET PROCESSING ===========================================================
+.process_subset <- function(subset_expr, data) {
+  n_orig <- nrow(data)
+  
+  if (rlang::quo_is_missing(subset_expr) || rlang::quo_is_null(subset_expr)) {
+    res <- list(
+      expr = NULL,
+      idx = rep(TRUE, n_orig)
+    )
+    return(res)
+  }
+  
+  raw_expr <- rlang::quo_get_expr(subset_expr)
+  
+  # If it's already a logical vector, evaluate it as is
+  # If it's a symbolic expression, evaluate in the context of 'data'
+  subset_idx <- if (is.logical(raw_expr)) {
+    rlang::eval_tidy(subset_expr)
+  } else {
+    rlang::eval_tidy(subset_expr, data = data)
+  }
+  
+  if (!is.logical(subset_idx) || length(subset_idx) != n_orig) {
+    cli::cli_abort("`subset` must result in a logical vector of length {n_orig}.")
+  }
+  
+  subset_idx[is.na(subset_idx)] <- FALSE
+  
+  res <- list(expr = raw_expr,
+              idx = subset_idx)
+  
+  return(res)
+}
 
 ## VARIANCE HELPERS ============================================================
 # --- 1. Cluster info ----------------------------------------------------------
@@ -1030,7 +1063,6 @@
        seed        = seed,
        progress    = progress)
 }
-
 
 # --- 3. vcov_boot -------------------------------------------------------------
 # --- 3.1. Generic -------------------------------------------------------------

@@ -95,26 +95,14 @@ ml_gamma <- function(value,
   data <- .convert_integers_to_double(data)
   
   # -- 1. Handle subset argument --------------------------------------
-  if (!is.null(subset)) {
-    if (is.logical(subset) && length(subset) == n_orig) {
-      subset_idx <- subset
-    } else {
-      subset_expr <- rlang::enquo(subset)
-      subset_idx <- rlang::eval_tidy(subset_expr, data = data)
-      if (!is.logical(subset_idx)) {
-        subset_idx <- as.logical(subset_idx)
-      }
-    }
-    
-    if (length(subset_idx) != n_orig) {
-      cli::cli_abort("`subset` must have the same length as `data`.", call = NULL)
-    }
-    
-    keep <- keep & subset_idx
-  }
+  # 1.1. Process subset using the helper
+  sub_res <- .process_subset(rlang::enquo(subset), data)
   
-  # Always store subset in the call (even if NULL)
-  cl$subset <- subset
+  # 1.2. Update the call object for the summary
+  cl$subset <- sub_res$expr
+  
+  # 1.3. Apply the subset to the data
+  keep <- keep & sub_res$idx
   
   # -- 2. Weights handling ------------------------------------------
   w_expr <- rlang::enquo(weights)
