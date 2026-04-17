@@ -1,9 +1,9 @@
-## ML_GAMMA ====================================================================
-#' Fit Gamma Model by Maximum Likelihood
+## ML_BETA ====================================================================
+#' Fit Beta Model by Maximum Likelihood
 #'
 #' @param value Formula for the conditional log(mean) equation.
-#' @param scale Formula for log(nu) equation (shape parameter - optional).
-#'  If `NULL`, a homoskedastic (constant shape) model is fitted.
+#' @param scale Formula for log(phi) equation (precision parameter - optional).
+#'  If `NULL`, a homoskedastic (constant precision) model is fitted.
 #' @param weights Optional weights variable. It can be either the name of the
 #'   variable in `data`, or a vector with the weights.
 #' @param data Data frame.
@@ -50,23 +50,23 @@
 #'
 #' In these cases your supplied `method` argument (if any) is ignored.
 #'
-#' @return An object of class `ml_gamma` that extends `mlmodel`.
+#' @return An object of class `ml_beta` that extends `mlmodel`.
 #'
 #' @author Alfonso Sanchez-Penalver
 #'
 #' @export
-ml_gamma <- function(value,
-                     scale = NULL,
-                     weights = NULL,
-                     data,
-                     subset = NULL,
-                     noint_value = FALSE,
-                     noint_scale = FALSE,
-                     constraints = NULL,
-                     start = NULL,
-                     method = "NR",
-                     control = NULL,
-                     ...)
+ml_beta <- function(value,
+                    scale = NULL,
+                    weights = NULL,
+                    data,
+                    subset = NULL,
+                    noint_value = FALSE,
+                    noint_scale = FALSE,
+                    constraints = NULL,
+                    start = NULL,
+                    method = "NR",
+                    control = NULL,
+                    ...)
 {
   # -- Basic input validation ------------------------------------------
   if (!rlang::is_formula(value, lhs = TRUE)) {
@@ -153,37 +153,27 @@ ml_gamma <- function(value,
   log_info <- .detect_log_transformations(list(value = value),
                                           data)
   
-  # Count how many *additional* observations are invalid due to the log
-  # (only among those that survived subset + NAs)
-  n_invalid_log <- sum(sample & log_info$value$invalid_idx)
+  if(log_info$value$is_log)
+    cli:cli_abort("Log transformations of the outcome variable are not allowed in the Beta model.")
   
-  if (log_info$value$is_log && n_invalid_log > 0) {
-    cli::cli_alert_info(
-      "Outcome is log-transformed. Dropped {n_invalid_log} observation(s) \\
-       because they would produce invalid values (<= 0)."
-    )
-    
-    # Final reduction of sample
-    sample <- sample & !log_info$value$invalid_idx
-  }
-  
-  # Check for less or equal to zero outcome variable
-  if (!log_info$value$is_log)
+  # Check that observations fall between 0 and 1
+  lhs_var <- rlang::f_lhs(value)
+  y_vec <- rlang::eval_tidy(lhs_var, data = data)
+  # Get indices to keep because of valid y
+  good_y_idx <- (y_vec > 1e-12 & y_vec < 1 - 1e-12)
+  int_idx <- sample & good_y_idx
+  obs_sample <- sum(sample)
+  obs_int <- sum(int_idx)
+  if(obs_int != obs_sample)
   {
-    lhs_var <- rlang::f_lhs(value)
-    y_vec <- rlang::eval_tidy(lhs_var, data = data)
-    # Get indices to keep because of valid y
-    good_y_idx <- (y_vec > 0)
-    int_idx <- sample & good_y_idx
-    obs_sample <- sum(sample)
-    obs_int <- sum(int_idx)
-    if(obs_int != obs_sample)
-      cli::cli_alert_info("Outcome variable had {.val {obs_sample - obs_int}} observations <= 0.")
-    sample <- int_idx
+    cli::cli_warn(c(
+      "Dropped {.val {obs_sample - obs_int}} observation(s) with values at or beyond the boundaries.",
+        "i" = "The Beta distribution is only defined on the open interval (0, 1).",
+        "*" = "If you wish to include boundary values, consider using {.fn ml_logit}."
+      ))
   }
   
-  # Add the actual dropped count to log_info for later use
-  log_info$value$n_invalid_log <- n_invalid_log
+  sample <- int_idx
   
   # -- 6. Create clean dataset for modeling ----------------------
   data_clean <- data[sample, , drop = FALSE]
@@ -218,7 +208,7 @@ ml_gamma <- function(value,
   else
   {
     z <- matrix(1, nrow = nrow(x), ncol = 1,
-                dimnames = list(NULL, "lnnu"))
+                dimnames = list(NULL, "lnphi"))
     model_scale <- list(
       predictors = tibble::tibble(lnnu = as.vector(z)),
       blueprint = NULL
@@ -284,15 +274,15 @@ ml_gamma <- function(value,
   }
   
   # -- 9. Fitting the model with maxLik ----------------------
-  ml <- .ml_gamma.fit(y = y,
-                      x = x,
-                      z = z,
-                      w = wts_clean,
-                      constraints = parsed_constraints$maxLik,
-                      start = start,
-                      method = method,
-                      control = control,
-                      ...)
+  ml <- .ml_beta.fit(y = y,
+                     x = x,
+                     z = z,
+                     w = wts_clean,
+                     constraints = parsed_constraints$maxLik,
+                     start = start,
+                     method = method,
+                     control = control,
+                     ...)
   
   # -- 10. Forming the dataset name ------------------------------
   # Safely get a readable name for the dataset (for printing/storage)
@@ -319,19 +309,19 @@ ml_gamma <- function(value,
   # -- 12.a. The functions list --------------------------------------
   
   functions <- list(
-    predict        = predict.ml_gamma,
-    gradientObs    = .ml_gamma_gradientObs,
-    hessianObs     = .ml_gamma_hessianObs,
-    loglikeObs     = .ml_gamma_loglikeObs,
-    update         = update.ml_gamma,
-    loglik         = .ml_gamma_ll,
-    fit            = .ml_gamma.fit
+    # predict        = predict.ml_beta,
+    # gradientObs    = .ml_beta_gradientObs,
+    # hessianObs     = .ml_beta_hessianObs,
+    # loglikeObs     = .ml_beta_loglikeObs,
+    # update         = update.ml_beta,
+    loglik         = .ml_beta_ll,
+    fit            = .ml_beta.fit
   )
   
   # -- 12.b. The common structure --------------------------------------
   model_list <- list(
-    description   = if (!is.null(scale)) "Heteroskedastic Gamma Model"
-                    else "Homoskedastic Gamma Model",
+    description   = if (!is.null(scale)) "Heteroskedastic Beta Model"
+                    else "Homoskedastic Beta Model",
     value         = model_value,
     scale         = model_scale,
     factor_mapping = factor_mapping,
@@ -373,7 +363,7 @@ ml_gamma <- function(value,
   z0 <- x0 <- matrix(1, nrow = length(y), ncol = 1)
   
   colnames(x0) <- "(Intercept)"
-  colnames(z0) <- "lnnu"
+  colnames(z0) <- "lnphi"
   
   suppressMessages({
     ml0 <- .ml_gamma.fit(y = y, x = x0, z = z0, w = wts_clean)
@@ -385,26 +375,26 @@ ml_gamma <- function(value,
   beta <- coefs[1:ncol(x)]
   delta <- coefs[(ncol(x) + 1):length(coefs)]
   yhat <- as.vector(x %*% beta)
-  nuhat <- mean(as.vector(exp(z %*% delta)))
+  phihat <- mean(as.vector(exp(z %*% delta)))
   
   model_list$fitted.values <- exp(yhat)
   model_list$residuals     <- y - exp(yhat)
-  model_list$nuhat         <- nuhat
+  model_list$phihat         <- phihat
   
   # -- 13. Add the model to the maxLik object ----------------------
   ml$model <- model_list
   ml$call <- cl
   
   # -- 14. Call the function to create the class and return  ----------
-  new_ml_gamma(ml)
+  new_ml_beta(ml)
 }
 
 # Hidden function to create the class and return the object.
-new_ml_gamma <- function(object, ...) {
+new_ml_beta <- function(object, ...) {
   # object is the result from maxLik::maxLik()
   structure(
     object,
-    class = unique(c("ml_gamma", "mlmodel", class(object)))
+    class = unique(c("ml_beta", "mlmodel", class(object)))
   )
 }
 
@@ -421,22 +411,22 @@ new_ml_gamma <- function(object, ...) {
 #' @param ... Further arguments passed to [maxLik::maxLik()].
 #'
 #' @keywords internal
-.ml_gamma.fit <- function(y, x, z, w = NULL,
-                          method = "NR",
-                          start = NULL,
-                          constraints = NULL,
-                          control = list(tol = -1,
-                                         reltol = 1e-12,
-                                         gradtol = 1e-12,
-                                         lambdatol = 1e-20,
-                                         qac = "marquardt"),
-                          ...)
+.ml_beta.fit <- function(y, x, z, w = NULL,
+                         method = "NR",
+                         start = NULL,
+                         constraints = NULL,
+                         control = list(tol = -1,
+                                        reltol = 1e-12,
+                                        gradtol = 1e-12,
+                                        lambdatol = 1e-20,
+                                        qac = "marquardt"),
+                         ...)
 {
   # At this point start has been checked and if supplied is numeric and
   # has the right dimension.
   if(!is.null(start))
   {
-    ll <- .ml_gamma_ll(start,y,x,z,w)
+    ll <- .ml_beta_ll(start,y,x,z,w)
     
     if(any(!is.finite(ll)))
       cli::cli_abort("Infeasible log-likelihood value at supplied `start` vector.",
@@ -447,9 +437,9 @@ new_ml_gamma <- function(object, ...) {
   }
   else
   {
-    # Beta starting values using low-level lm.fit()
-    fit_beta <- .lm.fit(x, log(y))
-    b0 <- fit_beta$coefficients
+    # Beta starting values using low-level .ml_logit.fit()
+    fit_beta <- .ml_logit.fit(y = y, x = x)
+    b0 <- fit_beta$estimate
     names(b0) <- paste0("value::", colnames(x))
     
     # Initial values for nu
@@ -460,10 +450,10 @@ new_ml_gamma <- function(object, ...) {
     
     start <- c(b0, g0)
     
-    start <- .initial_values.mlmodel(.ml_gamma_ll, start,
+    start <- .initial_values.mlmodel(.ml_beta_ll, start,
                                      y = y, x = x, z = z, w = w)
   }
-  maxLik::maxLik(.ml_gamma_ll,
+  maxLik::maxLik(.ml_beta_ll,
                  start = start,
                  y = y,
                  x = x,

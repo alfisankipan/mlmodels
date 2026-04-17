@@ -372,7 +372,7 @@ new_ml_logit <- function(object, ...) {
 .ml_logit.fit <- function(y, x, z = NULL, w = NULL,
                           constraints = NULL,
                           start = NULL,
-                          method = NULL,
+                          method = "NR",
                           control = NULL,
                           ...)
 {

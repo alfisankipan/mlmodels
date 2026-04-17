@@ -11,7 +11,7 @@
   w = NULL,
   constraints = NULL,
   start = NULL,
-  method = NULL,
+  method = "NR",
   control = NULL,
   ...
 )

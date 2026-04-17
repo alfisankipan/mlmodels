@@ -749,6 +749,7 @@
     # Apply scaling iteratively if it improves the likelihood
     if (scale != 1) {
       cli::cli_alert_info("Improving initial values by scaling (factor = {scale}).")
+      cli::cli_alert_info("Initial log-likelihood: {round(ll0, 3)}")
       for (i in 1:20) {   # safety limit
         b2 <- b1 * scale
         ll2 <- sum(fn(b2, ...))
