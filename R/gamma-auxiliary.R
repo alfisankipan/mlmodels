@@ -407,14 +407,14 @@
       }
       
       suppressMessages({
-        updated <- .ml_negbin.fit(y = y_jack,
-                                  x = x_jack,
-                                  z = z_jack,
-                                  w = w_jack,
-                                  constraints = object$model$constraints$maxLik,
-                                  start       = object$model$start,
-                                  method      = object$model$method,
-                                  control     = object$model$control)
+        updated <- .ml_gamma.fit(y = y_jack,
+                                 x = x_jack,
+                                 z = z_jack,
+                                 w = w_jack,
+                                 constraints = object$model$constraints$maxLik,
+                                 start       = object$model$start,
+                                 method      = object$model$method,
+                                 control     = object$model$control)
       })
       
       if (updated$code %in% c(0L, 1L, 2L, 8L)) {

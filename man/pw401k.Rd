@@ -25,9 +25,9 @@ A dataset containing participation rates and firm characteristics used
 in Papke and Wooldridge (1996).
 }
 \references{
-Papke, L. E., & Wooldridge, J. M. (1996). Econometric methods for fractional
-response variables with an application to 401(k) plan participation rates.
-Journal of Applied Econometrics, 11(6), 619-632.
+Papke, L. E., & Wooldridge, J. M. (1996). "Econometric methods for fractional
+response variables with an application to 401(k) plan participation rates."
+\emph{Journal of Applied Econometrics}, 11(6), 619-632.
 \doi{10.1002/(SICI)1099-1255(199611)11:6<619::AID-JAE418>3.0.CO;2-1}
 }
 \keyword{datasets}

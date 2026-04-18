@@ -313,7 +313,7 @@ ml_beta <- function(value,
     gradientObs    = .ml_beta_gradientObs,
     hessianObs     = .ml_beta_hessianObs,
     # loglikeObs     = .ml_beta_loglikeObs,
-    # update         = update.ml_beta,
+    update         = update.ml_beta,
     loglik         = .ml_beta_ll,
     fit            = .ml_beta.fit
   )

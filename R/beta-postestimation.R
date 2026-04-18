@@ -1,3 +1,212 @@
+## PREDICT =====================================================================
+# Remember that the parameter documentation is done at the generic predict for
+# mlmodel class.
+
+#' @details
+#' ### ml_beta prediction types
+#'
+#' The `type` argument controls what quantity is returned.
+#'
+#' | Type          | Description                              | Notes |
+#' |---------------|------------------------------------------|-------|
+#' | `"link"`      | Linear mean predictor ( xb )             | logit-mean |
+#' | `"response"`  | Expected proportion (outcome)            | Default |
+#' | `"mean"`      | Alias for `"response"`                   | - |
+#' | `"fitted"`    | Alias for `"response"`                   | - |
+#' | `"odds"`      | Odds ratio                               | exp(xb) |
+#' | `"zd"`        | Linear precision predictor               | log-phi |
+#' | `"phi"`       | Dispersion parameter                     | - |
+#' | `"shape1"`    | Shape parameter of the beta distribution | mu * phi |
+#' | `"shape2"`    | Shape parameter of the beta distribution | (1 - mu) * phi |
+#' | `"mode"`      | Mode prediction (See below)              | (shape1 - 1) / (shape1 + shape2 - 2) |
+#' | `"variance"`  | Variance of the outcome variable         | mu * (1 - mu) / (1 + phi) |
+#' | `"var"`       | Alias for `"variance"`                   | - |
+#' | `"sigma"`     | Standard deviation of outcome variable   | sqrt(`"variance"`) |
+#' | `"sd"`        | Alias for `"sigma"`                      | - |
+#'
+#' When `se.fit = TRUE`, standard errors are computed using the delta method
+#' for all supported types.
+#' 
+#' **Mode Indeterminations**
+#' 
+#' The mode is only defined if \code{shape1 > 1} **and** \code{shape2 > 1} **and** \code{shape1 + shape2 != 2}. If these conditions are not met the prediction and standard
+#' error will be `NA`.
+#'
+#' @author Alfonso Sanchez-Penalver
+#'
+#' @rdname predict.mlmodel
+#' @export
+predict.ml_beta <- function(object,
+                            newdata = NULL,
+                            type = "response",
+                            se.fit = FALSE,
+                            vcov = NULL,
+                            vcov.type = "oim",
+                            cl_var = NULL,
+                            repetitions = 999,
+                            seed = NULL,
+                            progress = FALSE,
+                            ...)
+{
+  if (!inherits(object, "ml_beta"))
+    cli::cli_abort("`object` must be of class 'ml_gamma'.")
+  
+  type <-  rlang::arg_match(type, c("response", "fitted", "mean", "odds", "link", "zd", "phi", "shape1", "shape2", "mode", "variance", "var", "sd", "sigma"))
+  
+  # ── Prepare predictors (using hardhat) ─────────────────────────────
+  is_heteroskedastic <- !is.null(object$model$scale_formula)
+  if (is.null(newdata)) {
+    val_predictors <- object$model$value$predictors
+    scale_predictors <- if (is_heteroskedastic)
+      object$model$scale$predictors
+    else
+      matrix(1, nrow = nrow(val_predictors), ncol = 1)
+    sample_idx <- object$model$sample
+    n_orig <- length(sample_idx)
+  } else {
+    val_bp <- object$model$value$blueprint
+    forged <- hardhat::forge(newdata, blueprint = val_bp, outcomes = FALSE)
+    val_predictors <- forged$predictors
+    scale_predictors <- if (is_heteroskedastic)
+    {
+      scale_bp <- object$model$scale$blueprint
+      forged <- hardhat::forge(newdata, blueprint = scale_bp, outcomes = FALSE)
+      forged$predictors
+    }
+    else
+      matrix(1, nrow = nrow(val_predictors), ncol = 1)
+    sample_idx <- rep(TRUE, nrow(val_predictors))
+    n_orig <- nrow(val_predictors)
+  }
+  
+  # ── Extract coefficients and compute linear predictors ─────────────
+  coefs <- coef(object)
+  k_mean <- ncol(val_predictors)
+  beta <- coefs[1:k_mean]
+  delta <- coefs[(k_mean + 1):length(coefs)]
+  X <- as.matrix(val_predictors)
+  xb <- as.vector(X %*% beta)
+  Z <- as.matrix(scale_predictors)
+  zd <- as.vector(Z %*% delta)
+  mu <- plogis(xb)
+  odds <- exp(xb)
+  phi <- exp(zd)
+  var <- dlogis(xb) / (1 + phi)
+  shape1 <- mu * phi
+  shape2 <- plogis(xb, lower.tail = FALSE) * phi
+  mode <- (shape1 - 1) / (shape1 + shape2 - 2)
+  mode[shape1 + shape2 == 2] <- NA_real_
+  mode[shape1 <= 1 | shape2 <= 1] <- NA_real_
+  
+  out <- switch(type,
+                "link"     = xb,
+                "mean"     = ,
+                "fitted"   = ,
+                "response" = mu,
+                "odds"     = odds,
+                "phi"      = phi,
+                "zd"       = zd,
+                "shape1"   = shape1,
+                "shape2"   = shape2,
+                "mode"     = mode,
+                "var"      = ,
+                "variance" = var,
+                "sd"       = ,
+                "sigma"    = sqrt(var),
+                cli::cli_abort("Unknown prediction type '{type}'.", 
+                               call = NULL))
+  
+  # ── Align in-sample predictions to original data length ────────────
+  if (is.null(newdata) && any(!sample_idx)) {
+    full_out <- rep(NA_real_, n_orig)
+    full_out[sample_idx] <- out
+    out <- full_out
+  }
+  
+  if (!se.fit)
+  {
+    res <- list(
+      fit = out,
+      se.fit = NULL
+    )
+    class(res) <- c("predict.ml_gamma", "predict.mlmodel")
+    return(res)
+  }
+  
+  g_null_delta <- matrix(0, nrow = nrow(X), ncol = ncol(Z))
+  g_null_beta <- matrix(0, nrow = nrow(X), ncol = ncol(X))
+  g_mu_b <- dlogis(xb) * X
+  g_odds_b <- odds * X
+  g_phi_d <- phi * Z
+  g_shape1_b <- dlogis(xb) * phi * X
+  g_shape1_d <- mu * phi * Z
+  g_shape2_b <- - g_shape1_b
+  g_shape2_d <- shape2 * Z
+  s_mode_b <- dlogis(xb) * phi / (phi - 2)
+  s_mode_d <- phi * (1 - 2 * mu) / ((phi - 2)^2)
+  s_mode_b[shape1 + shape2 == 2] <- s_mode_d[shape1 + shape2 == 2] <- NA_real_
+  s_mode_b[shape1 <= 1 | shape2 <= 1] <- s_mode_d[shape1 <= 1 | shape2 <= 1] <- NA_real_
+  g_mode_b <- s_mode_b * X
+  g_mode_d <- s_mode_d * Z
+  g_var_b <- var * (1 - 2 * mu) * X
+  g_var_d <- - var * phi / (1 + phi) * Z
+  g_sig_b <- 0.5 * var^(-0.5) * g_var_b
+  g_sig_d <- 0.5 * var^(-0.5) * g_var_d
+  
+  g <- switch(type,
+              "link"     = cbind(X, g_null_delta),
+              "mean"     = ,
+              "fitted"   = ,
+              "response" = cbind(g_mu_b, g_null_delta),
+              "odds"     = cbind(g_odds_b, g_null_delta),
+              "phi"      = cbind(g_null_beta, g_phi_d),
+              "zd"       = cbind(g_null_beta, Z),
+              "shape1"   = cbind(g_shape1_b, g_shape1_d),
+              "shape2"   = cbind(g_shape2_b, g_shape2_d),
+              "mode"     = cbind(g_mode_b, g_mode_d),
+              "var"      = ,
+              "variance" = cbind(g_var_b, g_var_d),
+              "sd"       = ,
+              "sigma"    = cbind(g_sig_b, g_sig_d),
+              cli::cli_abort("Unknown prediction type '{parsed_type$base_type}'.", 
+                             call = NULL))
+  
+  full_vcov <- .process_vcov(object,
+                             vcov = vcov,
+                             vcov.type = vcov.type,
+                             cl_var = cl_var,
+                             repetitions = repetitions,
+                             seed = seed,
+                             progress = progress)
+  
+  # ── Check for unusable variance matrix ─────────────────────────────
+  if (any(!is.finite(full_vcov)) || any(is.na(full_vcov))) {
+    cli::cli_warn(
+      c("Variance matrix is unusable (contains NAs or non-finite values).",
+        "i" = "This usually happens with bootstrap when constraints are present.",
+        "i" = "Standard errors will be returned as NA.")
+    )
+    se_fit <- rep(NA_real_, length(out))
+  } else {
+    # ── Delta-method standard errors ─────────────────────────────────
+    se_fit <- sqrt(rowSums(g * (g %*% full_vcov)))
+  }
+  
+  # Align in-sample SEs
+  if (is.null(newdata) && any(!sample_idx)) {
+    full_se <- rep(NA_real_, n_orig)
+    full_se[sample_idx] <- se_fit
+    se_fit <- full_se
+  }
+  
+  res <- list(
+    fit = out,
+    se.fit = se_fit
+  )
+  class(res) <- c("predict.ml_beta", "predict.mlmodel")
+  return(res)
+}
+
 ## PRINT SUMMARY ===============================================================
 #' @export
 print.summary.ml_beta <- function(x, digits = max(4L, getOption("digits") - 4L), ...)
@@ -132,7 +341,7 @@ print.summary.ml_beta <- function(x, digits = max(4L, getOption("digits") - 4L),
       cat("\n")
     }
     else
-      cat(sprintf("Dispersion Param.: %.2f\n", x$phihat[1]))
+      cat(sprintf("Precision Param.: %.2f\n", x$phihat[1]))
   } else {
     cat("\nGoodness-of-fit statistics not available (model did not converge).\n")
   }
@@ -289,4 +498,48 @@ summary.ml_beta <- function(object,
   
   class(s) <- c("summary.ml_beta", "summary.mlmodel", "summary")
   s
+}
+
+## UPDATE ======================================================================
+#' @rdname update.mlmodel
+#' @export
+update.ml_beta <- function(object,
+                           formula. = NULL,
+                           data = NULL,
+                           weights = NULL,
+                           ...,
+                           evaluate = TRUE)
+{
+  if (is.null(call <- object$call))
+    cli::cli_abort("`object` does not contain a `call` component.", call = NULL)
+  
+  # Update value formula if explicitly requested
+  if (!is.null(formula.)) {
+    call$value <- update.formula(formula(object), formula.)
+  }
+  
+  # Update data if supplied (what vcovBS passes)
+  if (!is.null(data)) {
+    call$data <- data
+  }
+  
+  # Update weights ONLY if explicitly supplied and non-NULL
+  if (!is.null(weights)) {
+    call$weights <- weights
+  }
+  
+  # Forward any extra arguments
+  extras <- match.call(expand.dots = FALSE)$...
+  if (length(extras) > 0) {
+    for (arg in names(extras)) {
+      call[[arg]] <- extras[[arg]]
+    }
+  }
+  
+  # Evaluate or return the call
+  if (evaluate) {
+    eval(call, envir = parent.frame())
+  } else {
+    call
+  }
 }

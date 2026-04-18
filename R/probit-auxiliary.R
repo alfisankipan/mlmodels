@@ -96,8 +96,8 @@
     for (i in seq_len(nrow(x))) {
       xi  <- cbind(x[i, ])
       
-      start_row <- (i - 1) * k + 1
-      end_row <- i * k
+      start_row <- (i - 1) * k1 + 1
+      end_row <- i * k1
       
       # Form the observation's Hessian
       H_stacked[start_row:end_row, ] <-  s[i] * tcrossprod(xi)

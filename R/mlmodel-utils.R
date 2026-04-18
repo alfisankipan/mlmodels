@@ -450,8 +450,13 @@ nobs.mlmodel <- function(object, ...) {
 #'    `FALSE` in higher-level functions.
 #' @param ... Additional arguments passed to methods.
 #'
-#' @return If `se.fit = FALSE` (default), a numeric vector of predictions.
-#' If `se.fit = TRUE`, a list with components `fit` and `se.fit`.
+#' @returns An object that inherits from `predict.mlmodel` and has two elements:
+#' \describe{
+#'    \item{fit}{Vector with the predictions.}
+#'    \item{se.fit}{If `se.fit` is `TRUE` a vector with the delta-method standard
+#'    errors, using analytical gradients. If `se.fit` is `FALSE`, it is set to
+#'    `NULL`.}
+#' }
 #' 
 #' @method predict mlmodel
 #' @export

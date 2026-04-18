@@ -211,12 +211,13 @@ IMtest.mlmodel <- function(object,
       w <- object$model$weights
 
       if (!is.null(object$model$data) && is.data.frame(object$model$data)) {
-        orig_data <- object$model$data
+        orig_data <- object$model$data[object$model$sample, , drop = FALSE]
       } else if (!is.null(object$model$d_name) && object$model$d_name != "<unknown data>") {
         orig_data <- tryCatch(get(object$model$d_name), error = function(e) {
           cli::cli_abort("Cannot retrieve the dataset to get the clustering variable.",
                          call = NULL)
         })
+        orig_data <- orig_data[object$model$sample, , drop = FALSE]
       } else {
         cli::cli_abort("Dataset and its name not stored; cannot retrieve clustering variable.",
                        call = NULL)
@@ -239,7 +240,7 @@ IMtest.mlmodel <- function(object,
           boot_stats[r] <- NA_real_
           next
         }
-
+        
         S_r <- boot_obj$gradientObs
         H_r <- boot_obj$model$functions$hessianObs(boot_obj)
 
@@ -253,6 +254,7 @@ IMtest.mlmodel <- function(object,
         }
 
         Xr <- cbind(S_r, ID_r)
+        
         reg_r <- lm(y ~ Xr - 1, singular.ok = TRUE)
         boot_stats[r] <- sum(reg_r$fitted.values^2)
         n_success <- n_success + 1
@@ -293,12 +295,13 @@ IMtest.mlmodel <- function(object,
       w <- object$model$weights
       
       if (!is.null(object$model$data) && is.data.frame(object$model$data)) {
-        orig_data <- object$model$data
+        orig_data <- object$model$data[object$model$sample, , drop = FALSE]
       } else if (!is.null(object$model$d_name) && object$model$d_name != "<unknown data>") {
         orig_data <- tryCatch(get(object$model$d_name), error = function(e) {
           cli::cli_abort("Cannot retrieve the dataset to get the clustering variable.",
                          call = NULL)
         })
+        orig_data <- orig_data[object$model$sample, , drop = FALSE]
       } else {
         cli::cli_abort("Dataset and its name not stored; cannot retrieve clustering variable.",
                        call = NULL)

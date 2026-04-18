@@ -9,12 +9,12 @@
 #'
 #' | Type          | Description                              | Notes |
 #' |---------------|------------------------------------------|-------|
-#' | `"link"`      | Linear mean predictor ( xb )                  | log-mean |
-#' | `"response"`  | Expected count ( \code{mu} = \code{exp(xb)} )          | Default |
+#' | `"link"`      | Linear mean predictor ( xb )             | log-mean |
+#' | `"response"`  | Expected outcome                         | Default |
 #' | `"mean"`      | Alias for `"response"`                   | - |
 #' | `"fitted"`    | Alias for `"response"`                   | - |
-#' | `"zd"`        | Linear shape predictor.                  | log-nu |
-#' | `"nu"`     | Dispersion parameter                        | - |
+#' | `"zd"`        | Linear shape predictor                   | log-nu |
+#' | `"nu"`        | Shape parameter                          | - |
 #' | `"variance"`  | Variance of the outcome variable         | - |
 #' | `"var"`       | Alias for `"variance"`                   | - |
 #' | `"sigma"`     | Standard deviation of outcome variable   | sqrt(`"variance"`) |
@@ -42,7 +42,7 @@ predict.ml_gamma <- function(object,
   if (!inherits(object, "ml_gamma"))
     cli::cli_abort("`object` must be of class 'ml_gamma'.")
   
-  type <-  rlang::arg_match(type, c("response", "fitted", "mean", "fitted", "link", "zd", "alpha", "variance", "var", "sd", "sigma"))
+  type <-  rlang::arg_match(type, c("response", "fitted", "mean", "link", "zd", "nu", "variance", "var", "sd", "sigma"))
   
   # ── Prepare predictors (using hardhat) ─────────────────────────────
   is_heteroskedastic <- !is.null(object$model$scale_formula)
