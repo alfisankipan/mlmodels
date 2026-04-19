@@ -42,7 +42,7 @@
 #' 
 #' Sample of 753 between the ages of 30 and 60 in 1975 (PSID interview year 1976)
 #' 
-#' @format A data.frame with 753 observations on 22 variables.
+#' @format A data frame with 753 observations on 22 variables.
 #' \describe{
 #'    \item{inlf}{Binary: in labor force in 1975}
 #'    \item{hours}{Hours worked in 1975}
