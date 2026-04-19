@@ -5,7 +5,7 @@
 \alias{mroz}
 \title{University of Michigan Panel Study of Income Dynamics (PSID)}
 \format{
-A data.frame with 753 observations on 22 variables.
+A data frame with 753 observations on 22 variables.
 \describe{
 \item{inlf}{Binary: in labor force in 1975}
 \item{hours}{Hours worked in 1975}
