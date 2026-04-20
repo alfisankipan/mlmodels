@@ -1,4 +1,5 @@
 ## Gradient by Observation =====================================================
+#' @keywords internal
 .ml_logit_gradientObs <- function(object)
 {
   if (!inherits(object, "ml_logit"))
@@ -46,6 +47,7 @@
 }
 
 ## Hessian by Observations =====================================================
+#' @keywords internal
 .ml_logit_hessianObs <- function(object)
 {
   if (!inherits(object, "ml_logit"))
@@ -122,6 +124,47 @@
   return(H_stacked)
 }
 
+## Log-likelihood by observation ===============================================
+#' @keywords internal
+.ml_logit_loglikeObs <- function(object)
+{
+  if (!inherits(object, "ml_logit"))
+    cli::cli_abort("`object` must be a model of class 'ml_logit' (from ml_logit).",
+                   call = NULL)
+  
+  # -- 1. Common elements for both hetero and homo -----------------------------
+  b <- coef(object)
+  y <- object$model$value$outcomes[[1]]
+  x <- as.matrix(object$model$value$predictors)
+  w <- object$model$weights %||% rep(1, length(y))   # default to 1 if NULL
+  
+  k1   <- ncol(x)
+  beta <- b[1:k1]
+  
+  if (is.null(object$model$scale)) {
+    # -- Homoskedastic binary logit --------------------------------------------
+    xb <- as.vector(x %*% cbind(b))
+    
+    # Weighted log-likelihood
+    ll <- y * plogis(xb, log.p = TRUE) + (1 - y) * plogis(xb, log.p = TRUE, lower.tail = FALSE)
+  } else {
+    # -- Heteroskedastic binary logit ------------------------------------------
+    z    <- as.matrix(object$model$scale$predictors)
+    k1   <- ncol(x)
+    k    <- k1 + ncol(z)
+    beta <- b[1:k1]
+    delta <- b[(k1+1):k]
+    
+    zd <- as.vector(z %*% cbind(delta))
+    xz <- x / exp(zd)
+    xb <- as.vector(xz %*% cbind(beta))
+    
+    # Weighted log-likelihood
+    ll <- y * plogis(xb, log.p = TRUE) + (1 - y) * plogis(xb, log.p = TRUE, lower.tail = FALSE)
+  }
+  return(ll)
+}
+
 ## ML EVALUATOR ================================================================
 #' @keywords internal
 .ml_logit_ll <- function(b, y, x, z = NULL, w)
@@ -186,53 +229,8 @@
   return(ll)
 }
 
-## Log-likelihood by observation ===============================================
-.ml_logit_loglikeObs <- function(object)
-{
-  if (!inherits(object, "ml_logit"))
-    cli::cli_abort("`object` must be a model of class 'ml_logit' (from ml_logit).",
-                   call = NULL)
-  
-  # -- 1. Common elements for both hetero and homo -----------------------------
-  b <- coef(object)
-  y <- object$model$value$outcomes[[1]]
-  x <- as.matrix(object$model$value$predictors)
-  w <- object$model$weights %||% rep(1, length(y))   # default to 1 if NULL
-  
-  k1   <- ncol(x)
-  beta <- b[1:k1]
-  
-  if (is.null(object$model$scale)) {
-    # -- Homoskedastic binary logit --------------------------------------------
-    xb <- as.vector(x %*% cbind(b))
-    
-    # Weighted log-likelihood
-    ll <- y * plogis(xb, log.p = TRUE) + (1 - y) * plogis(xb, log.p = TRUE, lower.tail = FALSE)
-  } else {
-    # -- Heteroskedastic binary logit ------------------------------------------
-    z    <- as.matrix(object$model$scale$predictors)
-    k1   <- ncol(x)
-    k    <- k1 + ncol(z)
-    beta <- b[1:k1]
-    delta <- b[(k1+1):k]
-    
-    zd <- as.vector(z %*% cbind(delta))
-    xz <- x / exp(zd)
-    xb <- as.vector(xz %*% cbind(beta))
-    
-    # Weighted log-likelihood
-    ll <- y * plogis(xb, log.p = TRUE) + (1 - y) * plogis(xb, log.p = TRUE, lower.tail = FALSE)
-  }
-  return(ll)
-}
-
 ## VCOV HELPERS ================================================================
 # --- 1. vcov_boot -------------------------------------------------------------
-#' Bootstrap variance-covariance for ml_logit objects
-#'
-#' Internal function called by vcov.mlmodel when type = "boot".
-#' Uses .ml_logit.fit directly for efficiency and control.
-#'
 #' @keywords internal
 .vcov_boot.ml_logit <- function(object,
                                 repetitions = 999,
@@ -376,7 +374,6 @@
 }
 
 # --- 2. vcov_jack -------------------------------------------------------------
-#' @rdname dot-vcov_jack
 #' @keywords internal
 .vcov_jack.ml_logit <- function(object,
                                 cl_var = NULL,

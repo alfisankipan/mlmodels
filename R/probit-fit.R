@@ -370,8 +370,7 @@ new_ml_probit <- function(object, ...) {
   )
 }
 
-#' Stripped down function to estimate a binary logit model.
-#'
+## ML_PROBIT FIT ===============================================================
 #' @keywords internal
 .ml_probit.fit <- function(y, x, z = NULL, w = NULL,
                           constraints = NULL,

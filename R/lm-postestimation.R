@@ -197,22 +197,31 @@ predict.ml_lm <- function(object,
   } else {
     # Lognormal case — all moments computed unconditionally (independent of type)
     mu_log   <- xb - log(log_info$multiplier)
-    sigma_i  <- sigma
-    Ey       <- exp(mu_log + sigma_i^2 / 2) - log_info$shift # true mean
+    Ey       <- exp(mu_log + sigma^2 / 2) - log_info$shift # true mean
     My       <- exp(mu_log) - log_info$shift                 # median
-    Vy       <- exp(2 * mu_log + sigma_i^2) * (exp(sigma_i^2) - 1)
+    Vy       <- exp(2 * mu_log + sigma^2) * (exp(sigma^2) - 1)
     
-    # Gradients (your original derivatives, now using the correct Ey/My/Vy)
+    g_link_beta <- X
+    g_link_delta <- matrix(0, n_obs, n_delta)
+    
     g_mean_beta   <- Ey * X
-    g_mean_delta  <- Ey * sigma_i^2 * Z
+    g_mean_delta  <- Ey * sigma^2 * Z
+    
     g_med_beta    <- My * X
     g_med_delta   <- matrix(0, n_obs, n_delta)
-    g_var_beta    <- 2 * Vy * X
-    g_var_delta   <-  2 * sigma_i^2 * exp(2 * xb + sigma_i^2) * (2 * exp(sigma_i^2) - 1) * Z
+    
+    g_var_beta    <- matrix(0, n_obs, n_beta)
+    g_var_delta   <- 2 * sigma^2 * Z
+    
+    g_vary_beta    <- 2 * Vy * X
+    g_vary_delta   <-  2 * sigma^2 * exp(2 * xb + sigma^2) * (2 * exp(sigma^2) - 1) * Z
     
     # Sigma (sd of log(y))
     g_sigma_beta  <- matrix(0, n_obs, n_beta)
-    g_sigma_delta <- Z
+    g_sigma_delta <- sigma * Z
+    
+    g_zd_beta  <- matrix(0, n_obs, n_beta)
+    g_zd_delta <- Z
     
     # Sigma_y (sd of y)
     g_sigmay_beta  <- 0.5 / sqrt(Vy) * g_vary_beta
@@ -220,7 +229,8 @@ predict.ml_lm <- function(object,
     
     g[, 1:n_beta] <- switch(type,
                             "link" = ,
-                            "fitted" = X,
+                            "fitted" = g_link_beta,
+                            "zd"     = g_zd_beta,
                             "response" = ,
                             "mu"       = ,
                             "mean" = g_mean_beta,
@@ -230,25 +240,26 @@ predict.ml_lm <- function(object,
                             "sigma_y" = ,
                             "sd_y"    = g_sigmay_beta,
                             "var_y"  = ,
-                            "variance_y" = g_var_beta,
+                            "variance_y" = g_vary_beta,
                             "var"      = ,
-                            "variance" = matrix(0, n_obs, n_beta),
-                            matrix(0, n_obs, n_beta)) # default for sigma, sd, etc.
+                            "variance" = g_var_beta)
     
     g[, (n_beta + 1):(n_beta + n_delta)] <- switch(type,
                                                    "link" = ,
-                                                   "fitted" = matrix(0, n_obs, n_delta),
+                                                   "fitted" = g_link_delta,
+                                                   "zd"     = g_zd_delta,
                                                    "response" = ,
                                                    "mu"       = ,
                                                    "mean" = g_mean_delta,
-                                                   "median" = matrix(0, n_obs, n_delta),
+                                                   "median" = g_med_delta,
                                                    "sigma"  = ,
                                                    "sd"     = g_sigma_delta,
                                                    "sigma_y" = ,
                                                    "sd_y"    = g_sigmay_delta,
                                                    "var_y"   = ,
-                                                   "variance_y" = g_var_delta,
-                                                   "variance" = Z
+                                                   "variance_y" = g_vary_delta,
+                                                   "var"     = ,
+                                                   "variance" = g_var_delta
     )
   }
   

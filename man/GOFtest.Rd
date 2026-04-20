@@ -2,9 +2,12 @@
 % Please edit documentation in R/mlmodel-count-tests.R
 \name{GOFtest}
 \alias{GOFtest}
+\alias{GOFtest.mlmodel}
 \title{Goodness of Fit Test for Count Models}
 \usage{
 GOFtest(object, bins = 0:5)
+
+\method{GOFtest}{mlmodel}(object, bins = 0:5)
 }
 \arguments{
 \item{object}{An object of class \code{mlmodel.count}, that has been estimated with

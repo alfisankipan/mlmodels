@@ -335,17 +335,7 @@ new_ml_poisson <- function(object, ...) {
   )
 }
 
-# ML_LM FIT --------------------------------------------------------------
-#' Internal fitting function for ml_poisson
-#'
-#' @param y Numeric vector of outcomes.
-#' @param x Design matrix for the value equation.
-#' @param w Numeric vector of weights.
-#' @param constraints Parsed constraints (internal use).
-#' @param start Numeric vector of initial values.
-#' @param control Control list passed to [maxLik::maxLik()].
-#' @param ... Further arguments passed to [maxLik::maxLik()].
-#'
+# ML_POISSON FIT --------------------------------------------------------------
 #' @keywords internal
 .ml_poisson.fit <- function(y, x, w = NULL,
                        method = "NR",

@@ -47,7 +47,11 @@
 #' 
 #' 
 #' @export
-GOFtest <- function(object, bins = 0:5)
+GOFtest <- function(object, bins = 0:5) UseMethod("GOFtest")
+
+#' @rdname GOFtest
+#' @export
+GOFtest.mlmodel <- function(object, bins = 0:5)
 {
   if(!inherits(object, "mlmodel.count"))
     cli::cli_abort("`object` needs to be of class 'mlmodel.count'", call = NULL)
@@ -177,14 +181,14 @@ GOFtest <- function(object, bins = 0:5)
       pval = pval
     )
   )
-  class(out) <- "GOFtest"
+  class(out) <- "GOFtest.mlmodel"
   return(out)
 }
 
 
 #' @export
-print.GOFtest <- function(x, ...) {
-  if(!inherits(x, "GOFtest"))
+print.GOFtest.mlmodel <- function(x, ...) {
+  if(!inherits(x, "GOFtest.mlmodel"))
     cli::cli_abort("`x` must be of class `GOFtest`.",
                    call = NULL)
   

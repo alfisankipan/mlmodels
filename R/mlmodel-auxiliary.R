@@ -1,9 +1,10 @@
 ## Private files that get called from several mlmodels top level functions to
 ## do a specific task.
 
-
 ## GLOBAL CONSTANTS ============================================================
 # -- 1. Setting defaults -------------------------------------------------------
+# General function where we set constants as defaults to use within other functions,
+# kind of a global constant setting.
 #' @keywords internal
 .mlmodels_defaults <- function() {
   list(
@@ -15,9 +16,7 @@
   )
 }
 # -- 2. Getting defaults -------------------------------------------------------
-#' Get default value for mlmodels
-#'
-#' @param name Character. Name of the option.
+# Function to pull the default constant for a certain name.
 #' @keywords internal
 .mlmodels_get_default <- function(name) {
   defaults <- .mlmodels_defaults()
@@ -25,15 +24,13 @@
 }
 
 ## IS INVERTIBLE ===============================================================
-#' Internal function to detect if a matrix is invertible.
-#' 
-#' @param matrix The matrix you want to check
-#' 
-#' @returns Logical with `TRUE` if it's invertible, or `FALSE` if it's not.
-#' 
-#' @details
-#' Used in prediction and other methods to avoid throwing an error.
-#' 
+# Internal function to detect if a matrix is invertible.
+# 
+# Argument: matrix - The matrix you want to check
+# Returns: Logical with TRUE if it's invertible, or FALSE if it's not.
+#
+# Used in prediction and other methods to avoid throwing an error.
+#
 #' @keywords internal
 .is_invertible <- function(matrix) {
   tryCatch({
@@ -45,17 +42,17 @@
 # POST-MOLD UTILITIES ==========================================================
 
 # Factor mapping ---------------------------------------------------------------
-#' Build factor mapping for a single equation
-#'
-#' Internal function. Creates a mapping of factor variables to their
-#' main effect columns and interaction columns after `hardhat::mold()`.
-#'
-#' @param mold A mold object returned by `hardhat::mold()`.
-#' @param equation_name Character string indicating the equation name
-#'   (e.g. "value" or "scale").
-#'
-#' @return A named list containing the factor mapping for this equation.
-#'
+# Build factor mapping for a single equation
+#
+# Internal function. Creates a mapping of factor variables to their
+# main effect columns and interaction columns after `hardhat::mold()`.
+#
+# Arguments:
+#   mold          A mold object returned by hardhat::mold().
+#   equation_name Character string indicating the equation name
+#                 (e.g. "value" or "scale").
+#
+# Returns: A named list containing the factor mapping for this equation.
 #' @keywords internal
 .build_factor_map <- function(mold, equation_name = "value")
 {
@@ -193,17 +190,19 @@
 }
 
 ## Build factor mappings for all equations -------------------------------------
-#' Build factor mappings for all equations
-#'
-#' Internal function. Takes a named list of mold objects and returns
-#' factor mappings for each equation. Also performs safety checks
-#' for all-NA and invalid predictor columns.
-#'
-#' @param molds A named list of mold objects (e.g. `list(value = ..., scale = ...)`).
-#'
-#' @return A named list with the same names as `molds`, each containing
-#'   the factor mapping for that equation.
-#'
+# Build factor mappings for all equations
+#
+# Internal function. Takes a named list of mold objects and returns
+# factor mappings for each equation. Also performs safety checks
+# for all-NA and invalid predictor columns.
+#
+# Argument:
+#   molds     A named list of mold objects (e.g. `list(value = ..., scale = ...)`).
+#
+# Returns:
+#   A named list with the same names as `molds`, each containing the factor
+#   mapping for that equation.
+#
 #' @keywords internal
 .build_factor_mapping <- function(molds)
 {
@@ -228,16 +227,18 @@
 }
 
 # Invalid predictors -----------------------------------------------------------
-#' Check for invalid predictor columns after molding
-#'
-#' Internal helper that aborts with a clear error if any predictor
-#' column contains invalid values (NA, NaN, Inf, or -Inf).
-#'
-#' @param mold A mold object returned by `hardhat::mold()`.
-#' @param equation_name Character string indicating the equation name
-#'   ("value" or "scale").
-#'
-#' @return Invisibly returns `TRUE` if the check passes.
+# Check for invalid predictor columns after molding
+#
+# Internal helper that aborts with a clear error if any predictor
+# column contains invalid values (NA, NaN, Inf, or -Inf).
+#
+# Argument:
+#     mold          A mold object returned by hardhat::mold().
+#     equation_name Character string indicating the equation name
+#                   ("value" or "scale").
+#
+# Returns:
+#   Invisibly returns TRUE if the check passes.
 #'
 #' @keywords internal
 .check_for_invalid_predictors <- function(mold, equation_name = "value")
@@ -267,15 +268,17 @@
 }
 
 # Log transformations ----------------------------------------------------------
-#' Detect log transformation on the outcome variable
-#'
-#' Returns a consistent list structure whether a log transformation is detected or not.
-#'
-#' @param formula a formula with a lhs expression to check for.
-#' @param data A data.frame that holds the variables in the estimation.
-#'
-#' @returns A list with all the information of a log transformation.
-#'
+# Detect log transformation on the outcome variable
+#
+# Returns a consistent list structure whether a log transformation is detected or not.
+#
+# Arguments:
+#   formula     A formula with a lhs expression to check for.
+#   data        A data.frame that holds the variables in the estimation.
+#
+# Returns:
+#   A list with all the information of a log transformation.
+#
 #' @keywords internal
 .detect_log_transformation <- function(formula, data) {
 
@@ -385,19 +388,21 @@
   )
 }
 
-#' Detect log transformations across multiple formulas
-#'
-#' Returns a named list with detection results for each formula.
-#' Useful for future multi-equation models.
-#'
-#' @param formulas_list A list with the different formulas for the different
-#' equations that need checking.
-#' @param data A data.frame that holds all the data in the estimation.
-#'
-#' @returns A list with the same number of elements as in `formulas_list`, each
-#' with an inner list with all the information about the log-transformation for
-#' the respective equation.
-#'
+# Detect log transformations across multiple formulas
+#
+# Returns a named list with detection results for each formula.
+# Useful for future multi-equation models.
+#
+# Arguments:
+#   formulas_list A list with the different formulas for the different
+#                 equations that need checking.
+#   data          A data.frame that holds all the data in the estimation.
+#
+# Returns:
+#   A list with the same number of elements as in `formulas_list`, each with an
+#   inner list with all the information about the log-transformation for the
+#   respective equation.
+#
 #' @keywords internal
 .detect_log_transformations <- function(formulas_list, data) {
   if (!is.list(formulas_list) || is.null(names(formulas_list))) {
@@ -412,20 +417,22 @@
 }
 
 # Constraints parsing ----------------------------------------------------------
-#' Parse user-friendly constraints into maxLik format
-#'
-#' @param constraints User input. Can be:
-#'   - NULL (no constraints)
-#'   - A character vector of string constraints
-#'   - A named list of string constraints (labels become names)
-#'   - A raw maxLik list with `eqA`/`eqB` or `ineqA`/`ineqB`
-#' @param coef_names Character vector of all coefficient names in the model
-#'
-#' @return A list with three elements:
-#'   - `names`: character vector of constraint labels (or NULL)
-#'   - `strings`: character vector of original string constraints (or NULL)
-#'   - `maxLik`: list ready for maxLik (eqA/eqB or ineqA/ineqB) or NULL
-#'
+# Parse user-friendly constraints into maxLik format
+#
+# Arguments:
+#   constraints   User input. Can be:
+#     - NULL (no constraints)
+#     - A character vector of string constraints
+#     - A named list of string constraints (labels become names)
+#     - A raw maxLik list with eqA/eqB or ineqA/ineqB
+#   coef_names Character vector of all coefficient names in the model
+#
+# Returns:
+#   A list with three elements:
+#     - names: character vector of constraint labels (or NULL)
+#     - strings: character vector of original string constraints (or NULL)
+#     - maxLik: list ready for maxLik (eqA/eqB or ineqA/ineqB) or NULL
+#
 #' @keywords internal
 .parse_constraints <- function(constraints = NULL, coef_names)
 {
@@ -475,14 +482,15 @@
   ))
 }
 
-#' Internal helper: parse string constraints into maxLik matrices
-#' 
-#' @param strings A vector with the strings defining the linear constraints.
-#' @param coef_names Character vector of all coefficient names in the model.
-#' 
-#' @returns A list that conforms with [maxLik][maxLik::maxLik]'s constraint
-#'   requirements.
-#'
+# Internal helper: parse string constraints into maxLik matrices
+#
+# Arguments:
+#   strings     A vector with the strings defining the linear constraints.
+#   coef_names  Character vector of all coefficient names in the model.
+# Returns:
+#   A list that conforms with [maxLik][maxLik::maxLik]'s constraint
+#   requirements.
+#
 #' @keywords internal
 .parse_string_constraints <- function(strings, coef_names)
 {
@@ -547,17 +555,19 @@
   result
 }
 
-#' Parse a linear expression on the left-hand side of a constraint
-#'
-#' Turns a string like "value::hp - 2*value::wt + value::(Intercept)/3"
-#' into a numeric vector of length = number of coefficients.
-#'
-#' @param expr Character string containing the left-hand side expression.
-#' @param coef_names Character vector of all coefficient names in the model.
-#'
-#' @returns Numeric vector of length `length(coef_names)` with the multipliers
-#'   for each coefficient. Zeros for coefficients not present in the expression.
-#'
+# Parse a linear expression on the left-hand side of a constraint
+#
+# Turns a string like "value::hp - 2*value::wt + value::(Intercept)/3"
+# into a numeric vector of length = number of coefficients.
+#
+# Arguments:
+#   expr        Character string containing the left-hand side expression.
+#   coef_names  Character vector of all coefficient names in the model.
+#
+# Returns:
+#   Numeric vector of length `length(coef_names)` with the multipliers
+#   for each coefficient. Zeros for coefficients not present in the expression.
+#
 #' @keywords internal
 .parse_linear_expression <- function(expr, coef_names)
 {
@@ -646,20 +656,22 @@
 }
 
 # Initial Values ---------------------------------------------------------------
-#' Search for feasible initial values
-#'
-#' Internal helper used by `.ml_*.fit()` functions when default starting values
-#' produce an infeasible log-likelihood. It first tries adjusting the intercepts,
-#' then sets all coefficients to zero if needed, and finally tries scaling the
-#' vector to improve the log-likelihood.
-#'
-#' @param fn The log-likelihood function (e.g. `ml_lm_ll` or `ml_logit_ll`).
-#' @param b Numeric vector of starting values.
-#' @param ... Further arguments passed to `fn`.
-#'
-#' @return A numeric vector of initial values. It has an attribute `feasible`
-#'   (`TRUE` if a feasible vector was found, `FALSE` otherwise).
-#'
+# Search for feasible initial values
+#
+# Internal helper used by `.ml_*.fit()` functions when default starting values
+# produce an infeasible log-likelihood. It first tries adjusting the intercepts,
+# then sets all coefficients to zero if needed, and finally tries scaling the
+# vector to improve the log-likelihood.
+#
+# Arguments:
+#   fn      The log-likelihood function (e.g. `ml_lm_ll` or `ml_logit_ll`).
+#   b       Numeric vector of starting values.
+#   ...     Further arguments passed to fn.
+#
+# Returns:
+#   A numeric vector of initial values. It has an attribute feasible
+#   (TRUE if a feasible vector was found, FALSE otherwise).
+#
 #' @keywords internal
 .initial_values.mlmodel <- function(fn, b, ...)
 {
@@ -765,12 +777,19 @@
 }
 
 # Changing ptypes from a mold --------------------------------------------------
-#' Function to change ptypes in a mold from int to double.
-#' 
-#' @param mold An object returned by [mold()][hardhat::mold].
-#' 
-#' @returns The `mold` object with the changed `ptype` tibble.
-#' 
+# Function to change ptypes in a mold from int to double.
+#
+# This function was coded to ensure that you could pass average values in
+# predictions for variables in the model that were stored as integers in the data.
+# However, it is currently not used, since we decided to directly change the
+# data's variable types to double if they were integers.
+#
+# Argument:
+#   mold    An object returned by hardhat::mold.
+#
+# Returns
+#   The mold object with the changed ptype tibble.
+#
 #' @keywords internal
 .mold_fix_integer_to_double <- function(mold) {
   if (is.null(mold$blueprint) || is.null(mold$blueprint$ptypes)) {
@@ -792,13 +811,19 @@
   mold
 }
 
-#' Function to convert variables stored as integers in a data frame into
-#' doubles. To be called before using hardhat::mold in the estimator's function.
-#' 
-#' @param data A `data.frame` with the data to check.
-#' 
-#' @returns The `data.frame` with its integer variables changed to doubles.
-#' 
+# Function to convert variables stored as integers in a data frame into
+# doubles. To be called before using hardhat::mold in the estimator's function.
+#
+# This is the function we actually use within the ml_* functions to ensure that
+# you can do predictions with decimal values for integer variables (predictions
+# at means, for example).
+#
+# Argument:
+#   data    A data.frame with the data to check.
+#
+# Returns:
+#   The data.frame with its integer variables changed to doubles.
+#
 #' @keywords internal
 .convert_integers_to_double <- function(data) {
   if (!is.data.frame(data)) {
@@ -816,22 +841,28 @@
 
 ## PREDICTION HELPERS ==========================================================
 # --- Type parsing for probabilities -------------------------------------------
-#' Internal parser for probability types.
-#' 
-#' @param type Character string passed by the user
-#' @return A list with components:
-#'   - base_type: "link", "response", or "prob"
-#'   - prob_type: NULL, "exact", "leq", "geq", or "interval"
-#'   - lower: lower bound (NULL if not applicable)
-#'   - upper: upper bound (NULL if not applicable)
-#' 
-#' @details
-#' `prob_type` can only be NULL when base_type is not "prob". So in the probability
-#' block of the prediction function, you don't need to account for NULL.
-#' 
-#' If `prob_type` is "exact" both lower and upper hold the value. So you can
-#' use either.
-#' 
+# Internal parser for probability types.
+#
+# For models in which we can predict probabilities P(,) or P(), we parse
+# these strings to pull the information about the probability that wants to be
+# predicted.
+#
+# Arguments:
+#   type    Character string passed by the user (as a type to Predict())
+#
+# Returns:
+#   A list with components:
+#     - base_type: "link", "response", or "prob"
+#     - prob_type: NULL, "exact", "leq", "geq", or "interval"
+#     - lower: lower bound (NULL if not applicable)
+#     - upper: upper bound (NULL if not applicable)
+#
+# prob_type can only be NULL when base_type is not "prob". So in the probability
+# block of the prediction function, you don't need to account for NULL.
+# 
+# If `prob_type` is "exact" both lower and upper hold the value. So you can
+# use either.
+# 
 #' @keywords internal
 .predict_types_parsing <- function(type)
 {
@@ -905,6 +936,20 @@
 }
 
 ## SUBSET PROCESSING ===========================================================
+# Helper function to process the subset argument in estimtation.
+#
+# Arguments:
+#   subset_expr   either the exxpression to evaluate into a logical vector or the
+#                 logical vector itself.
+#   data          The data.frame used in the estimation.
+#
+# Returns:
+#   A list with two elements
+#     - expr: the enquoted expression from subset_expr
+#     - idx:  the logical vector with the indices of the observations to be used
+#             in estimation.
+#
+#' @keywords internal
 .process_subset <- function(subset_expr, data) {
   n_orig <- nrow(data)
   
@@ -940,17 +985,22 @@
 
 ## VARIANCE HELPERS ============================================================
 # --- 1. Cluster info ----------------------------------------------------------
-#' Internal helper to extract clustering information
-#'
-#' Used by several functions to that accept `cl_var` as an argument, to check the
-#' validity of the clustering variable, and get the number of clusters, as well
-#' as the name of the clustering variable if `cl_var` is a string.
-#'
-#' @param object An `mlmodel` object.
-#' @param cl_var Character string or vector. The clustering variable.
-#'
-#' @return A list with `var_name`, `n_cluster`, and `ids`.
-#'
+# Internal helper to extract clustering information
+#
+# Used by several functions to that accept `cl_var` as an argument, to check the
+# validity of the clustering variable, and get the number of clusters, as well
+# as the name of the clustering variable if `cl_var` is a string.
+#
+# Arguments:
+#   object      An `mlmodel` object.
+#   cl_var      Character string or vector. The clustering variable.
+#
+# Returns:
+#   A list with
+#     - var_name:   the name of the clustering variable if the user passed the name
+#     - n_cluster:  the number of unique elements in the variable (clusters)
+#     - ids:        the values of the unique elements in the variable (the cluster ids)
+#
 #' @keywords internal
 .vcov_cluster_info <- function(object, cl_var)
 {
@@ -992,32 +1042,33 @@
 }
 
 # --- 2. process_vcov ----------------------------------------------------------
-#' Internal helper to obtain the variance-covariance matrix
-#'
-#' This helper is used by `summary.ml_lm()`, `waldtest.mlmodel()`,
-#' `predict.ml_lm()` and other functions.
-#'
-#' If a matrix is supplied via the `vcov` argument, it is validated and
-#' returned directly. Otherwise, it calls `vcov.mlmodel()`.
-#'
-#' @param object An `mlmodel` object.
-#' @param vcov An optional user-supplied variance-covariance matrix.
-#'   If provided, it will be used instead of computing a new one.
-#' @param vcov.type Character string specifying the type of variance-covariance
-#'   matrix to compute. One of `"oim"` (default), `"robust"`, `"opg"`,
-#'   `"cluster"`, or `"boot"`.
-#' @param cl_var Character string or vector. Clustering variable.
-#'   Only used when `vcov.type = "cluster"`.
-#' @param repetitions Integer. Number of bootstrap replications when
-#'   `vcov.type = "boot"`. Default is 999.
-#' @param seed Integer. Random seed for reproducibility when `vcov.type = "boot"`.
-#'   If `NULL`, a random seed is generated.
-#' @param ... Further arguments passed to [vcov.mlmodel()].
-#' @param progress Logical. Should a progress bar be displayed during
-#'   bootstrapping? Default is `FALSE`.
-#'
-#' @return A variance-covariance matrix.
-#'
+# Internal helper to obtain the variance-covariance matrix
+#
+# This helper is used by `summary.ml_lm()`, `waldtest.mlmodel()`,
+# `predict.ml_lm()` and other functions that take vcov and vcov.type as arguments.
+#
+# If a matrix is supplied via the `vcov` argument, it is validated and
+# returned directly. Otherwise, it calls `vcov.mlmodel()`.
+#
+# Arguments:
+#   object        An `mlmodel` object.
+#   vcov          An optional user-supplied variance-covariance matrix. If
+#                 provided, it will be used instead of computing a new one.
+#   vcov.type     Character string specifying the type of variance-covariance
+#                 matrix to compute. See vcov.mlmodel to see the types it accepts.
+#   cl_var        Character string or vector. Clustering variable. When clustering
+#                 a variance type.
+#   repetitions   Integer. Number of bootstrap replications when `vcov.type = 
+#                 "boot"`. Default is 999.
+#   seed          Integer. Random seed for reproducibility when `vcov.type = "boot"`.
+#                 If `NULL`, a random seed is generated.
+#   progress      Logical, Should a progress bar be displayed during bootstrapping
+#                 or jackknifing? Default is FALSE.
+#   ...           Further arguments passed to vcov.mlmodel().
+#
+# Returns
+#   The variance-covariance matrix.
+#
 #' @keywords internal
 .process_vcov <- function(object,
                           vcov = NULL,           # User-supplied variance matrix
@@ -1066,29 +1117,32 @@
 
 # --- 3. vcov_boot -------------------------------------------------------------
 # --- 3.1. Generic -------------------------------------------------------------
-#' Bootstrap Variance-Covariance Matrix (mlmodel method)
-#'
-#' Internal function to compute bootstrapped variance-covariance matrix.
-#'
-#' @param object An `mlmodel` object.
-#' @param repetitions Number of bootstrap replications.
-#' @param seed Random seed for reproducibility.
-#' @param cl_var Clustering variable (if clustered bootstrap).
-#' @param progress Logical. Whether to show progress bar.
-#' @param ... Not currently used.
-#' 
-#' @details
-#' Called by [vcov][mlmodels::vcov] when `type` is set to `"boot"`
-#' 
+# Bootstrap Variance-Covariance Matrix (mlmodel method)
+#
+# Internal function to compute bootstrapped variance-covariance matrix. General
+# method that uses the general update() function or the specific ones for the
+# models.
+#
+# Models usually have a specific boostrap helper that uses the data from estimation
+# without having to process it again, and calls its fit function directly. This
+# method acts as a backup/safeguard for those models that don't.
+#
+# Arguments:
+#   object      An mlmodel object.
+#   repetitions Number of bootstrap replications.
+#   seed        Random seed for reproducibility.
+#   cl_var      Clustering variable (if clustered bootstrap).
+#   progress    Logical. Whether to show progress bar.
+#   ...         Not currently used.
+#
+# Called by mlmodels::vcov() when type is set to "boot"
+#
 #' @keywords internal
 .vcov_boot <- function(object, ...) {
   UseMethod(".vcov_boot")
 }
 
 # --- 3.2. mlmodel -------------------------------------------------------------
-#' Internal function to compute bootstrapped variance-covariance matrix.
-#' 
-#' @rdname dot-vcov_boot
 #' @keywords internal
 .vcov_boot.mlmodel <- function(object,
                                repetitions = 999,
@@ -1204,27 +1258,30 @@
 
 # --- 4. vcov_jack -------------------------------------------------------------
 # --- 4.1. Generic -------------------------------------------------------------
-#' Jackknife Variance-Covariance Matrix (mlmodel method)
-#'
-#' Internal function to compute a jackknife variance-covariance matrix.
-#'
-#' @param object An `mlmodel` object.
-#' @param cl_var Clustering variable (if clustered jackknife).
-#' @param progress Logical. Whether to show progress bar.
-#' @param ... Not currently used.
-#' 
-#' @details
-#' Called by [vcov][mlmodels::vcov] when `type` is set to `"jack"`
-#' 
+#Jackknife Variance-Covariance Matrix (mlmodel method)
+#
+# Internal function to compute a jackknife variance-covariance matrix. General
+# method that uses the general update() function or the specific ones for the
+# models.
+#
+# Models usually have a specific jakknife helper that uses the data from estimation
+# without having to process it again, and calls its fit function directly. This
+# method acts as a backup/safeguard for those models that don't.
+#
+# Arguments:
+#   object    An mlmodel object.
+#   cl_var    Clustering variable (if clustered jackknife).
+#   progress  Logical. Whether to show progress bar.
+#   ...       Not currently used.
+#
+# Called by vcov() when type is set to "jack" or "jackknife".
+#
 #' @keywords internal
 .vcov_jack <- function(object, ...) {
   UseMethod(".vcov_jack")
 }
 
 # --- 4.2. mlmodel -------------------------------------------------------------
-#' Internal function to compute jackknife variance-covariance matrix.
-#' 
-#' @rdname dot-vcov_jack
 #' @keywords internal
 .vcov_jack.mlmodel <- function(object,
                                cl_var = NULL,
@@ -1350,4 +1407,3 @@
   dimnames(vcov_jack) <- list(names(coef(object)), names(coef(object)))
   vcov_jack
 }
-

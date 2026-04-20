@@ -44,6 +44,7 @@
 }
 
 # Hessians by Observation ======================================================
+#' @keywords internal
 .ml_beta_hessianObs <- function(object)
 {
   if (!inherits(object, "ml_beta"))
@@ -120,6 +121,7 @@
 }
 
 # Log-likelihood by Observations ===============================================
+#' @keywords internal
 .ml_beta_loglikeObs <- function(object)
 {
   if (!inherits(object, "ml_beta"))
@@ -227,7 +229,6 @@
 
 ## VARIANCE HELPERS ============================================================
 # --- 1. vcov_boot -------------------------------------------------------------
-#' @rdname dot-vcov_boot
 #' @keywords internal
 .vcov_boot.ml_beta <- function(object,
                                repetitions = 999,
@@ -361,7 +362,6 @@
 }
 
 # --- 2. vcov_jack -------------------------------------------------------------
-#' @rdname dot-vcov_jack
 #' @keywords internal
 .vcov_jack.ml_beta <- function(object,
                                cl_var = NULL,

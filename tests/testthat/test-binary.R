@@ -5,9 +5,6 @@ library(marginaleffects)
 
 options("marginaleffects_model_classes" = "mlmodel")
 
-# tests/testthat/test-binary.R
-library(testthat)
-
 data(smoke)
 data(pw401k)
 

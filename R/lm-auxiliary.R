@@ -39,16 +39,6 @@
 }
 
 ## Hessians by Observation =====================================================
-#' Observed Hessian by observation for ml_lm models
-#'
-#' Returns the Hessian matrix evaluated at each observation. Used internally
-#' by the Information Matrix test (`IMtest`).
-#'
-#' @param object A fitted `ml_lm` object.
-#'
-#' @return Matrix with one row per observation and columns corresponding to the
-#'   second derivatives with respect to all parameters.
-#'
 #' @keywords internal
 .ml_lm_hessianObs <- function(object)
 {
@@ -157,21 +147,6 @@
 }
 
 ## ML EVALUATOR ================================================================
-#' Log-likelihood, gradient and Hessian calculation for ml_lm models
-#'
-#' This is the function passed to [maxLik::maxLik()] for Gaussian linear models.
-#' It returns the log-likelihood and attaches the gradient and Hessian as
-#' attributes (required by maxLik when analytical derivatives are available).
-#'
-#' @param b Numeric vector of all coefficients (value + scale).
-#' @param y Numeric vector of outcomes.
-#' @param x Design matrix for the value equation.
-#' @param z Design matrix for the scale equation.
-#' @param w Numeric vector of weights (can be `NULL`).
-#'
-#' @return Numeric vector of log-likelihood values (one per observation).
-#'   The returned object has attributes `gradient` and `hessian`.
-#'
 #' @keywords internal
 .ml_lm_ll <- function(b, y, x, z, w = NULL, lognormal = FALSE)
 {
@@ -230,20 +205,6 @@
 
 ## VARIANCE HELPERS ============================================================
 # --- 1. vcov_boot -------------------------------------------------------------
-#' Bootstrap variance-covariance matrix for ml_lm models
-#'
-#' Specialized (faster) bootstrap method for `ml_lm` objects. It calls
-#' `.ml_lm.fit()` directly instead of going through the generic `update()`
-#' method.
-#'
-#' @param object A fitted `ml_lm` object.
-#' @param repetitions Number of bootstrap replications.
-#' @param seed Random seed for reproducibility.
-#' @param cl_var Clustering variable (if doing clustered bootstrap).
-#' @param progress Logical. Whether to show a progress bar.
-#' @param ... Not currently used.
-#'
-#' @keywords internal
 #' @keywords internal
 .vcov_boot.ml_lm <- function(object,
                              repetitions = 999,
@@ -378,7 +339,6 @@
 }
 
 # --- 2. vcov_jack -------------------------------------------------------------
-#' @rdname dot-vcov_jack
 #' @keywords internal
 .vcov_jack.ml_lm <- function(object,
                              cl_var = NULL,

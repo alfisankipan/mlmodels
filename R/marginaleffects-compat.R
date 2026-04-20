@@ -86,6 +86,11 @@ get_data.mlmodel <- function(x, ...) {
                  call = NULL)
 }
 
+#' Extract the predictors used in the model (for insight/marginaleffects compatibility)
+#'
+#' @param x An object of class `"mlmodel"`
+#' @param ... Further arguments passed to methods
+#' 
 #' @importFrom insight find_predictors
 #' @export
 find_predictors.mlmodel <- function(x, ...)
@@ -120,8 +125,13 @@ find_predictors.mlmodel <- function(x, ...)
   vars
 }
 
-#' @export
+#' Extract the variables used in the model (for insight/marginaleffects compatibility)
+#'
+#' @param x An object of class `"mlmodel"`
+#' @param ... Further arguments passed to methods
+#' 
 #' @importFrom insight find_variables
+#' @export
 find_variables.mlmodel <- function(x, ...) {
   
   # Start with predictors

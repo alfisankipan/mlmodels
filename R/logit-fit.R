@@ -369,8 +369,7 @@ new_ml_logit <- function(object, ...) {
   )
 }
 
-#' Stripped down function to estimate a binary logit model.
-#'
+## ML_LOGIT FIT ================================================================
 #' @keywords internal
 .ml_logit.fit <- function(y, x, z = NULL, w = NULL,
                           constraints = NULL,

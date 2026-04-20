@@ -409,17 +409,6 @@ new_ml_gamma <- function(object, ...) {
 }
 
 # ML_GAMMA FIT --------------------------------------------------------------
-#' Internal fitting function for ml_lm
-#'
-#' @param y Numeric vector of outcomes.
-#' @param x Design matrix for the value equation.
-#' @param z Design matrix for the scale equation (or single column of 1s).
-#' @param w Numeric vector of weights.
-#' @param constraints Parsed constraints (internal use).
-#' @param start Numeric vector of initial values.
-#' @param control Control list passed to [maxLik::maxLik()].
-#' @param ... Further arguments passed to [maxLik::maxLik()].
-#'
 #' @keywords internal
 .ml_gamma.fit <- function(y, x, z, w = NULL,
                           method = "NR",

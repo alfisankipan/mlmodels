@@ -40,6 +40,7 @@
 }
 
 # Hessians by Observation ======================================================
+#' @keywords internal
 .ml_gamma_hessianObs <- function(object)
 {
   if (!inherits(object, "ml_gamma"))
@@ -109,6 +110,7 @@
 }
 
 # Log-likelihood by Observations ===============================================
+#' @keywords internal
 .ml_gamma_loglikeObs <- function(object)
 {
   if (!inherits(object, "ml_gamma"))
@@ -199,7 +201,6 @@
 
 ## VARIANCE HELPERS ============================================================
 # --- 1. vcov_boot -------------------------------------------------------------
-#' @rdname dot-vcov_boot
 #' @keywords internal
 .vcov_boot.ml_gamma <- function(object,
                                 repetitions = 999,
@@ -333,7 +334,6 @@
 }
 
 # --- 2. vcov_jack -------------------------------------------------------------
-#' @rdname dot-vcov_jack
 #' @keywords internal
 .vcov_jack.ml_gamma <- function(object,
                                  cl_var = NULL,

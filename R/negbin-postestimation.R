@@ -55,7 +55,7 @@ predict.ml_negbin <- function(object,
   if(parsed_type$base_type != "prob")
   {
     parsed_type$base_type <- rlang::arg_match(type,
-                                              c("response", "fitted", "mean", "fitted", "link", "zd", "alpha", "variance", "var", "sd", "sigma"))
+                                              c("response", "fitted", "mean", "link", "zd", "alpha", "variance", "var", "sd", "sigma"))
   }
   
   # ── Prepare predictors (using hardhat) ─────────────────────────────

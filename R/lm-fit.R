@@ -400,17 +400,6 @@ new_ml_lm <- function(object, ...) {
 }
 
 # ML_LM FIT --------------------------------------------------------------
-#' Internal fitting function for ml_lm
-#'
-#' @param y Numeric vector of outcomes.
-#' @param x Design matrix for the value equation.
-#' @param z Design matrix for the scale equation (or single column of 1s).
-#' @param w Numeric vector of weights.
-#' @param constraints Parsed constraints (internal use).
-#' @param start Numeric vector of initial values.
-#' @param control Control list passed to [maxLik::maxLik()].
-#' @param ... Further arguments passed to [maxLik::maxLik()].
-#'
 #' @keywords internal
 .ml_lm.fit <- function(y, x, z, w = NULL,
                        method = "NR",

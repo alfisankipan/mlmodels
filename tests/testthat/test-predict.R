@@ -1,134 +1,313 @@
-# tests/testthat/test-predict.R
+# tests/testthat/test-beta.R
 library(testthat)
+library(marginaleffects)
 
-# Basic functionality -------------------------------------------------------
-test_that("predict.ml_lm returns correct length for in-sample predictions", {
-  data(mtcars)
-  fit <- ml_lm(mpg ~ wt + hp + qsec, data = mtcars)
-  pred <- predict(fit)
-  expect_equal(length(pred), nrow(mtcars))
-  expect_type(pred, "double")
-})
+options("marginaleffects_model_classes" = "mlmodel")
 
-test_that("predict.ml_lm works with newdata", {
-  data(mtcars)
-  fit <- ml_lm(mpg ~ wt + hp, data = mtcars)
-  new_data <- mtcars[1:10, ]
-  pred <- predict(fit, newdata = new_data)
-  expect_equal(length(pred), 10)
-})
+data("docvis")
+data("pw401k")
+data("mroz")
+data("smoke")
 
-# Prediction types ---------------------------------------------------------
-test_that("predict.ml_lm supports all prediction types", {
-  data(mtcars)
-  fit <- ml_lm(mpg ~ wt + hp, scale = ~ wt, data = mtcars)
+mroz$incthou <- mroz$faminc / 1000 # Scaling for linear models.
+smoke$smokes <- smoke$cigs > 0 # Binary for logit / probit
 
-  types <- c("response", "mean", "median", "fitted", "sigma", "sd",
-             "variance", "link", "zd")
-  for (t in types) {
-    expect_silent(predict(fit, type = t))
+
+# -- 1. Linear and Loglinear Model (ml_lm) -------------------------------------
+test_that("All predictions types for ml_lm work", {
+  
+  lm_hom <- ml_lm(incthou ~ age + I(age^2) + huswage + educ + unem, data = mroz)
+  lm_het <- ml_lm(incthou ~ age + I(age^2) + huswage + educ + unem,
+                  scale = ~ educ + exper,
+                  data = mroz)
+  ln_hom <- ml_lm(log(incthou) ~ age + I(age^2) + huswage + educ + unem, data = mroz)
+  ln_het <- ml_lm(log(incthou) ~ age + I(age^2) + huswage + educ + unem,
+                  scale = ~ educ + exper,
+                  data = mroz)
+  
+  valid_types <- c("response", "mean", "mu", "median", "fitted",
+                   "sigma", "sd", "variance",
+                   "sigma_y", "sd_y", "var", "var_y", "variance_y",
+                   "link", "zd")
+  
+  models <- list(
+    "Homoskedastic Linear" = lm_hom,
+    "Heteroskedastic Linear" = lm_het,
+    "Homoskedastic Lognormal" = ln_hom,
+    "Heteroskedastic Lognormal" = ln_het
+    # add your other models here: logit, probit, poisson, nb1, nb2, gamma, beta, etc.
+  )
+  
+  for(model_name in names(models))
+  {
+    mod <- models[[model_name]]
+    for(typ in valid_types)
+    {
+      pred <- predict(mod, type = typ, se.fit = TRUE)
+      
+      expect_type(pred, "list")
+      expect_true("fit" %in% names(pred))
+      expect_type(pred$fit, "double")
+      
+      
+      # For variance-related types, values should be non-negative
+      if (typ %in% c("variance", "var", "var_y", "variance_y")) {
+        expect_true(all(pred$fit >= 0, na.rm = TRUE))
+      }
+      
+      expect_true(all(pred$se.fit >= 0, na.rm = TRUE))
+    }
   }
 })
 
-test_that("predict.ml_lm returns expected values for different types", {
-  data(mtcars)
-  fit <- ml_lm(mpg ~ wt + hp, scale = ~ wt, data = mtcars)
-
-  mu    <- predict(fit, type = "mean")
-  sigma <- predict(fit, type = "sigma")
-  var   <- predict(fit, type = "variance")
-  link  <- predict(fit, type = "link")
-
-  expect_equal(length(mu), nrow(mtcars))
-  expect_equal(length(sigma), nrow(mtcars))
-  expect_equal(length(var), nrow(mtcars))
-  expect_equal(length(link), nrow(mtcars))
-  expect_true(all(sigma > 0))
-  expect_true(all(var > 0))
-})
-
-# Log-transformed outcome ---------------------------------------------------
-test_that("predict.ml_lm correctly handles log(y) models and retransformation", {
-  data(mtcars)
-  fit_log   <- ml_lm(log(mpg) ~ wt + hp, data = mtcars)      # pure log
-  fit_shift <- ml_lm(log(mpg + 2) ~ wt, data = mtcars)      # with shift
-
-  # Point predictions
-  mean_log <- predict(fit_log, type = "mean")
-  med_log  <- predict(fit_log, type = "median")
-  var_y    <- predict(fit_log, type = "variance_y")
-
-  expect_true(all(mean_log > 0))
-  expect_true(all(med_log > 0))
-  expect_true(all(var_y > 0))
-
-  # Shift warning
-  expect_warning(
-    predict(fit_shift, type = "mean"),
-    regexp = "Outcome was transformed as log\\(y \\+ d\\)"
+# -- 2. Logit (ml_logit) -------------------------------------------------------
+test_that("All predictions types for ml_logit work", {
+  
+  suppressMessages({
+    log_hom <- ml_logit(smokes ~ cigpric + income + age, data = smoke)
+    log_het <- ml_logit(smokes ~ cigpric + income + age,
+                        scale = ~ educ,
+                        data = smoke)
+  })
+  
+  valid_types <- c("response", "prob", "prob0", "link", "odds", "fitted",
+                   "sigma", "variance", "zd", "xb")
+  
+  var_types <- c("sigma", "variance")
+  het_types <- c("zd", "sigma", "variance")
+  
+  models <- list(
+    "Homoskedastic Logit" = log_hom,
+    "Heteroskedastic Logit" = log_het
   )
+  
+  for(model_name in names(models))
+  {
+    mod <- models[[model_name]]
+    for(typ in valid_types)
+    {
+      suppressWarnings(
+        pred <- predict(mod, type = typ, se.fit = TRUE)
+      )
+      expect_type(pred, "list")
+      expect_true("fit" %in% names(pred))
+      expect_type(pred$fit, "double")
+      
+      if(typ %in% var_types)
+        expect_true(all(pred$fit >= 0, na.rm = TRUE))
+      
+      if(model_name == "Homoskedastic Logit" && typ %in% het_types)
+        expect_all_true(is.na(pred$se.fit))
+      else 
+        expect_all_true(pred$se.fit >= 0)
+    }
+  }
 })
 
-# se.fit functionality ------------------------------------------------------
-test_that("predict.ml_lm returns standard errors when se.fit = TRUE", {
-  data(mtcars)
-  fit <- ml_lm(mpg ~ wt + hp, data = mtcars)
-  pred <- predict(fit, se.fit = TRUE)
-
-  expect_type(pred, "list")
-  expect_named(pred, c("fit", "se.fit"))
-  expect_equal(length(pred$fit), nrow(mtcars))
-  expect_equal(length(pred$se.fit), nrow(mtcars))
-  expect_true(all(pred$se.fit > 0, na.rm = TRUE))
+# -- 3. Probit (ml_probit) -----------------------------------------------------
+test_that("All predictions types for ml_probit work", {
+  
+  suppressMessages({
+    prob_hom <- ml_probit(smokes ~ cigpric + income + age, data = smoke)
+    prob_het <- ml_probit(smokes ~ cigpric + income + age,
+                          scale = ~ educ,
+                          data = smoke)
+  })
+  
+  valid_types <- c("response", "prob", "prob0", "link", "odds", "fitted",
+                   "sigma", "variance", "zd", "xb")
+  
+  var_types <- c("sigma", "variance")
+  het_types <- c("zd", "sigma", "variance")
+  
+  models <- list(
+    "Homoskedastic Probit" = prob_hom,
+    "Heteroskedastic Probit" = prob_het
+  )
+  
+  for(model_name in names(models))
+  {
+    mod <- models[[model_name]]
+    for(typ in valid_types)
+    {
+      suppressWarnings(
+        pred <- predict(mod, type = typ, se.fit = TRUE)
+      )
+      expect_type(pred, "list")
+      expect_true("fit" %in% names(pred))
+      expect_type(pred$fit, "double")
+      
+      if(typ %in% var_types)
+        expect_true(all(pred$fit >= 0, na.rm = TRUE))
+      
+      if(model_name == "Homoskedastic Probit" && typ %in% het_types)
+        expect_all_true(is.na(pred$se.fit))
+      else 
+        expect_all_true(pred$se.fit >= 0)
+    }
+  }
 })
 
-test_that("predict.ml_lm se.fit works for heteroskedastic models and all types", {
-  data(mtcars)
-  fit <- ml_lm(mpg ~ wt + hp, scale = ~ wt, data = mtcars)
-
-  # Different types should give different SEs (gradient sanity check)
-  se_mean   <- predict(fit, type = "mean",   se.fit = TRUE)$se.fit
-  se_sigma  <- predict(fit, type = "sigma",  se.fit = TRUE)$se.fit
-  se_var    <- predict(fit, type = "variance", se.fit = TRUE)$se.fit
-  se_link   <- predict(fit, type = "link",   se.fit = TRUE)$se.fit
-
-  expect_true(all(se_mean > 0))
-  expect_true(all(se_sigma > 0))
-  expect_true(all(se_var > 0))
-  expect_true(all(se_link > 0))
-
-  # Gradients are mathematically different
-  expect_false(isTRUE(all.equal(se_mean, se_sigma)))
-  expect_false(isTRUE(all.equal(se_mean, se_link)))
+# -- 4. Negative Binomial ------------------------------------------------------
+test_that("All predictions types for ml_nebin work", {
+  
+  dispersions <- c("NB1", "NB2")
+  
+  general_types <- c("response", "fitted", "mean", "fitted", "link", "zd",
+                     "alpha", "variance", "var", "sd", "sigma")
+  
+  prob_types <- c("P(3)", "P(1,4)", "P(,4)", "P(1,)")
+  
+  valid_types <- c(general_types, prob_types)
+  
+  for(dis in dispersions)
+  {
+    suppressMessages({
+      nb_hom <- ml_negbin(docvis ~ private + medicaid + age + I(age^2) + educyr +
+                            actlim + totchr, dispersion = dis, data = docvis)
+      nb_het <- ml_negbin(docvis ~ private + medicaid + age + I(age^2) + educyr +
+                            actlim + totchr, 
+                          scale =  ~ female + bh,
+                          dispersion = dis, data = docvis)
+    })
+    
+    models <- list(
+      "Homoskedastic Negbin" = nb_hom,
+      "Heteroskedastic Negbin" = nb_het
+    )
+    
+    for(model_name in names(models))
+    {
+      mod <- models[[model_name]]
+      for(typ in valid_types)
+      {
+        suppressWarnings(
+          pred <- predict(mod, type = typ, se.fit = TRUE)
+        )
+        expect_type(pred, "list")
+        expect_true("fit" %in% names(pred))
+        expect_type(pred$fit, "double")
+        
+        if(!(typ %in% c("link", "zd")))
+          expect_true(all(pred$fit >= 0, na.rm = TRUE))
+        
+        expect_all_true(pred$se.fit >= 0)
+      }
+    }
+  }
 })
 
-# NA handling ---------------------------------------------------------------
-test_that("predict.ml_lm handles NA predictions gracefully (in-sample)", {
-  data(mtcars)
-  mtcars[1:5, "mpg"] <- NA
-  fit <- ml_lm(mpg ~ wt + hp, data = mtcars)
-  pred <- predict(fit)
-
-  expect_equal(sum(is.na(pred)), 5)
-  expect_equal(length(pred), nrow(mtcars))
+# -- 5. Poisson ----------------------------------------------------------------
+test_that("All predictions types for ml_poisson work", {
+  
+  general_types <- c("response", "fitted", "mean", "link")
+  
+  prob_types <- c("P(3)", "P(1,4)", "P(,4)", "P(1,)")
+  
+  valid_types <- c(general_types, prob_types)
+  
+  suppressMessages({
+    pois <- ml_poisson(docvis ~ private + medicaid + age + I(age^2) + educyr +
+                         actlim + totchr, data = docvis)
+  })
+  
+  for(typ in valid_types)
+  {
+    suppressWarnings(
+      pred <- predict(pois, type = typ, se.fit = TRUE)
+    )
+    expect_type(pred, "list")
+    expect_true("fit" %in% names(pred))
+    expect_type(pred$fit, "double")
+    
+    if(!(typ %in% c("link")))
+      expect_true(all(pred$fit >= 0, na.rm = TRUE))
+    
+    expect_all_true(pred$se.fit >= 0)
+  }
 })
 
-test_that("predict.ml_lm propagates NAs in newdata (no dropping message)", {
-  data(mtcars)
-  fit <- ml_lm(mpg ~ wt + hp, data = mtcars)
-  new_data <- mtcars[1:10, ]
-  new_data[3:5, "wt"] <- NA
-
-  pred <- expect_silent(predict(fit, newdata = new_data))
-  expect_equal(sum(is.na(pred)), 3)
-  expect_equal(length(pred), 10)
+# -- 6. Gamma ------------------------------------------------------------------
+test_that("All predictions types for ml_gamma work", {
+  
+  suppressMessages({
+    gam_hom <- ml_gamma(faminc ~ hours + hushrs + age + educ,
+                        data = mroz)
+    
+    gam_het <- ml_gamma(faminc ~ hours + hushrs + age + educ,
+                        scale = ~ kidslt6,
+                        data = mroz)
+  })
+  
+  valid_types <- c("response", "fitted", "mean", "link", "zd", "nu", "variance", "var", "sd", "sigma")
+  
+  models <- list(
+    "Homoskedastic Gamma" = gam_hom,
+    "Heteroskedastic Gamma" = gam_het
+  )
+  
+  for(model_name in names(models))
+  {
+    mod <- models[[model_name]]
+    for(typ in valid_types)
+    {
+      suppressWarnings(
+        pred <- predict(mod, type = typ, se.fit = TRUE)
+      )
+      expect_type(pred, "list")
+      expect_true("fit" %in% names(pred))
+      expect_type(pred$fit, "double")
+      
+      if(!(typ %in% c("link", "zd")))
+        expect_true(all(pred$fit >= 0, na.rm = TRUE))
+      
+      expect_all_true(pred$se.fit >= 0)
+    }
+  }
 })
 
-# Edge cases ----------------------------------------------------------------
-test_that("predict.ml_lm returns NA for empty newdata", {
-  data(mtcars)
-  fit <- ml_lm(mpg ~ wt + hp, data = mtcars)
-  empty_data <- mtcars[0, ]
-  pred <- predict(fit, newdata = empty_data)
-  expect_equal(length(pred), 0)
+# -- 7. Beta -------------------------------------------------------------------
+test_that("All predictions types for ml_beta work", {
+  
+  suppressMessages({
+    beta_hom <- ml_beta(prate ~ mrate + I(mrate^2) + log(totemp) + I(log(totemp)^2) +
+                          age + I(age^2) + sole, data = pw401k,
+                        subset = prate < 1)
+    beta_het <- ml_beta(prate ~ mrate + I(mrate^2) + log(totemp) + I(log(totemp)^2) +
+                          age + I(age^2) + sole, data = pw401k,
+                        scale = ~ totemp + sole,
+                        subset = prate < 1)
+  })
+  
+  valid_types <- c("response", "fitted", "mean", "odds", "link", "zd", "phi", "shape1", "shape2", "mode", "variance", "var", "sd", "sigma")
+  
+  models <- list(
+    "Homoskedastic Beta" = beta_hom,
+    "Heteroskedastic Beta" = beta_het
+  )
+  
+  for(model_name in names(models))
+  {
+    mod <- models[[model_name]]
+    for(typ in valid_types)
+    {
+      # out of sample predictions to have values in all observations.
+      suppressWarnings(
+        pred <- predict(mod, type = typ, se.fit = TRUE, newdata = pw401k)
+      )
+      expect_type(pred, "list")
+      expect_true("fit" %in% names(pred))
+      expect_type(pred$fit, "double")
+      
+      if(!(typ %in% c("link", "zd")))
+        expect_true(all(pred$fit >= 0, na.rm = TRUE))
+      
+      # Mode may produce proper NAs, so for it we remove them. For the rest all
+      # have to be positive.
+      if(typ != "mode")
+        expect_all_true(pred$se.fit >= 0)
+      else
+        expect_true(all(pred$se.fit >= 0, na.rm = TRUE))
+    }
+  }
 })

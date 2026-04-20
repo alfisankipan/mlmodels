@@ -1,4 +1,5 @@
 ## Gradients by Observation ====================================================
+#' @keywords internal
 .ml_poisson_gradientObs <- function(object)
 {
   if (!inherits(object, "ml_poisson"))
@@ -21,6 +22,7 @@
 }
 
 ## Hessians by Observation =====================================================
+#' @keywords internal
 .ml_poisson_hessianObs <- function(object)
 {
   if (!inherits(object, "ml_poisson"))
@@ -54,6 +56,7 @@
 }
 
 ## Log-likelihood by Observation ===============================================
+#' @keywords internal
 .ml_poisson_loglikeObs <- function(object)
 {
   if (!inherits(object, "ml_poisson"))
@@ -105,11 +108,6 @@
 
 ## VCOV HELPERS ================================================================
 # --- 1. vcov_boot -------------------------------------------------------------
-#' Bootstrap variance-covariance for ml_poisson objects
-#'
-#' Internal function called by vcov.mlmodel when type = "boot".
-#' Uses .ml_probit.fit directly for efficiency and control.
-#'
 #' @keywords internal
 .vcov_boot.ml_poisson <- function(object,
                                   repetitions = 999,
@@ -241,7 +239,6 @@
 }
 
 # --- 2. vcov_jack -------------------------------------------------------------
-#' @rdname dot-vcov_jack
 #' @keywords internal
 .vcov_jack.ml_poisson <- function(object,
                                   cl_var = NULL,

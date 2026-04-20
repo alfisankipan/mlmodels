@@ -1,4 +1,5 @@
 ## Gradients by Observation ====================================================
+#' @keywords internal
 .ml_probit_gradientObs <- function(object)
 {
   if (!inherits(object, "ml_probit"))
@@ -58,6 +59,7 @@
 }
 
 ## Hessians by Observation =====================================================
+#' @keywords internal
 .ml_probit_hessianObs <- function(object)
 {
   if (!inherits(object, "ml_probit"))
@@ -156,6 +158,7 @@
 }
 
 ## Log-likelihood by Observation ===============================================
+#' @keywords internal
 .ml_probit_loglikeObs <- function(object)
 {
   if (!inherits(object, "ml_probit"))
@@ -290,11 +293,6 @@
 
 ## VCOV HELPERS ================================================================
 # --- 1. vcov_boot -------------------------------------------------------------
-#' Bootstrap variance-covariance for ml_probit objects
-#'
-#' Internal function called by vcov.mlmodel when type = "boot".
-#' Uses .ml_probit.fit directly for efficiency and control.
-#'
 #' @keywords internal
 .vcov_boot.ml_probit <- function(object,
                                  repetitions = 999,
@@ -439,7 +437,6 @@
 }
 
 # --- 2. vcov_jack -------------------------------------------------------------
-#' @rdname dot-vcov_jack
 #' @keywords internal
 .vcov_jack.ml_probit <- function(object,
                                  cl_var = NULL,
