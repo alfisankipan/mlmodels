@@ -52,7 +52,7 @@
   evaluate = TRUE
 )
 
-update.mlmodel(
+\method{update}{mlmodel}(
   object,
   formula. = NULL,
   scale. = NULL,

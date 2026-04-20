@@ -215,7 +215,9 @@ ml_logit <- function(value,
     if (length(start) != (k))
       cli::cli_abort("The vector of initial values has the wrong dimension. It requires {.val {ncol(x) + ncol(z)}} values.")
     
-    coef_names <- c(paste0("value::", colnames(x)), paste0("scale::", colnames(z)))
+    coef_names <- paste0("value::", colnames(x))
+    if(!is.null(scale))
+      coef_names <- c(coef_names, paste0("scale::", colnames(z)))
     parsed_constraints <- .parse_constraints(constraints, coef_names)
     
     if (!is.null(parsed_constraints$maxLik$eqA))

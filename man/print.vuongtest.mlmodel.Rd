@@ -6,6 +6,13 @@
 \usage{
 \method{print}{vuongtest.mlmodel}(x, digits = 4, ...)
 }
+\arguments{
+\item{x}{An object of class \code{vuongtest.mlmodel}, i.e. from \code{vuongtest()}}
+
+\item{digits}{Number of decimal places to display (not used)}
+
+\item{...}{Currently not implemented}
+}
 \description{
 Prints the result of an object of class \code{vuongtest.mlmodel}
 }

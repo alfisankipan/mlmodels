@@ -403,9 +403,6 @@ new_ml_negbin <- function(object, ...) {
 }
 
 # ML_NEGBIN FIT ----------------------------------------------------------------
-#' Internal fitting function for ml_negbin
-#'
-#'
 #' @keywords internal
 .ml_negbin.fit <- function(y, x, z, w = NULL,
                        method = "NR",
@@ -428,7 +425,7 @@ new_ml_negbin <- function(object, ...) {
   # has the right dimension.
   if(!is.null(start))
   {
-    ll <- .ml_nb1_ll(start,y,x,z,w)
+    ll <- fun_ll(start,y,x,z,w)
     if(any(!is.finite(ll)))
       cli::cli_abort("Infeasible log-likelihood value at supplied `start` vector.",
                      call = NULL)

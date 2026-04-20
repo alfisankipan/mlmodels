@@ -16,7 +16,7 @@ A data frame with 807 observations and 10 variables.
 \item{restaurn}{Binary: restaurant restrictions on smoking}
 \item{lincome}{\code{log(income)}}
 \item{agesq}{\code{age^2}}
-\item{lcigprice}{\code{log(cigprice)}}
+\item{lcigpric}{\code{log(cigprice)}}
 }
 }
 \source{

@@ -454,7 +454,7 @@
     cli::cli_abort("`constraints` must be NULL, a character vector, a named list, or a raw maxLik list.",
                    call = NULL)
   }
-
+  
   # Parse the string constraints into maxLik format
   maxLik_list <- .parse_string_constraints(strings, coef_names)
   

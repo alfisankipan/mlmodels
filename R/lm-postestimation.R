@@ -10,12 +10,12 @@
 #' |---------------------|---------------------------------------|------------------------------------------------------|-------|
 #' | `link` | Linear predictor for scale (zd) | Linear predictor on log scale (μ_log) | Scale equation |
 #' | `fitted` | xb (mean predictor) | xb (original log-scale predictor) | Mean equation |
-#' | `response`, `mean` | xb (E\code{[y]}) | E\code{[y]} = exp(μ_log + σ²/2) - shift | Proper expected value on original scale |
+#' | `response`, `mean`, `mu` | xb (E\code{[y]}) | E\code{[y]} = exp(μ_log + σ²/2) - shift | Proper expected value on original scale |
 #' | `median` | xb (same as mean) | exp(μ_log) - shift | Median of y |
 #' | `sigma`, `sd` | σ (sd of ε) | σ (sd of \code{log(y)}) | On log scale |
 #' | `sigma_y`, `sd_y` | same as `sigma` | sd(y) | Only meaningful in lognormal case |
-#' | `variance` | σ² | σ² (variance of \code{log(y)}) | On log scale |
-#' | `variance_y` | same as `variance` | Var(y) = exp(2μ_log + σ²)(exp(σ²) - 1) | Only meaningful in lognormal case |
+#' | `variance`, `var` | σ² | σ² (variance of \code{log(y)}) | On log scale |
+#' | `variance_y`, `var_y` | same as `variance` | Var(y) = exp(2μ_log + σ²)(exp(σ²) - 1) | Only meaningful in lognormal case |
 #' | `zd` | Linear predictor for scale (zd) | Linear predictor for scale (zd) | Alias for `link` |
 #'
 #' When the outcome is log-transformed, `response` (or `mean`) returns the
@@ -40,9 +40,9 @@ predict.ml_lm <- function(object,
 {
   if (!inherits(object, "ml_lm"))
     cli::cli_abort("`object` must be of class 'ml_lm'.")
-  type <- rlang::arg_match(type, c("response", "mean", "median", "fitted",
+  type <- rlang::arg_match(type, c("response", "mean", "mu", "median", "fitted",
                                    "sigma", "sd", "variance",
-                                   "sigma_y", "sd_y", "variance_y",
+                                   "sigma_y", "sd_y", "var", "var_y", "variance_y",
                                    "link", "zd"))
   # ── Prepare predictors (using hardhat) ─────────────────────────────
   is_heteroskedastic <- !is.null(object$model$scale_formula)
@@ -86,15 +86,18 @@ predict.ml_lm <- function(object,
     out <- switch(type,
                   "link" = ,
                   "zd" = zd,
-                  "fitted" = xb,
+                  "fitted" = ,
                   "response" = ,
                   "mean" = ,
+                  "mu"   = ,
                   "median" = xb,
                   "sigma" = ,
                   "sd" = ,
                   "sigma_y" = ,
                   "sd_y" = sigma,
                   "variance" = ,
+                  "var"      = ,
+                  "var_y"    = ,
                   "variance_y" = sigma^2)
   } else {
     # Lognormal case
@@ -112,13 +115,16 @@ predict.ml_lm <- function(object,
                   "zd" = zd,
                   "fitted" = xb,
                   "response" = ,
+                  "mu"       = ,
                   "mean" = Ey,
                   "median" = My,
                   "sigma" = ,
                   "sd" = sigma,
                   "sigma_y" = ,
                   "sd_y" = sqrt(Vy),
+                  "var"      = ,
                   "variance" = sigma^2,
+                  "var_y"     = ,
                   "variance_y" = Vy)
   }
   
@@ -149,17 +155,18 @@ predict.ml_lm <- function(object,
     g_mean_beta   <- X
     g_mean_delta  <- matrix(0, n_obs, n_delta)
     g_link_beta   <- matrix(0, n_obs, n_beta)
-    g_link_delta  <- if (is_heteroskedastic) Z else matrix(1, n_obs, 1)
+    g_link_delta  <- Z
     g_sigma_beta  <- matrix(0, n_obs, n_beta)
-    g_sigma_delta <- if (is_heteroskedastic) sigma * Z else sigma
+    g_sigma_delta <- sigma * Z
     g_var_beta    <- matrix(0, n_obs, n_beta)
-    g_var_delta   <- if (is_heteroskedastic) 2 * sigma^2 * Z else 2 * sigma^2
+    g_var_delta   <- 2 * sigma^2 * Z
     
     g[, 1:n_beta] <- switch(type,
                             "link" = ,
                             "zd"   = g_link_beta,
                             "fitted" = ,
                             "response" = ,
+                            "mu"       = ,
                             "mean" = ,
                             "median" = g_mean_beta,
                             "sigma" = ,
@@ -167,14 +174,16 @@ predict.ml_lm <- function(object,
                             "sigma_y" = ,
                             "sd_y" = g_sigma_beta,
                             "variance" = ,
-                            "variance_y" = g_var_beta,
-                            g_mean_beta) # default = mean
+                            "var"      = ,
+                            "var_y"    = ,
+                            "variance_y" = g_var_beta)
     
     g[, (n_beta + 1):(n_beta + n_delta)] <- switch(type,
                                                    "link" = ,
                                                    "zd"   = g_link_delta,
                                                    "fitted" = ,
                                                    "response" = ,
+                                                   "mu"      = ,
                                                    "mean" = ,
                                                    "median" = g_mean_delta,
                                                    "sigma" = ,
@@ -182,8 +191,9 @@ predict.ml_lm <- function(object,
                                                    "sigma_y" = ,
                                                    "sd_y" = g_sigma_delta,
                                                    "variance" = ,
-                                                   "variance_y" = g_var_delta,
-                                                   g_mean_delta) # default = mean
+                                                   "var"      = ,
+                                                   "var_y"    = ,
+                                                   "variance_y" = g_var_delta)
   } else {
     # Lognormal case — all moments computed unconditionally (independent of type)
     mu_log   <- xb - log(log_info$multiplier)
@@ -194,34 +204,52 @@ predict.ml_lm <- function(object,
     
     # Gradients (your original derivatives, now using the correct Ey/My/Vy)
     g_mean_beta   <- Ey * X
-    g_mean_delta  <- if (is_heteroskedastic) Ey * sigma_i^2 * Z else Ey * sigma_i^2
+    g_mean_delta  <- Ey * sigma_i^2 * Z
     g_med_beta    <- My * X
     g_med_delta   <- matrix(0, n_obs, n_delta)
     g_var_beta    <- 2 * Vy * X
-    g_var_delta   <- if (is_heteroskedastic)
-      2 * sigma_i^2 * exp(2 * xb + sigma_i^2) * (2 * exp(sigma_i^2) - 1) * Z
-    else
-      2 * sigma_i^2 * exp(2 * xb + sigma_i^2) * (2 * exp(sigma_i^2) - 1)
+    g_var_delta   <-  2 * sigma_i^2 * exp(2 * xb + sigma_i^2) * (2 * exp(sigma_i^2) - 1) * Z
+    
+    # Sigma (sd of log(y))
+    g_sigma_beta  <- matrix(0, n_obs, n_beta)
+    g_sigma_delta <- Z
+    
+    # Sigma_y (sd of y)
+    g_sigmay_beta  <- 0.5 / sqrt(Vy) * g_vary_beta
+    g_sigmay_delta <- 0.5 / sqrt(Vy) * g_vary_delta
     
     g[, 1:n_beta] <- switch(type,
                             "link" = ,
                             "fitted" = X,
                             "response" = ,
+                            "mu"       = ,
                             "mean" = g_mean_beta,
                             "median" = g_med_beta,
+                            "sigma"  = ,
+                            "sd"     = g_sigma_beta ,
+                            "sigma_y" = ,
+                            "sd_y"    = g_sigmay_beta,
+                            "var_y"  = ,
                             "variance_y" = g_var_beta,
+                            "var"      = ,
                             "variance" = matrix(0, n_obs, n_beta),
                             matrix(0, n_obs, n_beta)) # default for sigma, sd, etc.
     
     g[, (n_beta + 1):(n_beta + n_delta)] <- switch(type,
                                                    "link" = ,
-                                                   "fitted" = 0,
+                                                   "fitted" = matrix(0, n_obs, n_delta),
                                                    "response" = ,
+                                                   "mu"       = ,
                                                    "mean" = g_mean_delta,
-                                                   "median" = 0,
+                                                   "median" = matrix(0, n_obs, n_delta),
+                                                   "sigma"  = ,
+                                                   "sd"     = g_sigma_delta,
+                                                   "sigma_y" = ,
+                                                   "sd_y"    = g_sigmay_delta,
+                                                   "var_y"   = ,
                                                    "variance_y" = g_var_delta,
-                                                   "variance" = if (is_heteroskedastic) Z else 1,
-                                                   if (is_heteroskedastic) Z else 1) # default for sigma, sd, etc.
+                                                   "variance" = Z
+    )
   }
   
   full_vcov <- .process_vcov(object,
@@ -255,7 +283,7 @@ predict.ml_lm <- function(object,
     fit = out,
     se.fit = se_fit
   )
-  class(res) <- c("predict.ml_negbin", "predict.mlmodel")
+  class(res) <- c("predict.ml_ml", "predict.mlmodel")
   return(res)
 }
 

@@ -3,22 +3,20 @@
 \name{get_data.mlmodel}
 \alias{get_data.mlmodel}
 \alias{get_modeldata.mlmodel}
-\title{Implementation of \code{insight} package's \code{get_data()} function.}
+\title{Extract data used to fit the model (for insight/marginaleffects compatibility)}
 \usage{
 \method{get_data}{mlmodel}(x, ...)
 
 get_modeldata.mlmodel(x, ...)
 }
 \arguments{
-\item{x}{An \code{mlmodel} estimation object (from one of the package's
-estimation functions).}
+\item{x}{An object of class \code{"mlmodel"}}
 
-\item{...}{Additional arguments sent to methods.}
+\item{...}{Further arguments (currently ignored)}
 }
 \value{
-A data.frame with the data the user passed when estimating the
-model.
+The original data frame used when fitting the model
 }
 \description{
-Implementation of \code{insight} package's \code{get_data()} function.
+Extract data used to fit the model (for insight/marginaleffects compatibility)
 }

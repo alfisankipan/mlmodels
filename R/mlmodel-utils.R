@@ -614,6 +614,9 @@ terms.mlmodel <- function(x, ...) {
 #' `vcov(object, type = "boot")` instead. See [vcov][mlmodels::vcov.mlmodel].
 #' 
 #' @author Alfonso Sanchez-Penalver
+#' 
+#' @method update mlmodel
+#' 
 #' @export
 update.mlmodel <- function(object,
                            formula. = NULL,

@@ -5,22 +5,32 @@
 
 # --- S3 methods for mlmodel class ----------------------------------------
 
+#' @importFrom marginaleffects get_predict
 #' @export
 get_predict.mlmodel <- function(model,
                                 newdata = NULL,
                                 type = "response",
-                                vcov.type = "oim",
+                                mfx = NULL,
+                                newparams = NULL,
+                                ndraws = NULL,
+                                se.fit = NULL,
                                 ...)
 {
-  pred <- predict(model, newdata = newdata, type = type, vcov.type = vcov.type, ...)
+  pred <- predict(model, newdata = newdata, type = type, ...)
   data.frame(
     rowid = seq_len(length(pred$fit)),
     estimate = pred$fit
   )
 }
 
+#' @importFrom marginaleffects get_vcov
 #' @export
-get_vcov.mlmodel <- function(model, vcov = NULL, cl_var = NULL, ...)
+get_vcov.mlmodel <- function(model,
+                             vcov = NULL,
+                             cl_var = NULL,
+                             repetitions = 999,
+                             seed = NULL,
+                             progress = FALSE, ...)
 {
   if(is.matrix(vcov))
     return(vcov)
@@ -28,17 +38,24 @@ get_vcov.mlmodel <- function(model, vcov = NULL, cl_var = NULL, ...)
   valid_types <- c("oim", "robust", "opg", "cluster", "boot", "jack", "jackknife")
   
   if(is.character(vcov) && vcov %in% valid_types)
-    return(vcov(model, type = vcov, cl_var = cl_var))
+    return(vcov(model,
+                type = vcov,
+                cl_var = cl_var,
+                repetitions = repetitions,
+                seed = seed,
+                progress = progress))
   
   return(vcov(model))
 }
 
+#' @importFrom marginaleffects get_coef
 #' @export
 get_coef.mlmodel <- function(model, ...)
 {
   coef(model, ...)
 }
 
+#' @importFrom marginaleffects set_coef
 #' @export
 set_coef.mlmodel <- function(model, coefs, ...)
 {
@@ -47,15 +64,11 @@ set_coef.mlmodel <- function(model, coefs, ...)
   return(out)
 }
 
-#' Implementation of `insight` package's `get_data()` function.
-#' 
-#' @param x An `mlmodel` estimation object (from one of the package's
-#'    estimation functions).
-#' @param ... Additional arguments sent to methods.
-#' 
-#' @returns A data.frame with the data the user passed when estimating the
-#'    model.
-#' 
+#' Extract data used to fit the model (for insight/marginaleffects compatibility)
+#'
+#' @param x An object of class `"mlmodel"`
+#' @param ... Further arguments (currently ignored)
+#' @return The original data frame used when fitting the model
 #' @importFrom insight get_data
 #' @export
 get_data.mlmodel <- function(x, ...) {
@@ -71,6 +84,64 @@ get_data.mlmodel <- function(x, ...) {
 
   cli::cli_abort("Could not recover the original data from the mlmodel object.",
                  call = NULL)
+}
+
+#' @importFrom insight find_predictors
+#' @export
+find_predictors.mlmodel <- function(x, ...)
+{
+  vars <- character(0)
+  
+  # Value
+  if(!is.null(x$model$formula))
+  {
+    rhs <- rlang::f_rhs(x$model$formula)
+    vars <- all.vars(rhs)
+  }
+  else if(!is.null(x$model$value$blueprint$formula))
+  {
+    rhs <- rlang::f_rhs(x$model$value$blueprint$formula)
+    vars <- all.vars(rhs)
+  }
+  
+  # Scale
+  if(!is.null(x$model$scale_formula))
+  {
+    rhs <- rlang::f_rhs(x$model$scale_formula)
+    vars <- unique(c(vars, all.vars(rhs)))
+  }
+  else if(!is.null(x$model$scale$blueprint$formula))
+  {
+    rhs <- rlang::f_rhs(x$model$scale$blueprint$formula)
+    vars <- unique(c(vars, all.vars(rhs)))
+  }
+  
+  # return(list(conditional = vars))
+  vars
+}
+
+#' @export
+#' @importFrom insight find_variables
+find_variables.mlmodel <- function(x, ...) {
+  
+  # Start with predictors
+  pred_vars <- find_predictors(x, ...)
+  
+  # Add response variable
+  response <- character(0)
+  
+  if (!is.null(x$model$formula)) {
+    lhs <- rlang::f_lhs(x$model$formula)
+    response <- all.vars(lhs)
+  } else if (!is.null(x$model$value$blueprint$formula)) {
+    lhs <- rlang::f_lhs(x$model$value$blueprint$formula)
+    response <- all.vars(lhs)
+  }
+  
+  list(
+    conditional = pred_vars,
+    response    = response
+  )
 }
 
 #' @rdname get_data.mlmodel

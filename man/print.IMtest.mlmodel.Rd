@@ -6,6 +6,13 @@
 \usage{
 \method{print}{IMtest.mlmodel}(x, digits = 4, ...)
 }
+\arguments{
+\item{x}{An object of class \code{'IMtest.mlmodel'}, i.e. from \code{IMtest()}}
+
+\item{digits}{Number of decimal places (not used)}
+
+\item{...}{Not currently implemented}
+}
 \description{
 Prints the results of an object of class \code{IMtest.mlmodel}
 }

@@ -1,7 +1,7 @@
 ## GOFtest =====================================================================
 #' Goodness of Fit Test for Count Models
 #' 
-#' Performs the Manjón y Martínez (2014) Score Test of Overdispersion.
+#' Performs the Manjon & Martinez (2014) Score Test of Overdispersion.
 #' 
 #' @param object An object of class `mlmodel.count`, that has been estimated with
 #'   one of our estimators for count data (ml_poisson, ml_negbin, ...)
@@ -41,7 +41,7 @@
 #' @author Alfonso Sanchez-Penalver
 #' 
 #' @references 
-#' Manjón, M., & Martínez, O. (2014). The chi-squared goodness-of-fit 
+#' Manjon, M., & Martinez, O. (2014). The chi-squared goodness-of-fit 
 #' test for count-data models. \emph{The Stata Journal}, 14(4), 798-816. 
 #' \doi{10.1177/1536867X1401400406}
 #' 
@@ -192,7 +192,7 @@ print.GOFtest <- function(x, ...) {
   if(!is.null(x$model))
     cat("   Model:", x$model)
   cat("\n--------------------------------------------------\n")
-  cat("Manjón & Martínez (2014) Score Test\n\n")
+  cat("Manjon & Martinez (2014) Score Test\n\n")
   
   # Print the Comparison Table
   print(round(x$matrix, 4))

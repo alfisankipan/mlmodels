@@ -373,6 +373,10 @@ IMtest.mlmodel <- function(object,
 
 #' Prints the results of an object of class `IMtest.mlmodel`
 #' 
+#' @param x An object of class `'IMtest.mlmodel'`, i.e. from `IMtest()`
+#' @param digits Number of decimal places (not used)
+#' @param ... Not currently implemented
+#' 
 #' @export
 print.IMtest.mlmodel <- function(x, digits = 4, ...)
 {
@@ -457,6 +461,10 @@ vuongtest.mlmodel <- function(object_1, object_2, ...)
 
 
 #' Prints the result of an object of class `vuongtest.mlmodel`
+#' 
+#' @param x An object of class `vuongtest.mlmodel`, i.e. from `vuongtest()`
+#' @param digits Number of decimal places to display (not used)
+#' @param ... Currently not implemented
 #' 
 #' @export
 print.vuongtest.mlmodel <- function(x, digits = 4, ...)

@@ -30,7 +30,7 @@ different bins.}
 }
 }
 \description{
-Performs the Manjón y Martínez (2014) Score Test of Overdispersion.
+Performs the Manjon & Martinez (2014) Score Test of Overdispersion.
 }
 \details{
 While performing the test, it also prepares a table to display collecting
@@ -48,7 +48,7 @@ GOFtest(fit, bins = 1:3)
 
 }
 \references{
-Manjón, M., & Martínez, O. (2014). The chi-squared goodness-of-fit
+Manjon, M., & Martinez, O. (2014). The chi-squared goodness-of-fit
 test for count-data models. \emph{The Stata Journal}, 14(4), 798-816.
 \doi{10.1177/1536867X1401400406}
 }

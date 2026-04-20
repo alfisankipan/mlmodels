@@ -154,7 +154,7 @@ ml_beta <- function(value,
                                           data)
   
   if(log_info$value$is_log)
-    cli:cli_abort("Log transformations of the outcome variable are not allowed in the Beta model.")
+    cli::cli_abort("Log transformations of the outcome variable are not allowed in the Beta model.")
   
   # Check that observations fall between 0 and 1
   lhs_var <- rlang::f_lhs(value)

@@ -193,10 +193,10 @@ ml_poisson <- function(value,
                      call = NULL)
     if (any(!is.numeric(start)))
       cli::cli_abort("Initial values must be numeric.", call = NULL)
-    if (length(start) != (ncol(x) + ncol(z)))
+    if (length(start) != (ncol(x)))
       cli::cli_abort("The vector of initial values has the wrong dimension. It requires {.val {ncol(x) + ncol(z)}} values.")
     
-    coef_names <- c(paste0("value::", colnames(x)), paste0("scale::", colnames(z)))
+    coef_names <- paste0("value::", colnames(x))
     parsed_constraints <- .parse_constraints(constraints, coef_names)
     
     if (!is.null(parsed_constraints$maxLik$eqA))
@@ -362,7 +362,7 @@ new_ml_poisson <- function(object, ...) {
   # has the right dimension.
   if(!is.null(start))
   {
-    ll <- .ml_poisson_ll(start,y,x,w)
+    ll <- .ml_poisson_ll(start, y, x, w)
     
     if(any(!is.finite(ll)))
       cli::cli_abort("Infeasible log-likelihood value at supplied `start` vector.",

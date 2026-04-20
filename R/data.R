@@ -119,7 +119,7 @@
 #'    \item{restaurn}{Binary: restaurant restrictions on smoking}
 #'    \item{lincome}{\code{log(income)}}
 #'    \item{agesq}{\code{age^2}}
-#'    \item{lcigprice}{\code{log(cigprice)}}
+#'    \item{lcigpric}{\code{log(cigprice)}}
 #' }
 #' 
 #' @references 

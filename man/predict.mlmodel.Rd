@@ -210,12 +210,12 @@ depending on whether the outcome was modeled in logs (\code{log(y)}).\tabular{ll
    Type \tab Normal (linear) case \tab Lognormal case (\code{log(y)}) \tab Notes \cr
    \code{link} \tab Linear predictor for scale (zd) \tab Linear predictor on log scale (μ_log) \tab Scale equation \cr
    \code{fitted} \tab xb (mean predictor) \tab xb (original log-scale predictor) \tab Mean equation \cr
-   \code{response}, \code{mean} \tab xb (E\code{[y]}) \tab E\code{[y]} = exp(μ_log + σ²/2) - shift \tab Proper expected value on original scale \cr
+   \code{response}, \code{mean}, \code{mu} \tab xb (E\code{[y]}) \tab E\code{[y]} = exp(μ_log + σ²/2) - shift \tab Proper expected value on original scale \cr
    \code{median} \tab xb (same as mean) \tab exp(μ_log) - shift \tab Median of y \cr
    \code{sigma}, \code{sd} \tab σ (sd of ε) \tab σ (sd of \code{log(y)}) \tab On log scale \cr
    \code{sigma_y}, \code{sd_y} \tab same as \code{sigma} \tab sd(y) \tab Only meaningful in lognormal case \cr
-   \code{variance} \tab σ² \tab σ² (variance of \code{log(y)}) \tab On log scale \cr
-   \code{variance_y} \tab same as \code{variance} \tab Var(y) = exp(2μ_log + σ²)(exp(σ²) - 1) \tab Only meaningful in lognormal case \cr
+   \code{variance}, \code{var} \tab σ² \tab σ² (variance of \code{log(y)}) \tab On log scale \cr
+   \code{variance_y}, \code{var_y} \tab same as \code{variance} \tab Var(y) = exp(2μ_log + σ²)(exp(σ²) - 1) \tab Only meaningful in lognormal case \cr
    \code{zd} \tab Linear predictor for scale (zd) \tab Linear predictor for scale (zd) \tab Alias for \code{link} \cr
 }
 
