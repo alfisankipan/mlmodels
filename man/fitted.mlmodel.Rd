@@ -3,13 +3,11 @@
 \name{fitted.mlmodel}
 \alias{fitted.mlmodel}
 \alias{fitted.values.mlmodel}
-\title{Returns the fitted values from an object of class \code{mlmodel}.}
+\title{Extract Fitted Values}
 \usage{
 \method{fitted}{mlmodel}(object, ...)
 
 \method{fitted}{values.mlmodel}(object, ...)
-
-\method{fitted}{mlmodel}(object, ...)
 }
 \arguments{
 \item{object}{An \code{mlmodel} object.}
@@ -17,13 +15,9 @@
 \item{...}{Further arguments passed to methods (currently ignored).}
 }
 \value{
-A vector with the fitted values of the model.
-
 A numeric vector of fitted values, aligned to the original sample size.
 Observations that were dropped (due to \code{subset}, \code{NA}s, etc.) will be \code{NA}.
 }
 \description{
-Returns the fitted values from an object of class \code{mlmodel}.
-
 Extract Fitted Values
 }
