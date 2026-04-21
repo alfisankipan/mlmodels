@@ -49,7 +49,6 @@ AIC.summary.mlmodel <- function(object, ..., k = 2)
 }
 
 ## BIC =========================================================================
-# --- General ------------------------------------------------------------------
 #' Extract BIC
 #'
 #' @param object An object of class `"mlmodel"` or `"summary.mlmodel"`.
