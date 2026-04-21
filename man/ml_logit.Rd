@@ -44,13 +44,13 @@ if constraints are being supplied. If supplied without constraints they
 will be ignored. See \strong{Details}.}
 
 \item{method}{A string with the method used for optimization. See
-\code{\link[maxLik:maxLik]{maxLik::maxLik()}} for options, and see \strong{Details}.}
+\link[maxLik:maxLik]{maxLik} for options, and see \strong{Details}.}
 
-\item{control}{A list of control parameters passed to \code{\link[maxLik:maxLik]{maxLik::maxLik()}}.
+\item{control}{A list of control parameters passed to \link[maxLik:maxLik]{maxLik}.
 If \code{NULL} (default), a sensible set of options is chosen automatically
-depending on whether constraints are used. See \link[maxLik:maxControl]{maxLik::maxControl}.}
+depending on whether constraints are used. See \link[maxLik:maxControl]{maxControl}.}
 
-\item{...}{Additional arguments passed to \code{\link[maxLik:maxLik]{maxLik::maxLik()}}.}
+\item{...}{Additional arguments passed to \link[maxLik:maxLik]{maxLik}.}
 }
 \value{
 An object of class \code{ml_logit} that extends \code{mlmodel}.
@@ -64,8 +64,12 @@ formula (\code{- 1} or \code{+ 0}) for the value equation. Use the dedicated arg
 \code{noint_value} instead. For the scale equation (if modeling heteroskedasticity),
 the formula must contain only the predictors (right-hand side).
 
-The dependent variable must be binary (0/1 or TRUE/FALSE) or fractional
-(0 <= y <= 1).
+For strictly binary outcomes (0/1), both \code{ml_logit()} and
+\code{ml_probit()} are appropriate.
+
+\code{ml_logit()} can also handle fractional responses
+(\code{0 < y < 1}). When using fractional responses, it is recommended
+to use robust standard errors (\code{vcov.type = "robust"}).
 
 Coefficient names in the fitted object use the prefixes \verb{value::} and
 \verb{scale::} (when heteroskedasticity is modeled) to clearly identify which
@@ -85,6 +89,37 @@ When constraints are used, \code{ml_logit} automatically chooses \code{method}:
 }
 
 In these cases your supplied \code{method} argument (if any) is ignored.
+}
+\examples{
+
+# Homoskedastic binary logit model
+data(smoke)
+smoke$smokes <- smoke$cigs > 0
+
+fit_logit <- ml_logit(smokes ~ cigpric + income + age, 
+                      data = smoke)
+
+summary(fit_logit, vcov.type = "robust")
+
+# Heteroskedastic binary logit model
+fit_logit_het <- ml_logit(smokes ~ cigpric + income + age,
+                          scale = ~ educ,
+                          data = smoke)
+
+summary(fit_logit_het, vcov.type = "robust")
+
+# Different predict types
+head(predict(fit_logit, type = "response")$fit)   # Predicted probability
+head(predict(fit_logit, type = "link")$fit)       # Linear predictor (log-odds)
+
+# Fitted values and residuals
+head(fitted(fit_logit))
+head(residuals(fit_logit))
+head(residuals(fit_logit, type = "pearson"))
+
+}
+\seealso{
+\code{\link{ml_probit}} for the probit counterpart.
 }
 \author{
 Alfonso Sanchez-Penalver

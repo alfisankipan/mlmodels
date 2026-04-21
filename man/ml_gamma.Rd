@@ -49,13 +49,13 @@ if constraints are being supplied. If supplied without constraints they
 will be ignored. See \strong{Details}.}
 
 \item{method}{A string with the method used for optimization. See
-\code{\link[maxLik:maxLik]{maxLik::maxLik()}} for options, and see \strong{Details}.}
+\link[maxLik:maxLik]{maxLik} for options, and see \strong{Details}.}
 
-\item{control}{A list of control parameters passed to \code{\link[maxLik:maxLik]{maxLik::maxLik()}}.
+\item{control}{A list of control parameters passed to \link[maxLik:maxLik]{maxLik}.
 If \code{NULL} (default), a sensible set of options is chosen automatically
-depending on whether constraints are used. See \link[maxLik:maxControl]{maxLik::maxControl}.}
+depending on whether constraints are used. See \link[maxLik:maxControl]{maxControl}.}
 
-\item{...}{Additional arguments passed to \code{\link[maxLik:maxLik]{maxLik::maxLik()}}.}
+\item{...}{Additional arguments passed to \link[maxLik:maxLik]{maxLik}.}
 }
 \value{
 An object of class \code{ml_gamma} that extends \code{mlmodel}.
