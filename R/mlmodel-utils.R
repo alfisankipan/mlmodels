@@ -1,7 +1,6 @@
 # mlmodels: Exported utility functions for all mlmodel objects
 
 ## AIC =========================================================================
-# --- General ------------------------------------------------------------------
 #' Extract AIC from mlmodel objects
 #'
 #' @param object An object of class `"mlmodel"` or `"summary.mlmodel"`.
@@ -35,7 +34,7 @@ AIC.mlmodel <- function(object, ..., k = 2)
 }
 
 # --- summary.mlmodel ----------------------------------------------------------
-#' @rdname AIC
+#' @rdname AIC.mlmodel
 #' @export
 AIC.summary.mlmodel <- function(object, ..., k = 2)
 {
@@ -74,7 +73,7 @@ BIC.mlmodel <- function(object, ...)
 }
 
 # --- summary.mlmodel ----------------------------------------------------------
-#' @rdname BIC
+#' @rdname BIC.mlmodel
 #' @export
 BIC.summary.mlmodel <- function(object, ...)
 {
