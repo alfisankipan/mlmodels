@@ -22,6 +22,7 @@
 #' @importFrom stats lm
 #' @importFrom stats .lm.fit
 #' @importFrom stats logLik
+#' @importFrom stats nobs
 #' @importFrom stats pchisq
 #' @importFrom stats plogis
 #' @importFrom stats pnbinom

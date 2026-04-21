@@ -2,7 +2,7 @@
 % Please edit documentation in R/mlmodel-utils.R
 \name{confint.mlmodel}
 \alias{confint.mlmodel}
-\title{Gets the confidence interval for an estimated model.}
+\title{Confidence Intervals for mlmodel Coefficients}
 \usage{
 \method{confint}{mlmodel}(
   object,
@@ -18,28 +18,68 @@
 )
 }
 \arguments{
-\item{object}{Any model estimated with one of our estimators.}
+\item{object}{An \code{mlmodel} object.}
 
-\item{parm}{A vector with the names or indices of the parameters you want the
-interval for. If missing all parameters are considered.}
+\item{parm}{A specification of which parameters are to be given confidence
+intervals (names or numeric indices). If missing, all parameters are used.}
 
-\item{level}{The confidence level for the interval.}
+\item{level}{The confidence level required. Default is 0.95.}
 
 \item{vcov}{Optional user-supplied variance-covariance matrix.}
 
-\item{vcov.type}{Type of variance-covariance matrix. See \link[=vcov.mlmodel]{vcov}.}
+\item{vcov.type}{Type of variance-covariance matrix to use.
+See \link{vcov.mlmodel}.}
 
-\item{cl_var}{Clustering variable (name or vector).}
+\item{cl_var}{Clustering variable (name as string or vector).}
 
 \item{repetitions}{Number of bootstrap replications when \code{vcov.type = "boot"}.}
 
-\item{seed}{Random seed for the boostrapping, for reproducibility.}
+\item{seed}{Random seed for bootstrap/jackknife.}
 
-\item{progress}{Logical. Show bootstrap/jackknife progress bar? Default is
-\code{FALSE} in higher-level functions.}
+\item{progress}{Show progress bar? Default \code{FALSE}.}
 
-\item{...}{Additional arguments for methods.}
+\item{...}{Further arguments passed to methods.}
+}
+\value{
+Matrix with the confidence intervals for the requested parameters.
 }
 \description{
-Gets the confidence interval for an estimated model.
+Confidence Intervals for mlmodel Coefficients
+}
+\details{
+Confidence intervals are constructed as
+\eqn{\hat{\beta} \pm z_{1-\alpha/2} \times SE(\hat{\beta})},
+where the standard errors come from the requested variance-covariance matrix.
+
+The function supports all variance types available in \link{vcov.mlmodel},
+including robust, clustered, bootstrap, and jackknife estimators.
+}
+\examples{
+
+data(mroz)
+mroz$incthou <- mroz$faminc / 1000
+
+fit <- ml_lm(incthou ~ age + I(age^2) + huswage + educ + unem, 
+             data = mroz)
+
+# Default 95\% confidence intervals (using OIM)
+confint(fit)
+
+# 90\% confidence intervals
+confint(fit, level = 0.90)
+
+# Confidence intervals for specific parameters
+confint(fit, parm = c("value::educ", "value::huswage"))
+confint(fit, parm = 4:5)                     # by position
+
+# Using different variance types
+confint(fit, vcov.type = "robust")
+
+# Clustered confidence intervals
+confint(fit, vcov.type = "robust", cl_var = "age")
+
+# Using a pre-computed bootstrap variance matrix
+v_boot <- vcov(fit, type = "boot", repetitions = 100, seed = 123)
+confint(fit, vcov = v_boot)
+
 }

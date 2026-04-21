@@ -4,19 +4,19 @@
 #' Extract AIC from mlmodel objects
 #'
 #' @param object An object of class `"mlmodel"` or `"summary.mlmodel"`.
-#' @param k Numeric. The penalty per parameter to be used. Default is `k = 2`,
-#'   which gives the standard AIC. See [stats::AIC()] for details.
+#' @param k Numeric. The penalty per parameter. Default is `k = 2` 
+#'   (standard AIC). See [stats::AIC()] for details.
 #' @param ... Further arguments passed to methods.
 #'
 #' @details
-#' For fitted `mlmodel` objects, AIC is computed as `-2 * logLik + k * npar`,
-#' where `npar` is the total number of coefficients.
-#'
-#' For `summary.mlmodel` objects, the pre-computed AIC (calculated with `k = 2`)
-#' is returned. The `k` argument is accepted for compatibility but is ignored.
+#' For `mlmodel` objects, AIC is computed as `-2 * logLik(object) + k * npar`.
+#' 
+#' For `summary.mlmodel` objects, the pre-computed AIC (with `k = 2`) is 
+#' returned; the `k` argument is accepted for compatibility but ignored.
 #'
 #' @return A numeric value with the AIC.
-#' 
+#'
+#' @method AIC mlmodel
 #' @export
 AIC.mlmodel <- function(object, ..., k = 2)
 {
@@ -49,11 +49,17 @@ AIC.summary.mlmodel <- function(object, ..., k = 2)
 }
 
 ## BIC =========================================================================
-#' Extract BIC
+#' Extract BIC from mlmodel objects
 #'
 #' @param object An object of class `"mlmodel"` or `"summary.mlmodel"`.
 #' @param ... Further arguments passed to methods.
 #'
+#' @details
+#' BIC is computed as `-2 * logLik(object) + log(nobs) * npar`.
+#'
+#' @return A numeric value with the BIC.
+#'
+#' @method BIC mlmodel
 #' @export
 BIC.mlmodel <- function(object, ...)
 {
@@ -86,15 +92,12 @@ BIC.summary.mlmodel <- function(object, ...)
 }
 
 ## COEFFICIENTS ================================================================
-#' Gets the coefficients from an mlmodel estimation.
+#' Extract Model Coefficients
 #'
-#' @param object An mlmodel from an estimator, that you want the coefficients for.
-#'
+#' @param object An `mlmodel` object.
 #' @param ... Currently not used.
 #'
-#' @returns A vector with the coefficients from the estimation.
-#'
-#' @author Alfonso Sanchez-Penalver
+#' @return A named numeric vector of estimated coefficients.
 #'
 #' @method coef mlmodel
 #' @export
@@ -106,21 +109,59 @@ coef.mlmodel <- function(object, ...) {
 }
 
 ## CONFINT =====================================================================
-#' Gets the confidence interval for an estimated model.
-#' 
-#' @param object Any model estimated with one of our estimators.
-#' @param parm A vector with the names or indices of the parameters you want the
-#'    interval for. If missing all parameters are considered.
-#' @param level The confidence level for the interval.
+#' Confidence Intervals for mlmodel Coefficients
+#'
+#' @param object An `mlmodel` object.
+#' @param parm A specification of which parameters are to be given confidence 
+#'   intervals (names or numeric indices). If missing, all parameters are used.
+#' @param level The confidence level required. Default is 0.95.
 #' @param vcov Optional user-supplied variance-covariance matrix.
-#' @param vcov.type Type of variance-covariance matrix. See [vcov][vcov.mlmodel].
-#' @param cl_var Clustering variable (name or vector).
+#' @param vcov.type Type of variance-covariance matrix to use. 
+#'   See [vcov.mlmodel].
+#' @param cl_var Clustering variable (name as string or vector).
 #' @param repetitions Number of bootstrap replications when `vcov.type = "boot"`.
-#' @param seed Random seed for the boostrapping, for reproducibility.
-#' @param progress Logical. Show bootstrap/jackknife progress bar? Default is
-#'   `FALSE` in higher-level functions.
-#' @param ... Additional arguments for methods.
+#' @param seed Random seed for bootstrap/jackknife.
+#' @param progress Show progress bar? Default `FALSE`.
+#' @param ... Further arguments passed to methods.
+#'
+#' @returns Matrix with the confidence intervals for the requested parameters.
 #' 
+#' @details
+#' Confidence intervals are constructed as 
+#' \eqn{\hat{\beta} \pm z_{1-\alpha/2} \times SE(\hat{\beta})}, 
+#' where the standard errors come from the requested variance-covariance matrix.
+#' 
+#' The function supports all variance types available in [vcov.mlmodel], 
+#' including robust, clustered, bootstrap, and jackknife estimators.
+#'
+#' @examples
+#' 
+#' data(mroz)
+#' mroz$incthou <- mroz$faminc / 1000
+#' 
+#' fit <- ml_lm(incthou ~ age + I(age^2) + huswage + educ + unem, 
+#'              data = mroz)
+#' 
+#' # Default 95% confidence intervals (using OIM)
+#' confint(fit)
+#' 
+#' # 90% confidence intervals
+#' confint(fit, level = 0.90)
+#' 
+#' # Confidence intervals for specific parameters
+#' confint(fit, parm = c("value::educ", "value::huswage"))
+#' confint(fit, parm = 4:5)                     # by position
+#' 
+#' # Using different variance types
+#' confint(fit, vcov.type = "robust")
+#' 
+#' # Clustered confidence intervals
+#' confint(fit, vcov.type = "robust", cl_var = "age")
+#' 
+#' # Using a pre-computed bootstrap variance matrix
+#' v_boot <- vcov(fit, type = "boot", repetitions = 100, seed = 123)
+#' confint(fit, vcov = v_boot)
+#'
 #' @method confint mlmodel
 #' @export
 confint.mlmodel <- function(object,
@@ -202,14 +243,15 @@ confint.mlmodel <- function(object,
 }
 
 ## FITTED ======================================================================
-#' Extract Fitted Values
+#' Extract Fitted Values from mlmodel
 #'
 #' @param object An `mlmodel` object.
 #' @param ... Further arguments passed to methods (currently ignored).
 #'
-#' @return A numeric vector of fitted values, aligned to the original sample size.
-#'   Observations that were dropped (due to `subset`, `NA`s, etc.) will be `NA`.
-#' 
+#' @return A numeric vector of fitted values, aligned to the original data.
+#'   Dropped observations (due to `NA`s or `subset`) return `NA`.
+#'
+#' @method fitted mlmodel
 #' @export
 fitted.mlmodel <- function(object, ...) {
   
@@ -227,16 +269,23 @@ fitted.values.mlmodel <- fitted.mlmodel
 
 ## LOGLIK ======================================================================
 # --- General ------------------------------------------------------------------
-#' Return the Log-likelihood value.
+#' Extract Log-Likelihood from mlmodel objects
 #'
-#' @param object Object of class `mlmodel` or `summary.mlmodel`, estimated with
-#' one of the estimators in this package.
+#' @param object An object of class `mlmodel` or `summary.mlmodel`.
+#' @param ... Additional arguments passed to methods.
 #'
-#' @param ... Additional arguments to methods.
+#' @details
+#' The returned object is of class `"logLik"` and has two important attributes:
+#' 
+#' * `nobs`: number of observations used in estimation.
+#' * `df`: number of estimated parameters (usually called *K*), 
+#'   computed as `length(coef(object))`. This includes coefficients from both 
+#'   the location (mean/value) and scale equations when present.
 #'
-#' @returns A scalar numeric: the log-likelihood of the model. It includes the
-#' number of observations as the attribute 'nobs'.
+#' @return An object of class `"logLik"` with the log-likelihood value and the 
+#'   attributes `nobs` and `df`.
 #'
+#' @method logLik mlmodel
 #' @export
 logLik.mlmodel <- function(object, ...)
 {
@@ -254,6 +303,7 @@ logLik.mlmodel <- function(object, ...)
 }
 
 # --- summary.mlmodel ----------------------------------------------------------
+#' @rdname logLik.mlmodel
 #' @export
 logLik.summary.mlmodel <- function(object, ...)
 {
@@ -358,14 +408,15 @@ loglikeObs.mlmodel <- function(object)
 }
 
 # NOBS =========================================================================
-#' Returns the number of observations used in an estimation of an `mlmodel` model.
-#' 
-#' @param object An `mlmodel` estimation model.
-#' @param ... Not currently implemented.
-#' 
-#' @returns A value with the number of observations used in the estimation.
-#' 
-#' @importFrom stats nobs
+#' Extract the Number of Observations from an mlmodel
+#'
+#' @param object An object of class `"mlmodel"`.
+#' @param ... Further arguments passed to methods (currently not used).
+#'
+#' @return An integer giving the number of observations used in the estimation 
+#'   (after removing missing values and applying any `subset`).
+#'
+#' @method nobs mlmodel
 #' @export
 nobs.mlmodel <- function(object, ...) {
   if(!inherits(object, "mlmodel"))
@@ -468,13 +519,26 @@ predict.mlmodel <- function(object, ...) {
 
 ## RESIDUALS ===================================================================
 #' Extract Model Residuals
-#' 
-#' @param object An `mlmodel` object.
-#' @param type Character. Type of residuals: `"response"` (default) or `"pearson"`.
-#' @param ... Further arguments passed to methods.
 #'
-#' @return A numeric vector of residuals, aligned to the original data 
-#'   (with `NA` in positions that were dropped during estimation).
+#' @param object An `mlmodel` object.
+#' @param type Character string. Type of residuals to return. 
+#'   Currently supported: `"response"` (default) or `"pearson"`.
+#' @param ... Further arguments passed to methods (currently not used).
+#'
+#' @details
+#' `"response"` residuals are the raw residuals: observed minus fitted values.
+#' 
+#' `"pearson"` residuals are standardized by the model-implied standard deviation:
+#' \eqn{(y - \hat{y}) / \sqrt{\text{Var}(y)}}. 
+#' For Poisson models they use \eqn{\sqrt{\hat{\mu}}}, for binary models 
+#' \eqn{\sqrt{\hat{p}(1-\hat{p})}}, and for other models the appropriate 
+#' variance from `predict(object, type = "var")` or `type = "var_y"`.
+#'
+#' @return A numeric vector of residuals aligned to the original data frame. 
+#'   Observations dropped during estimation (due to `NA`s or `subset`) 
+#'   return `NA`.
+#'
+#' @method residuals mlmodel
 #' @export
 residuals.mlmodel <- function(object, type = c("response", "pearson"), ...)
 {
@@ -519,30 +583,28 @@ residuals.mlmodel <- function(object, type = c("response", "pearson"), ...)
 
 ## SE ==========================================================================
 # --- Generic ------------------------------------------------------------------
-#' Extracts standard errors for an `mlmodel` object.
+#' Extract Standard Errors from mlmodel Objects
 #'
-#' @param object An object of class `"mlmodel"` or any model that inherits
-#'   from it (e.g. `"ml_lm"`).
+#' @param object An object of class `"mlmodel"`.
 #' @param vcov An optional user-supplied variance-covariance matrix.
 #' @param vcov.type Character string specifying the type of variance-covariance
-#'   matrix to use. One of `"oim"` (default), `"robust"`, `"opg"`, `"cluster"`,
-#'   or `"boot"`.
+#'   matrix to use. One of `"oim"` (default), `"opg"`, `"robust"`, `"boot"`,
+#'   or `"jack"`. See [vcov.mlmodel()] for details.
 #' @param cl_var Character string or vector. Name of the clustering variable
-#'   or the vector itself. Only used when `vcov.type = "cluster"`.
-#' @param repetitions Integer. Number of bootstrap replications to use when
+#'   (or the vector itself) when `vcov.type = "robust"` (or its alias `"cluster"`).
+#' @param repetitions Integer. Number of bootstrap replications when 
 #'   `vcov.type = "boot"`. Default is 999.
-#' @param seed Integer. Random seed for reproducibility when `vcov.type = "boot"`.
-#'   If `NULL`, a random seed is generated.
-#' @param progress Logical. Should a progress bar be displayed during
-#'   bootstrapping? Default is `FALSE` (silent) when called from `summary()`.
-#' @param ... Not currently used.
+#' @param seed Integer. Random seed for reproducibility when bootstrapping.
+#'   If `NULL`, a random seed is generated internally.
+#' @param progress Logical. Should a progress bar be shown during bootstrapping
+#'   or jackknifing? Default is `FALSE`.
+#' @param ... Further arguments passed to methods (currently not used).
 #'
-#' @return A named numeric vector of standard errors.
+#' @return A named numeric vector of standard errors, with the same names 
+#'   as `coef(object)`.
 #'
-#' @seealso [vcov.mlmodel]
+#' @seealso [vcov.mlmodel], [summary.mlmodel], [confint.mlmodel]
 #'
-#' @author Alfonso Sanchez-Penalver
-#' 
 #' @export
 se <- function(object, ...) {
   UseMethod("se")
@@ -642,30 +704,6 @@ summary.mlmodel <- function(object,
                             ...)
 {
   UseMethod("summary")
-}
-
-# TERMS ========================================================================
-#' Extract terms from mlmodel objects
-#'
-#' Returns the terms object for the value (mean/probability) equation.
-#' For heteroskedastic models, the scale equation is **not** included in the
-#' returned terms object.
-#' 
-#' @param x An `mlmodel` object from an estimation of one of our models.
-#' @param ... Not currently implemented.
-#'
-#' @note The `terms()` method is provided for minimal compatibility with other
-#' packages, but it is incomplete for heteroskedastic models. For reliable
-#' bootstrap standard errors, use `vcov(object, type = "boot")` instead of
-#' functions from the sandwich package.
-#'
-#' @export
-terms.mlmodel <- function(x, ...) {
-  if (!is.null(x$model$value$terms)) {
-    x$model$value$terms
-  } else {
-    NULL
-  }
 }
 
 ## UPDATE GENERIC ==============================================================

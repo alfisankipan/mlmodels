@@ -2,20 +2,31 @@
 % Please edit documentation in R/mlmodel-utils.R
 \name{logLik.mlmodel}
 \alias{logLik.mlmodel}
-\title{Return the Log-likelihood value.}
+\alias{logLik.summary.mlmodel}
+\title{Extract Log-Likelihood from mlmodel objects}
 \usage{
 \method{logLik}{mlmodel}(object, ...)
+
+\method{logLik}{summary.mlmodel}(object, ...)
 }
 \arguments{
-\item{object}{Object of class \code{mlmodel} or \code{summary.mlmodel}, estimated with
-one of the estimators in this package.}
+\item{object}{An object of class \code{mlmodel} or \code{summary.mlmodel}.}
 
-\item{...}{Additional arguments to methods.}
+\item{...}{Additional arguments passed to methods.}
 }
 \value{
-A scalar numeric: the log-likelihood of the model. It includes the
-number of observations as the attribute 'nobs'.
+An object of class \code{"logLik"} with the log-likelihood value and the
+attributes \code{nobs} and \code{df}.
 }
 \description{
-Return the Log-likelihood value.
+Extract Log-Likelihood from mlmodel objects
+}
+\details{
+The returned object is of class \code{"logLik"} and has two important attributes:
+\itemize{
+\item \code{nobs}: number of observations used in estimation.
+\item \code{df}: number of estimated parameters (usually called \emph{K}),
+computed as \code{length(coef(object))}. This includes coefficients from both
+the location (mean/value) and scale equations when present.
+}
 }

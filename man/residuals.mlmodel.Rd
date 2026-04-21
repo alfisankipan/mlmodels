@@ -9,14 +9,25 @@
 \arguments{
 \item{object}{An \code{mlmodel} object.}
 
-\item{type}{Character. Type of residuals: \code{"response"} (default) or \code{"pearson"}.}
+\item{type}{Character string. Type of residuals to return.
+Currently supported: \code{"response"} (default) or \code{"pearson"}.}
 
-\item{...}{Further arguments passed to methods.}
+\item{...}{Further arguments passed to methods (currently not used).}
 }
 \value{
-A numeric vector of residuals, aligned to the original data
-(with \code{NA} in positions that were dropped during estimation).
+A numeric vector of residuals aligned to the original data frame.
+Observations dropped during estimation (due to \code{NA}s or \code{subset})
+return \code{NA}.
 }
 \description{
 Extract Model Residuals
+}
+\details{
+\code{"response"} residuals are the raw residuals: observed minus fitted values.
+
+\code{"pearson"} residuals are standardized by the model-implied standard deviation:
+\eqn{(y - \hat{y}) / \sqrt{\text{Var}(y)}}.
+For Poisson models they use \eqn{\sqrt{\hat{\mu}}}, for binary models
+\eqn{\sqrt{\hat{p}(1-\hat{p})}}, and for other models the appropriate
+variance from \code{predict(object, type = "var")} or \code{type = "var_y"}.
 }

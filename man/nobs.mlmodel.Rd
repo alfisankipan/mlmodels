@@ -2,18 +2,19 @@
 % Please edit documentation in R/mlmodel-utils.R
 \name{nobs.mlmodel}
 \alias{nobs.mlmodel}
-\title{Returns the number of observations used in an estimation of an \code{mlmodel} model.}
+\title{Extract the Number of Observations from an mlmodel}
 \usage{
 \method{nobs}{mlmodel}(object, ...)
 }
 \arguments{
-\item{object}{An \code{mlmodel} estimation model.}
+\item{object}{An object of class \code{"mlmodel"}.}
 
-\item{...}{Not currently implemented.}
+\item{...}{Further arguments passed to methods (currently not used).}
 }
 \value{
-A value with the number of observations used in the estimation.
+An integer giving the number of observations used in the estimation
+(after removing missing values and applying any \code{subset}).
 }
 \description{
-Returns the number of observations used in an estimation of an \code{mlmodel} model.
+Extract the Number of Observations from an mlmodel
 }

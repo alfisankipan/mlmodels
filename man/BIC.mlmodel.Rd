@@ -3,7 +3,7 @@
 \name{BIC.mlmodel}
 \alias{BIC.mlmodel}
 \alias{BIC.summary.mlmodel}
-\title{Extract BIC}
+\title{Extract BIC from mlmodel objects}
 \usage{
 \method{BIC}{mlmodel}(object, ...)
 
@@ -14,6 +14,12 @@
 
 \item{...}{Further arguments passed to methods.}
 }
+\value{
+A numeric value with the BIC.
+}
 \description{
-Extract BIC
+Extract BIC from mlmodel objects
+}
+\details{
+BIC is computed as \code{-2 * logLik(object) + log(nobs) * npar}.
 }

@@ -14,8 +14,8 @@
 
 \item{...}{Further arguments passed to methods.}
 
-\item{k}{Numeric. The penalty per parameter to be used. Default is \code{k = 2},
-which gives the standard AIC. See \code{\link[stats:AIC]{stats::AIC()}} for details.}
+\item{k}{Numeric. The penalty per parameter. Default is \code{k = 2}
+(standard AIC). See \code{\link[stats:AIC]{stats::AIC()}} for details.}
 }
 \value{
 A numeric value with the AIC.
@@ -24,9 +24,8 @@ A numeric value with the AIC.
 Extract AIC from mlmodel objects
 }
 \details{
-For fitted \code{mlmodel} objects, AIC is computed as \code{-2 * logLik + k * npar},
-where \code{npar} is the total number of coefficients.
+For \code{mlmodel} objects, AIC is computed as \code{-2 * logLik(object) + k * npar}.
 
-For \code{summary.mlmodel} objects, the pre-computed AIC (calculated with \code{k = 2})
-is returned. The \code{k} argument is accepted for compatibility but is ignored.
+For \code{summary.mlmodel} objects, the pre-computed AIC (with \code{k = 2}) is
+returned; the \code{k} argument is accepted for compatibility but ignored.
 }

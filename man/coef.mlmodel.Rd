@@ -2,21 +2,18 @@
 % Please edit documentation in R/mlmodel-utils.R
 \name{coef.mlmodel}
 \alias{coef.mlmodel}
-\title{Gets the coefficients from an mlmodel estimation.}
+\title{Extract Model Coefficients}
 \usage{
 \method{coef}{mlmodel}(object, ...)
 }
 \arguments{
-\item{object}{An mlmodel from an estimator, that you want the coefficients for.}
+\item{object}{An \code{mlmodel} object.}
 
 \item{...}{Currently not used.}
 }
 \value{
-A vector with the coefficients from the estimation.
+A named numeric vector of estimated coefficients.
 }
 \description{
-Gets the coefficients from an mlmodel estimation.
-}
-\author{
-Alfonso Sanchez-Penalver
+Extract Model Coefficients
 }
