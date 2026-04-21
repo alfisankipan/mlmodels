@@ -87,6 +87,47 @@ When constraints are used, \code{ml_lm} automatically chooses the optimizer:
 }
 
 In these cases your supplied \code{method} argument (if any) is ignored.
+
+The Gamma model requires a strictly positive response variable
+(\code{y > 0}). Observations where \code{y <= 0} are automatically
+dropped with a warning.
+
+If your data contains zeros or non-positive values, consider using
+\code{ml_poisson()} or \code{ml_negbin()} instead, as they are frequently
+applied to continuous non-negative outcomes.
+}
+\examples{
+
+# Homoskedastic gamma regression
+data(mroz)
+fit_gamma <- ml_gamma(faminc ~ hours + hushrs + age + educ, 
+                      data = mroz)
+
+summary(fit_gamma, vcov.type = "robust")
+
+# Heteroskedastic gamma regression
+fit_gamma_het <- ml_gamma(faminc ~ hours + hushrs + age + educ,
+                          scale = ~ kidslt6,
+                          data = mroz)
+
+summary(fit_gamma_het, vcov.type = "robust")
+
+# Different predict types
+head(predict(fit_gamma, type = "response")$fit)   # Expected value E[y]
+head(predict(fit_gamma, type = "variance")$fit)   # Variance of y
+
+# Fitted values and residuals
+head(fitted(fit_gamma))
+head(residuals(fit_gamma))
+head(residuals(fit_gamma, type = "pearson"))
+
+# Comparison with lognormal model (often very similar mean predictions)
+fit_lognorm <- ml_lm(log(faminc) ~ hours + hushrs + age + educ, 
+                     data = mroz)
+
+head(predict(fit_gamma, type = "response")$fit)
+head(predict(fit_lognorm, type = "response")$fit)
+
 }
 \author{
 Alfonso Sanchez-Penalver
