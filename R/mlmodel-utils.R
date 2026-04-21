@@ -547,12 +547,12 @@ se.mlmodel <- function(object,
 }
 
 ## SUMMARY GENERIC =============================================================
-#' Summary for ml_lm objects
+#' Summary for mlmodel objects
 #'
-#' @param object A fitted model object of class `"ml_lm"`.
+#' @param object A fitted model object of class `"mlmodel"`.
 #' @param correlation Logical. Should the correlation matrix of the estimated
 #'   parameters be included in the output? Default is `FALSE`. If `TRUE` the
-#'   correlation matrix will be computed, and stored in the `'summary.ml_lm'`
+#'   correlation matrix will be computed, and stored in the `'summary.mlmodel'`
 #'   object the function returns.
 #' @param vcov Optional user-supplied variance-covariance matrix. If provided,
 #'   it will be used instead of computing one internally.
