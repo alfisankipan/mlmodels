@@ -605,6 +605,28 @@ se.mlmodel <- function(object,
 #' confusion when the same variable(s) appear(s) in both the value and scale
 #' equations.
 #' 
+#' @examples
+#' 
+#' data(mroz)
+#' mroz$incthou <- mroz$faminc / 1000
+#' 
+#' fit <- ml_lm(incthou ~ age + I(age^2) + huswage + educ + unem, 
+#'              data = mroz)
+#' 
+#' # Default: observed information matrix
+#' summary(fit)
+#' 
+#' # Different variance types
+#' summary(fit, vcov.type = "opg")                    # Outer product of gradients
+#' summary(fit, vcov.type = "robust")                 # Robust/sandwich estimator
+#' 
+#' # Clustered robust standard errors
+#' summary(fit, vcov.type = "robust", cl_var = "age")
+#' 
+#' # Using a pre-computed variance matrix (e.g. bootstrap)
+#' v_boot <- vcov(fit, type = "boot", repetitions = 100, seed = 123)
+#' summary(fit, vcov = v_boot)
+#' 
 #' @author Alfonso Sanchez-Penalver
 #' 
 #' @method summary mlmodel
