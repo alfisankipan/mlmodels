@@ -325,21 +325,24 @@ logLik.summary.mlmodel <- function(object, ...)
 
 ## MLE FUNCTIONS ===============================================================
 # -- gradientObs ----------------------------------------------------------------
-#' Gradient by observation
-#' 
-#' Get the gradients (scores), evaluated at the optimum from an object of class
-#' `mlmodel`.
-#' 
-#' @param object An object of class `mlmodel`, i.e. an model estimated with one
-#'               of the estimators in the package.
-#' 
-#' @returns Matrix with each observation's gradient (score) in a row.
-#' 
-#' @author Alfonso Sanchez-Penalver
-#' 
+#' Gradient (Score) by Observation
+#'
+#' Extract the per-observation gradients (scores) evaluated at the estimated
+#' parameters from an `mlmodel` object.
+#'
+#' @param object An `mlmodel` object.
+#' @param ... Not currently used.
+#'
+#' @return A numeric matrix with one row per observation and one column per 
+#'   parameter. Each row contains the gradient of the log-likelihood for that 
+#'   observation.
+#'
+#' @details
+#' These are the individual contributions to the score vector. They are mainly 
+#' useful for advanced users who want to implement custom tests or diagnostics.
+#'
 #' @export
-gradientObs <- function(object)
-  UseMethod("gradientObs")
+gradientObs <- function(object) UseMethod("gradientObs")
 
 #' @rdname gradientObs
 #' @export
@@ -351,23 +354,23 @@ gradientObs.mlmodel <- function(object)
 }
 
 # -- hessianObs ----------------------------------------------------------------
-#' Hessian matrix by observation
-#' 
-#' Get the hessian matrix, evaluated at the optimum, by observation from an
-#' object of class `mlmodel`.
-#' 
-#' @param object An object of class `mlmodel`, i.e. an model estimated with one
-#'               of the estimators in the package.
-#' 
-#' @returns Matrix with the evaluated Hessian matrices per observation.
-#' 
+#' Hessian by Observation
+#'
+#' Extract the per-observation Hessian matrices evaluated at the estimated
+#' parameters from an `mlmodel` object.
+#'
+#' @param object An `mlmodel` object.
+#' @param ... Not currently used.
+#'
+#' @return A numeric matrix of dimension `(N*K) x K`, where `N` is the number 
+#'   of observations and `K` is the number of parameters. The Hessian for each 
+#'   observation is stacked vertically.
+#'
 #' @details
-#' If there are N observations in the estimation, and the model has K parameters,
-#' this method returns a (N * K) by K matrix. The Hessian for each observation
-#' stacked on top of each other.
-#' 
-#' @author Alfonso Sanchez-Penalver
-#' 
+#' This is mainly intended for advanced use (e.g., custom diagnostics or 
+#' information matrix tests). For most users, the functions `IMtest` or 
+#' `vcov` are more convenient.
+#'
 #' @export
 hessianObs <- function(object)
   UseMethod("hessianObs")
@@ -382,18 +385,21 @@ hessianObs.mlmodel <- function(object)
 }
 
 # -- loglikeObs ----------------------------------------------------------------
-#' Log-Likelihood by observation
-#' 
-#' Get the log-likelihood, evaluated at the optimum from an object of class
-#' `mlmodel`.
-#' 
-#' @param object An object of class `mlmodel`, i.e. an model estimated with one
-#'               of the estimators in the package.
-#' 
-#' @returns Vector with the evaluated log-likelihoods per observation.
-#' 
-#' @author Alfonso Sanchez-Penalver
-#' 
+#' Log-Likelihood by Observation
+#'
+#' Extract the per-observation log-likelihood contributions from an `mlmodel` 
+#' object.
+#'
+#' @param object An `mlmodel` object.
+#' @param ... Not currently used.
+#'
+#' @return A numeric vector of length `nobs(object)` containing the 
+#'   log-likelihood contribution of each observation.
+#'
+#' @details
+#' These individual contributions are useful for Vuong tests, robust variance 
+#' estimation, or custom model diagnostics.
+#'
 #' @export
 loglikeObs <- function(object)
   UseMethod("loglikeObs")
@@ -707,29 +713,31 @@ summary.mlmodel <- function(object,
 }
 
 ## UPDATE GENERIC ==============================================================
-#' Update method for ml_lm objects
-#' 
-#' @param object An `mlmodel` estimation object.
-#' @param formula. The formula of the value equation (optional).
-#' @param scale. The formula of the scale equation (optional).
-#' @param data A data.frame with the data to do the estimation (optional).
-#' @param weights A vector with the weights (optional).
-#' @param ... Currently not implemented.
-#' @param evaluate Should the updated call be evaluated? Defaults to `TRUE`.
+#' Update an mlmodel Call
+#'
+#' @param object An `mlmodel` object.
+#' @param formula. An updated formula for the value (location/mean) equation.
+#' @param scale. An updated formula for the scale equation (if supported by the model).
+#' @param data A data frame to be used when re-fitting the model.
+#' @param weights Optional case weights.
+#' @param evaluate Logical. If `TRUE` (default), the updated call is evaluated 
+#'   and the new fitted model is returned. If `FALSE`, the updated call 
+#'   (as a language object) is returned without evaluation.
+#' @param ... Further arguments passed to methods (currently ignored).
 #'
 #' @details
-#' Used in bootstrapping of tests. Re-evaluates the original call with arguments
-#' passed into the function.
-#' 
-#' **Note on sandwich::vcovBS()**: This function does not work reliably with 
-#' `mlmodel` objects, even in simple homoskedastic cases.  We, therefore, built
-#' our own bootstrap implementation. We strongly recommend using
-#' `vcov(object, type = "boot")` instead. See [vcov][mlmodels::vcov.mlmodel].
-#' 
-#' @author Alfonso Sanchez-Penalver
-#' 
+#' This method re-evaluates the original model call after modifying selected 
+#' arguments. It is used internally by `IMtest()` and serves as a fallback 
+#' mechanism in bootstrap and jackknife variance estimation when a model-specific 
+#' implementation is not available.
+#'
+#' **Note:** While the generic `update()` method is provided, it is not intended 
+#' for general use with packages such as `sandwich::vcovBS()`. Those packages 
+#' do not work reliably with `mlmodel` objects (particularly heteroskedastic 
+#' models with scale equations). Use the built-in bootstrap support instead:
+#' `vcov(object, type = "boot")`.
+#'
 #' @method update mlmodel
-#' 
 #' @export
 update.mlmodel <- function(object,
                            formula. = NULL,

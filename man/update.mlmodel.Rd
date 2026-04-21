@@ -12,7 +12,7 @@
 \alias{update.ml_negbin}
 \alias{update.ml_poisson}
 \alias{update.ml_probit}
-\title{Update method for ml_lm objects}
+\title{Update an mlmodel Call}
 \usage{
 \method{update}{ml_beta}(
   object,
@@ -91,32 +91,34 @@
 )
 }
 \arguments{
-\item{object}{An \code{mlmodel} estimation object.}
+\item{object}{An \code{mlmodel} object.}
 
-\item{formula.}{The formula of the value equation (optional).}
+\item{formula.}{An updated formula for the value (location/mean) equation.}
 
-\item{data}{A data.frame with the data to do the estimation (optional).}
+\item{data}{A data frame to be used when re-fitting the model.}
 
-\item{weights}{A vector with the weights (optional).}
+\item{weights}{Optional case weights.}
 
-\item{...}{Currently not implemented.}
+\item{...}{Further arguments passed to methods (currently ignored).}
 
-\item{evaluate}{Should the updated call be evaluated? Defaults to \code{TRUE}.}
+\item{evaluate}{Logical. If \code{TRUE} (default), the updated call is evaluated
+and the new fitted model is returned. If \code{FALSE}, the updated call
+(as a language object) is returned without evaluation.}
 
-\item{scale.}{The formula of the scale equation (optional).}
+\item{scale.}{An updated formula for the scale equation (if supported by the model).}
 }
 \description{
-Update method for ml_lm objects
+Update an mlmodel Call
 }
 \details{
-Used in bootstrapping of tests. Re-evaluates the original call with arguments
-passed into the function.
+This method re-evaluates the original model call after modifying selected
+arguments. It is used internally by \code{IMtest()} and serves as a fallback
+mechanism in bootstrap and jackknife variance estimation when a model-specific
+implementation is not available.
 
-\strong{Note on sandwich::vcovBS()}: This function does not work reliably with
-\code{mlmodel} objects, even in simple homoskedastic cases.  We, therefore, built
-our own bootstrap implementation. We strongly recommend using
-\code{vcov(object, type = "boot")} instead. See \link[=vcov.mlmodel]{vcov}.
-}
-\author{
-Alfonso Sanchez-Penalver
+\strong{Note:} While the generic \code{update()} method is provided, it is not intended
+for general use with packages such as \code{sandwich::vcovBS()}. Those packages
+do not work reliably with \code{mlmodel} objects (particularly heteroskedastic
+models with scale equations). Use the built-in bootstrap support instead:
+\code{vcov(object, type = "boot")}.
 }

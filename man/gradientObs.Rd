@@ -3,23 +3,27 @@
 \name{gradientObs}
 \alias{gradientObs}
 \alias{gradientObs.mlmodel}
-\title{Gradient by observation}
+\title{Gradient (Score) by Observation}
 \usage{
 gradientObs(object)
 
 \method{gradientObs}{mlmodel}(object)
 }
 \arguments{
-\item{object}{An object of class \code{mlmodel}, i.e. an model estimated with one
-of the estimators in the package.}
+\item{object}{An \code{mlmodel} object.}
+
+\item{...}{Not currently used.}
 }
 \value{
-Matrix with each observation's gradient (score) in a row.
+A numeric matrix with one row per observation and one column per
+parameter. Each row contains the gradient of the log-likelihood for that
+observation.
 }
 \description{
-Get the gradients (scores), evaluated at the optimum from an object of class
-\code{mlmodel}.
+Extract the per-observation gradients (scores) evaluated at the estimated
+parameters from an \code{mlmodel} object.
 }
-\author{
-Alfonso Sanchez-Penalver
+\details{
+These are the individual contributions to the score vector. They are mainly
+useful for advanced users who want to implement custom tests or diagnostics.
 }

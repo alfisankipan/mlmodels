@@ -3,23 +3,26 @@
 \name{loglikeObs}
 \alias{loglikeObs}
 \alias{loglikeObs.mlmodel}
-\title{Log-Likelihood by observation}
+\title{Log-Likelihood by Observation}
 \usage{
 loglikeObs(object)
 
 \method{loglikeObs}{mlmodel}(object)
 }
 \arguments{
-\item{object}{An object of class \code{mlmodel}, i.e. an model estimated with one
-of the estimators in the package.}
+\item{object}{An \code{mlmodel} object.}
+
+\item{...}{Not currently used.}
 }
 \value{
-Vector with the evaluated log-likelihoods per observation.
+A numeric vector of length \code{nobs(object)} containing the
+log-likelihood contribution of each observation.
 }
 \description{
-Get the log-likelihood, evaluated at the optimum from an object of class
-\code{mlmodel}.
+Extract the per-observation log-likelihood contributions from an \code{mlmodel}
+object.
 }
-\author{
-Alfonso Sanchez-Penalver
+\details{
+These individual contributions are useful for Vuong tests, robust variance
+estimation, or custom model diagnostics.
 }

@@ -3,28 +3,28 @@
 \name{hessianObs}
 \alias{hessianObs}
 \alias{hessianObs.mlmodel}
-\title{Hessian matrix by observation}
+\title{Hessian by Observation}
 \usage{
 hessianObs(object)
 
 \method{hessianObs}{mlmodel}(object)
 }
 \arguments{
-\item{object}{An object of class \code{mlmodel}, i.e. an model estimated with one
-of the estimators in the package.}
+\item{object}{An \code{mlmodel} object.}
+
+\item{...}{Not currently used.}
 }
 \value{
-Matrix with the evaluated Hessian matrices per observation.
+A numeric matrix of dimension \verb{(N*K) x K}, where \code{N} is the number
+of observations and \code{K} is the number of parameters. The Hessian for each
+observation is stacked vertically.
 }
 \description{
-Get the hessian matrix, evaluated at the optimum, by observation from an
-object of class \code{mlmodel}.
+Extract the per-observation Hessian matrices evaluated at the estimated
+parameters from an \code{mlmodel} object.
 }
 \details{
-If there are N observations in the estimation, and the model has K parameters,
-this method returns a (N * K) by K matrix. The Hessian for each observation
-stacked on top of each other.
-}
-\author{
-Alfonso Sanchez-Penalver
+This is mainly intended for advanced use (e.g., custom diagnostics or
+information matrix tests). For most users, the functions \code{IMtest} or
+\code{vcov} are more convenient.
 }
