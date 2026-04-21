@@ -23,7 +23,36 @@
   defaults[[name]]
 }
 
-## IS INVERTIBLE ===============================================================
+## Format Coefficient Matrix ===================================================
+# Internal helper: Smart formatting of coefficient matrices
+# Decides number of decimal places based on the magnitude of the values
+.format_coef_matrix <- function(coef_mat, 
+                                digits = 3, 
+                                coef_cols = 1:2) {
+  
+  if (!is.matrix(coef_mat) || ncol(coef_mat) < max(coef_cols)) {
+    return(coef_mat)
+  }
+  
+  # Extract values to analyze for decimal places (usually Estimate and Std. Error)
+  checkvals <- abs(coef_mat[, coef_cols, drop = FALSE])
+  checkvals <- checkvals[checkvals > 0 & !is.na(checkvals)]
+  
+  if (length(checkvals) > 0) {
+    # Find the largest number of leading zeros + 2 extra decimals
+    max_decimals <- max(floor(-log10(checkvals))) + 2
+    num_digits   <- max(digits, max_decimals)
+  } else {
+    num_digits <- digits
+  }
+  
+  # Round only the specified columns (Estimate and Std. Error)
+  coef_mat[, coef_cols] <- round(coef_mat[, coef_cols], num_digits)
+  
+  return(coef_mat)
+}
+
+## Is Invertible ===============================================================
 # Internal function to detect if a matrix is invertible.
 # 
 # Argument: matrix - The matrix you want to check

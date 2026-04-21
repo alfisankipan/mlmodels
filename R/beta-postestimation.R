@@ -256,18 +256,7 @@ print.summary.ml_beta <- function(x, digits = max(4L, getOption("digits") - 4L),
   options(scipen = .mlmodels_get_default("scipen"))
   
   # Determining the number of leading zeroes in the estimates and standard errors.
-  format_coef <- x$coefficients
-  checkvals <- abs(format_coef[, 1:2])
-  checkvals <- checkvals[checkvals > 0 & !is.na(checkvals)]
-  # - log10() gives us the number of leading zeroes (and decimal). Floor then
-  # tells us where the first nonzero value is. Then max() gets us the maximum, so
-  # using that + 2 guarantees that the number with more leading zeroes has two
-  # nonzero decimals. Finally, max(digits, -) ensures that at least we have digits
-  # decimal places (for estimations with few decimal places)
-  num_digits <- if(length(checkvals) > 0) max(digits, max(floor(-log10(checkvals))) + 2)
-                else digits
-  # Rounding the estimate and standard errors.
-  format_coef[, 1:2] <- round(format_coef[, 1:2], num_digits)
+  format_coef <- .format_coef_matrix(x$coefficients, digits = digits)
   
   # Capture the whole output of printCoefmat into a vector of strings.
   captured <- capture.output(printCoefmat(format_coef,
