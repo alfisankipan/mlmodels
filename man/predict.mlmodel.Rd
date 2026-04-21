@@ -12,7 +12,7 @@
 \alias{predict.ml_negbin}
 \alias{predict.ml_poisson}
 \alias{predict.ml_probit}
-\title{Predictions for ml_lm objects}
+\title{Predictions for mlmodel models}
 \usage{
 \method{predict}{ml_beta}(
   object,
@@ -148,7 +148,7 @@ errors, using analytical gradients. If \code{se.fit} is \code{FALSE}, it is set 
 }
 }
 \description{
-Generic method for computing predictions from models fitted with the
+Methods for computing predictions from models fitted with the
 \code{mlmodels} package.
 }
 \details{
@@ -338,6 +338,35 @@ When \code{se.fit = TRUE}, standard errors are computed using the delta method.
 Standard errors are not available (and will return \code{NA}) for \code{"sigma"},
 \code{"variance"}, and \code{"zd"} in homoskedastic models.
 }
+}
+\examples{
+
+# Basic usage and different predict types
+data(docvis)
+fit_pois <- ml_poisson(docvis ~ age + educyr + totchr, data = docvis)
+
+head(predict(fit_pois, type = "response")$fit)     # Expected count
+head(predict(fit_pois, type = "P(3)")$fit)         # Prob of exactly 3
+
+# Prediction at the mean (typical case)
+typical <- data.frame(age = mean(docvis$age), 
+                      educyr = mean(docvis$educyr), 
+                      totchr = mean(docvis$totchr))
+predict(fit_pois, newdata = typical, type = "response")
+
+# In-sample vs full-data prediction with subset / boundary dropping
+data(pw401k)
+fit_beta <- ml_beta(prate ~ mrate + I(mrate^2) + log(totemp) + 
+                    I(log(totemp)^2) + age + I(age^2) + sole,
+                    data = pw401k, 
+                    subset = prate < 1)
+
+# In-sample prediction (NAs for dropped observations)
+head(predict(fit_beta, type = "response")$fit)
+
+# Full-data prediction (predicts for all rows, including dropped ones)
+head(predict(fit_beta, newdata = pw401k, type = "response")$fit)
+
 }
 \author{
 Alfonso Sanchez-Penalver

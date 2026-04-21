@@ -46,16 +46,53 @@ Returns the variance-covariance matrix of the estimated parameters
 using different methods.
 }
 \details{
-Type \code{"cluster"} is an alias for \code{"robust"}, but it requires \code{cl_var} to be
-passed.
+The package provides several variance-covariance estimators through the \code{type} argument:
+\itemize{
+\item \code{"oim"} – Observed Information Matrix (default)
+\item \code{"opg"} – Outer Product of Gradients (BHHH)
+\item \code{"robust"} – Robust (sandwich) estimator
+\item \code{"cluster"} - Alias for \code{"robust"} when clustering the variance but requires \code{cl_var} to be set.
+\item \code{"boot"} – Bootstrap (with optional clustering)
+\item \code{"jack"} – Jackknife (with optional clustering)
+\item \code{"jackknife"} - alias for \code{"jack"}
+}
 
-When \code{type} is set to \code{"robust"}, and \code{cl_var} is \code{NULL}, a standard
-robust (sandwich) variance is returned.
+Clustered standard errors are obtained by setting \code{cl_var} when using \code{"robust"}/\code{"cluster"}, \code{"boot"}, or \code{"jack"}.
+}
+\examples{
 
-When \code{type} is set to \code{"robust"} and \code{cl_var} is not \code{NULL}, a clustered-robust
-variance is returned.
+data(mroz)
+mroz$incthou <- mroz$faminc / 1000
 
-Type \code{"jackknife"} is an alias for type \code{"jack"}.
+fit <- ml_lm(incthou ~ age + I(age^2) + huswage + educ + unem, 
+             data = mroz)
+
+# Different variance-covariance estimators
+v_oim   <- vcov(fit, type = "oim")      # Observed Information Matrix (default)
+v_opg   <- vcov(fit, type = "opg")      # Outer Product of Gradients (BHHH)
+v_robust <- vcov(fit, type = "robust")   # Robust / Sandwich estimator
+
+# Clustered robust standard errors
+v_clust <- vcov(fit, type = "robust", cl_var = "age")
+
+# Bootstrap variance-covariance matrix
+v_boot  <- vcov(fit, type = "boot", repetitions = 100, seed = 123)
+
+# Jackknife variance-covariance matrix
+v_jack  <- vcov(fit, type = "jack")
+
+# Compare standard errors across methods
+sterrors <- data.frame(
+  oim = sqrt(diag(v_oim)),
+  opg = sqrt(diag(v_opg)),
+  robust = sqrt(diag(v_robust)),
+  cluster = sqrt(diag(v_clust)),
+  bootstrap = sqrt(diag(v_boot)),
+  jackknife = sqrt(diag(v_jack))
+)
+
+sterrors
+
 }
 \author{
 Alfonso Sanchez-Penalver

@@ -12,7 +12,7 @@
 \alias{summary.ml_negbin}
 \alias{summary.ml_poisson}
 \alias{summary.ml_probit}
-\title{Summary for ml_lm objects}
+\title{Summary for mlmodel objects}
 \usage{
 \method{summary}{ml_beta}(
   object,
@@ -111,11 +111,11 @@
 )
 }
 \arguments{
-\item{object}{A fitted model object of class \code{"ml_lm"}.}
+\item{object}{A fitted model object of class \code{"mlmodel"}.}
 
 \item{correlation}{Logical. Should the correlation matrix of the estimated
 parameters be included in the output? Default is \code{FALSE}. If \code{TRUE} the
-correlation matrix will be computed, and stored in the \code{'summary.ml_lm'}
+correlation matrix will be computed, and stored in the \code{'summary.mlmodel'}
 object the function returns.}
 
 \item{vcov}{Optional user-supplied variance-covariance matrix. If provided,
@@ -139,7 +139,7 @@ bootstrapping or jackknifing? Default is \code{FALSE} (silent).}
 \item{...}{Further arguments passed to methods.}
 }
 \description{
-Summary for ml_lm objects
+Summary for mlmodel objects
 }
 \details{
 Coefficient names in the fitted object use the prefixes \verb{value::} and

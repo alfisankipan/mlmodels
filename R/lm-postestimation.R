@@ -1,6 +1,4 @@
 ## PREDICT =====================================================================
-#' Predictions for ml_lm objects
-#'
 #' @details
 #' ### ml_lm prediction types
 #' The `type` argument controls what quantity is returned. Behavior differs
@@ -22,9 +20,8 @@
 #' correct lognormal expected value on the original scale of y. The `median`
 #' is the simple exponential back-transform.
 #'
-#' @author Alfonso Sanchez-Penalver
-#'
 #' @rdname predict.mlmodel
+#' @method predict ml_lm
 #' @export
 predict.ml_lm <- function(object,
                           newdata = NULL,

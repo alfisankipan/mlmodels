@@ -403,9 +403,9 @@ nobs.mlmodel <- function(object, ...) {
 `%||%` <- rlang::`%||%`
 
 ## PREDICT GENERIC =============================================================
-#' Predictions from mlmodel models
+#' Predictions for mlmodel models
 #'
-#' Generic method for computing predictions from models fitted with the
+#' Methods for computing predictions from models fitted with the
 #' `mlmodels` package.
 #' 
 #' @param object An object from an estimation with one of our models.
@@ -429,7 +429,38 @@ nobs.mlmodel <- function(object, ...) {
 #'    `NULL`.}
 #' }
 #' 
+#' @examples
+#' 
+#' # Basic usage and different predict types
+#' data(docvis)
+#' fit_pois <- ml_poisson(docvis ~ age + educyr + totchr, data = docvis)
+#' 
+#' head(predict(fit_pois, type = "response")$fit)     # Expected count
+#' head(predict(fit_pois, type = "P(3)")$fit)         # Prob of exactly 3
+#' 
+#' # Prediction at the mean (typical case)
+#' typical <- data.frame(age = mean(docvis$age), 
+#'                       educyr = mean(docvis$educyr), 
+#'                       totchr = mean(docvis$totchr))
+#' predict(fit_pois, newdata = typical, type = "response")
+#' 
+#' # In-sample vs full-data prediction with subset / boundary dropping
+#' data(pw401k)
+#' fit_beta <- ml_beta(prate ~ mrate + I(mrate^2) + log(totemp) + 
+#'                     I(log(totemp)^2) + age + I(age^2) + sole,
+#'                     data = pw401k, 
+#'                     subset = prate < 1)
+#' 
+#' # In-sample prediction (NAs for dropped observations)
+#' head(predict(fit_beta, type = "response")$fit)
+#' 
+#' # Full-data prediction (predicts for all rows, including dropped ones)
+#' head(predict(fit_beta, newdata = pw401k, type = "response")$fit)
+#' 
+#' @author Alfonso Sanchez-Penalver
+#' 
 #' @method predict mlmodel
+#' @aliases predict.mlmodel
 #' @export
 predict.mlmodel <- function(object, ...) {
   UseMethod("predict")
@@ -677,16 +708,51 @@ update.mlmodel <- function(object,
 #'   on the rows and columns.
 #' 
 #' @details
-#' Type `"cluster"` is an alias for `"robust"`, but it requires `cl_var` to be
-#' passed. 
+#' The package provides several variance-covariance estimators through the `type` argument:
 #' 
-#' When `type` is set to `"robust"`, and `cl_var` is `NULL`, a standard
-#' robust (sandwich) variance is returned.
+#' * `"oim"` – Observed Information Matrix (default)
+#' * `"opg"` – Outer Product of Gradients (BHHH)
+#' * `"robust"` – Robust (sandwich) estimator
+#' * `"cluster"` - Alias for `"robust"` when clustering the variance but requires `cl_var` to be set.
+#' * `"boot"` – Bootstrap (with optional clustering)
+#' * `"jack"` – Jackknife (with optional clustering)
+#' * `"jackknife"` - alias for `"jack"`
 #' 
-#' When `type` is set to `"robust"` and `cl_var` is not `NULL`, a clustered-robust
-#' variance is returned.
+#' Clustered standard errors are obtained by setting `cl_var` when using `"robust"`/`"cluster"`, `"boot"`, or `"jack"`.
 #' 
-#' Type `"jackknife"` is an alias for type `"jack"`.
+#' @examples
+#' 
+#' data(mroz)
+#' mroz$incthou <- mroz$faminc / 1000
+#' 
+#' fit <- ml_lm(incthou ~ age + I(age^2) + huswage + educ + unem, 
+#'              data = mroz)
+#' 
+#' # Different variance-covariance estimators
+#' v_oim   <- vcov(fit, type = "oim")      # Observed Information Matrix (default)
+#' v_opg   <- vcov(fit, type = "opg")      # Outer Product of Gradients (BHHH)
+#' v_robust <- vcov(fit, type = "robust")   # Robust / Sandwich estimator
+#' 
+#' # Clustered robust standard errors
+#' v_clust <- vcov(fit, type = "robust", cl_var = "age")
+#' 
+#' # Bootstrap variance-covariance matrix
+#' v_boot  <- vcov(fit, type = "boot", repetitions = 100, seed = 123)
+#' 
+#' # Jackknife variance-covariance matrix
+#' v_jack  <- vcov(fit, type = "jack")
+#' 
+#' # Compare standard errors across methods
+#' sterrors <- data.frame(
+#'   oim = sqrt(diag(v_oim)),
+#'   opg = sqrt(diag(v_opg)),
+#'   robust = sqrt(diag(v_robust)),
+#'   cluster = sqrt(diag(v_clust)),
+#'   bootstrap = sqrt(diag(v_boot)),
+#'   jackknife = sqrt(diag(v_jack))
+#' )
+#' 
+#' sterrors
 #' 
 #' @author Alfonso Sanchez-Penalver
 #'

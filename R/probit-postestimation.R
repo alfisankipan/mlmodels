@@ -1,6 +1,4 @@
 ## PREDICT =====================================================================
-#' Predictions for ml_probit models
-#'
 #' @details
 #' ### ml_probit prediction types
 #' 
@@ -36,10 +34,9 @@
 #' When `se.fit = TRUE`, standard errors are computed using the delta method.
 #' Standard errors are not available (and will return `NA`) for `"sigma"`,
 #' `"variance"`, and `"zd"` in homoskedastic models.
-#' 
-#' @author Alfonso Sanchez-Penalver
 #'
 #' @rdname predict.mlmodel
+#' @method predict ml_probit
 #' @export
 predict.ml_probit <- function(object,
                              newdata = NULL,

@@ -32,9 +32,8 @@
 #' The mode is only defined if \code{shape1 > 1} **and** \code{shape2 > 1} **and** \code{shape1 + shape2 != 2}. If these conditions are not met the prediction and standard
 #' error will be `NA`.
 #'
-#' @author Alfonso Sanchez-Penalver
-#'
 #' @rdname predict.mlmodel
+#' @method predict ml_beta
 #' @export
 predict.ml_beta <- function(object,
                             newdata = NULL,

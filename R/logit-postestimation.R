@@ -1,6 +1,4 @@
 ## PREDICT =====================================================================
-#' Predictions for ml_logit objects
-#'
 #' @details
 #' ### ml_logit prediction types
 #' 
@@ -31,10 +29,9 @@
 #' When `se.fit = TRUE`, standard errors are computed using the delta method.
 #' Standard errors are not available (and will return `NA`) for `"sigma"`,
 #' `"variance"`, and `"zd"` in homoskedastic models.
-#' 
-#' @author Alfonso Sanchez-Penalver
 #'
 #' @rdname predict.mlmodel
+#' @method predict ml_logit
 #' @export
 predict.ml_logit <- function(object,
                              newdata = NULL,

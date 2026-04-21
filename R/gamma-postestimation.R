@@ -23,9 +23,8 @@
 #' When `se.fit = TRUE`, standard errors are computed using the delta method
 #' for all supported types.
 #'
-#' @author Alfonso Sanchez-Penalver
-#'
 #' @rdname predict.mlmodel
+#' @method predict ml_gamma
 #' @export
 predict.ml_gamma <- function(object,
                              newdata = NULL,

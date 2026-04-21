@@ -29,9 +29,8 @@
 #' When `se.fit = TRUE`, standard errors are computed using the delta method
 #' for all supported types.
 #'
-#' @author Alfonso Sanchez-Penalver
-#'
 #' @rdname predict.mlmodel
+#' @method predict ml_negbin
 #' @export
 predict.ml_negbin <- function(object,
                               newdata = NULL,
