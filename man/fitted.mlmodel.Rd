@@ -8,16 +8,22 @@
 \method{fitted}{mlmodel}(object, ...)
 
 \method{fitted}{values.mlmodel}(object, ...)
+
+\method{fitted}{mlmodel}(object, ...)
 }
 \arguments{
-\item{object}{Object of class \code{mlmodel} estmated with one of the models in
-package.}
+\item{object}{An \code{mlmodel} object.}
 
-\item{...}{Additional arguments passed to methods.}
+\item{...}{Further arguments passed to methods (currently ignored).}
 }
 \value{
 A vector with the fitted values of the model.
+
+A numeric vector of fitted values, aligned to the original sample size.
+Observations that were dropped (due to \code{subset}, \code{NA}s, etc.) will be \code{NA}.
 }
 \description{
 Returns the fitted values from an object of class \code{mlmodel}.
+
+Extract Fitted Values
 }

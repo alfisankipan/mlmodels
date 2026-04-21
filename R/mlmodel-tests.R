@@ -579,23 +579,10 @@ waldtest.mlmodel <- function(object,
       call = NULL
     )
   }
-
-  # Create a list for the variance info
-  s <- list()
-
-  # Read metadata from attributes (preferred source)
-  s$vcov.type <- attr(V, "vcov.type")
-
-  # Clustered variance handling
-  if (!is.null(attr(V, "clustered")) && attr(V, "clustered")) {
-    s$vcov.cluster <- .vcov_cluster_info(object, attr(V, "cluster.var"))
-  } else if (vcov.type %in% c("cluster", "robust") && !is.null(cl_var)) {
-    # Fallback when attributes are missing (should rarely happen)
-    s$vcov.cluster <- .vcov_cluster_info(object, cl_var)
-  } else {
-    s$vcov.cluster <- NULL
-  }
-
+  
+  # Pass the matrix to the description helper to create the string
+  var_description <- .vcov_description(V)
+  
   # Build restriction matrix R
   if (!is.null(indices))
   {
@@ -691,8 +678,8 @@ waldtest.mlmodel <- function(object,
       df           = q,
       pval         = NA_real_,
       restrictions = restrictions,
-      vcov.type    = s$vcov.type,
-      vcov.cluster = s$vcov.cluster,
+      var_description = var_description,
+      # var_cluster = vcov_cluster,
       singular     = TRUE,
       error_msg    = wald_result$message
     )
@@ -706,8 +693,8 @@ waldtest.mlmodel <- function(object,
     df           = q,
     pval         = pchisq(wald_result$W, q, lower.tail = FALSE),
     restrictions = restrictions,
-    vcov.type    = s$vcov.type,
-    vcov.cluster = s$vcov.cluster,
+    var_description = var_description,
+    # var_cluster = vcov_cluster,
     singular     = FALSE
   )
 
@@ -725,26 +712,8 @@ print.waldtest.mlmodel <- function(x, digits = 3, ...)
 
   cat("\nWald Test of Linear Restrictions\n")
 
-  # Get the right variance string
-  if(!is.null(x$vcov.type))
-    vcov_type <- switch (x$vcov.type,
-                         "oim" = "Original Information Matrix",
-                         "opg" = "Outer Product of Gradients (BHHH)",
-                         "robust" = if(is.null(x$vcov.cluster)) "Robust" else "Cluster-Robust",
-                         "boot" = if(is.null(x$vcov.cluster)) "Bootstrap" else "Cluster Bootstrap",
-                         "jack" = if(is.null(x$vcov.cluster)) "Jackknife" else "Cluster Jackknife",
-                         x$vcov.type
-    )
-  else
-    vcov_type <- "User Supplied (Unknown)"
-
   # --- Smart variance type printing ---
-  cat("\nVariance type:", vcov_type)
-  if (!is.null(x$vcov.cluster)) {
-    cat(" | Clusters:", x$vcov.cluster$n_cluster)
-    if (!is.null(x$vcov.cluster$var_name))
-      cat(" (", x$vcov.cluster$var_name, ")", sep = "")
-  }
+  cat("\nVariance type:", x$var_description)
   cat("\n---------------------------------------\n")
 
   cat("Restrictions:\n")

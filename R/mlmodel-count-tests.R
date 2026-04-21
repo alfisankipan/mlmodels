@@ -45,7 +45,6 @@
 #' test for count-data models. \emph{The Stata Journal}, 14(4), 798-816. 
 #' \doi{10.1177/1536867X1401400406}
 #' 
-#' 
 #' @export
 GOFtest <- function(object, bins = 0:5) UseMethod("GOFtest")
 
@@ -69,30 +68,23 @@ GOFtest.mlmodel <- function(object, bins = 0:5)
     cli::cli_abort("All values in {.arg bins} must be non-negative.", call = NULL)
   }
   
-  # 4. Check the estimator for two things:
-  #    - a. Set the name of the model.
-  #    - b. Add zero to the bins if not there, for the appropriate estimators
-  if(inherits(object, "ml_poisson"))
-  {
-    model <- "Poisson"
-    if(!(0 %in% bins))
+  # 4. If the model is not truncated add 0 to the bins if it's not there.
+  if(!inherits(object, "mlmodel.truncated") && !(0 %in% bins))
       bins <- c(0, bins)
-  }
-  else if (inherits(object, "ml_negbin"))
-  {
-    if(is.null(object$model$scale_formula))
-      model <- paste0("Homoskedastic Negative Binomial (", object$model$dispersion, ")")
-    else
-      model <- paste0("Heteroskedastic Negative Binomial (", object$model$dispersion, ")")
-    if(!(0 %in% bins))
-      bins <- c(0, bins)
-  }
-  else
-    model <- NULL  # For later models we will check here.
   
+  n_bins <- length(bins)
+  
+  # Get reduced y (only observations used in estimation)
   y <- as.vector(object$model$value$outcomes[[1]])
   n_obs <- length(y)
-  n_bins <- length(bins)
+  
+  # Get logical vector of used observations
+  sample_idx <- object$model$sample
+  
+  # Safety check: make sure the reduced y matches the sample size
+  if (sum(sample_idx) != n_obs) {
+    cli::cli_abort("Length mismatch between stored outcomes and sample index.", call = NULL)
+  }
   
   # Regression matrix: rows: # observations, cols: # bins.
   R <- matrix(0, nrow = n_obs, ncol = n_bins)
@@ -133,13 +125,16 @@ GOFtest.mlmodel <- function(object, bins = 0:5)
     }
     # Extract the actual prediction from the new class object
     p_j <- p_j$fit
+    # Keep only the observations used in estimation, so it's clean of NAs and
+    # has the same length as y.
+    p_j <- p_j[sample_idx]
     R[, i] <- d_j - p_j
     D[i, ] <- rbind(
-      sum(d_j),                                # Frequency
-      mean(d_j),                               # Proportion
-      mean(p_j),                               # Probability
-      abs(mean(d_j) - mean(p_j)),              # |Difference|
-      n_obs * ((mean(d_j)) - mean(p_j))^2 / mean(p_j)  # Pearson Chisq.
+      sum(d_j, na.rm = TRUE),                                # Frequency
+      mean(d_j, na.rm = TRUE),                               # Proportion
+      mean(p_j, na.rm = TRUE),                               # Probability
+      abs(mean(d_j, na.rm = TRUE) - mean(p_j, na.rm = TRUE)),              # |Difference|
+      n_obs * ((mean(d_j, na.rm = TRUE)) - mean(p_j, na.rm = TRUE))^2 / mean(p_j, na.rm = TRUE)  # Pearson Chisq.
     )
   }
   
@@ -148,12 +143,14 @@ GOFtest.mlmodel <- function(object, bins = 0:5)
   k <- bins[n_bins] + 1
   d_j <- y >= k
   p_j <- predict(object, type = paste0("P(", k, ",)"))$fit
+  # Only estimation observations (same length as y and d_j)
+  p_j <- p_j[sample_idx]
   D[nrow(D), ] <- rbind(
-    sum(d_j),                                # Frequency
-    mean(d_j),                               # Proportion
-    mean(p_j),                               # Probability
-    abs(mean(d_j) - mean(p_j)),              # |Difference|
-    n_obs * ((mean(d_j)) - mean(p_j))^2 / mean(p_j)  # Pearson Chisq.
+    sum(d_j, na.rm = TRUE),                                # Frequency
+    mean(d_j, na.rm = TRUE),                               # Proportion
+    mean(p_j, na.rm = TRUE),                               # Probability
+    abs(mean(d_j, na.rm = TRUE) - mean(p_j, na.rm = TRUE)),              # |Difference|
+    n_obs * ((mean(d_j, na.rm = TRUE)) - mean(p_j, na.rm = TRUE))^2 / mean(p_j, na.rm = TRUE)  # Pearson Chisq.
   )
   row_names[nrow(D)] <- paste(k,"+")
   
@@ -173,7 +170,7 @@ GOFtest.mlmodel <- function(object, bins = 0:5)
   pval <- pchisq(teststat, df, lower.tail = FALSE)
   
   out <- list(
-    model = model,
+    model = object$model$description,
     matrix = D,
     test = list(
       teststat = teststat,

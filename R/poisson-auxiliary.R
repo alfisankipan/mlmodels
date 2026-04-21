@@ -233,8 +233,13 @@
   # Compute variance from successful replications only
   valid_rows <- complete.cases(coef_matrix)
   vcov_boot <- var(coef_matrix[valid_rows, , drop = FALSE])
-  dimnames(vcov_boot) <- list(names(coef(object)), names(coef(object)))
   
+  attr(vcov_boot, "repetitions") <- repetitions
+  attr(vcov_boot, "n_success") <- sum(success)
+  attr(vcov_boot, "n_failure") <- repetitions - sum(success)
+  attr(vcov_boot, "success_rate") <- mean(success) * 100
+  
+  dimnames(vcov_boot) <- list(names(coef(object)), names(coef(object)))
   vcov_boot
 }
 
@@ -363,6 +368,9 @@
   theta_bar <- colMeans(valid_coef)
   centered  <- sweep(valid_coef, 2, theta_bar, FUN = "-")
   vcov_jack <- (n_valid - 1) / n_valid * crossprod(centered)
+  
+  attr(vcov_jack, "n_success") <- n_valid
+  attr(vcov_jack, "success_rate") <- n_valid / n_jack * 100
   
   dimnames(vcov_jack) <- list(names(coef(object)), names(coef(object)))
   vcov_jack

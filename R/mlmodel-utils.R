@@ -464,6 +464,76 @@ predict.mlmodel <- function(object, ...) {
   UseMethod("predict")
 }
 
+# Fitted Values ----------------------------------------------------------------
+#' Extract Fitted Values
+#'
+#' @param object An `mlmodel` object.
+#' @param ... Further arguments passed to methods (currently ignored).
+#'
+#' @return A numeric vector of fitted values, aligned to the original sample size.
+#'   Observations that were dropped (due to `subset`, `NA`s, etc.) will be `NA`.
+#' @export
+fitted.mlmodel <- function(object, ...) {
+  
+  if (!inherits(object, "mlmodel")) {
+    cli::cli_abort("`object` must be of class 'mlmodel'.")
+  }
+  
+  # Use predict() so we get the correctly aligned version with NAs
+  predict(object, type = "response")$fit
+}
+
+## RESIDUALS ===================================================================
+#' Extract Model Residuals
+#' 
+#' @param object An `mlmodel` object.
+#' @param type Character. Type of residuals: `"response"` (default) or `"pearson"`.
+#' @param ... Further arguments passed to methods.
+#'
+#' @return A numeric vector of residuals, aligned to the original data 
+#'   (with `NA` in positions that were dropped during estimation).
+#' @export
+residuals.mlmodel <- function(object, type = c("response", "pearson"), ...)
+{
+  if(!inherits(object, "mlmodel"))
+    cli::cli_abort("`object` needs to be of class `'mlmodel'`", call = NULL)
+  
+  type <- rlang::arg_match(type)
+  
+  # No matter the type we need the response prediction.
+  
+  fitted_values <- predict(object)$fit  # response is the default prediction for all models
+  
+  y <- .reconstruct_full_sample_vector(object$model$value$outcomes[[1]],
+                                       object$model$sample)
+  resid <- y - fitted_values
+  
+  if(type == "response") return(resid)
+  
+  # Models to check:
+  #   - ml_lm: if it's not lognormal prediction type is "var", if lognormal "var_y".
+  #   - ml_poisson: var = mu
+  #   - ml_probit and ml_logit: var  = mu * (1 - mu)
+  
+  if(inherits(object, "ml_lm"))
+  {
+    if(object$model$log_info$value$is_log)
+      var <- predict(object, type = "var_y")$fit
+    else
+      var <- predict(object, type = "var")$fit
+  }
+  else if(inherits(object, "ml_poisson"))
+    var <- fitted_values
+  else if(inherits(object, "ml_logit") || inherits(object, "ml_probit"))
+    var <- fitted_values * (1 - fitted_values)
+  else
+    var <- predict(object, type = "var")$fit
+  
+  pear <- resid / sqrt(var)
+  
+  return(pear)
+}
+
 ## SE ==========================================================================
 # --- Generic ------------------------------------------------------------------
 #' Extracts standard errors for an `mlmodel` object.
@@ -716,6 +786,7 @@ vcov.mlmodel <- function(object,
         cli::cli_abort("Dataset and its name not stored; cannot retrieve clustering variable.",
                        call = NULL)
       }
+      cl_var_name <- cl_var
       cl_var <- d[[cl_var]][object$model$sample]
     } else {
       # User passed a vector directly
@@ -730,6 +801,7 @@ vcov.mlmodel <- function(object,
         )
       if (n_var == n_orig)
         cl_var <- cl_var[object$model$sample]
+      cl_var_name <- NULL
     }
 
     # Check for unusable observations in clustering variable
@@ -756,8 +828,8 @@ vcov.mlmodel <- function(object,
     if (!is.null(cl_var)) {
       attr(vcov_mat, "clustered") <- TRUE
       attr(vcov_mat, "cluster.var") <- cl_var
+      attr(vcov_mat, "cluster.varname") <- cl_var_name
     }
-    attr(vcov_mat, "rep") <- repetitions
     return(vcov_mat)
   }
   
@@ -771,6 +843,7 @@ vcov.mlmodel <- function(object,
     if (!is.null(cl_var)) {
       attr(vcov_mat, "clustered") <- TRUE
       attr(vcov_mat, "cluster.var") <- cl_var
+      attr(vcov_mat, "cluster.varname") <- cl_var_name
     }
     return(vcov_mat)
   }
@@ -864,6 +937,7 @@ vcov.mlmodel <- function(object,
   if (!is.null(cl_var)) {
     attr(vcov_mat, "clustered") <- TRUE
     attr(vcov_mat, "cluster.var") <- cl_var
+    attr(vcov_mat, "cluster.varname") <- cl_var_name
   }
   dimnames(vcov_mat) <- list(names(coef(object)), names(coef(object)))
   return(vcov_mat)

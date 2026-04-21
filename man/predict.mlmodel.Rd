@@ -291,6 +291,7 @@ using the \code{P(...)} syntax.\tabular{lll}{
    \code{"link"} \tab Linear predictor ( xb ) \tab log-mean \cr
    \code{"response"} \tab Expected count ( \code{mu} = \code{exp(xb)} ) \tab Default \cr
    \code{"mean"} \tab Alias for \code{"response"} \tab - \cr
+   \code{"mu"} \tab Alias for \code{"response"} \tab - \cr
    \code{"fitted"} \tab Alias for \code{"response"} \tab - \cr
    \code{P(k)} \tab P(Y = k) \tab Exact probability, k integer ≥ 0 \cr
    \code{P(,k)} \tab P(Y ≤ k) \tab Cumulative (lower tail) \cr

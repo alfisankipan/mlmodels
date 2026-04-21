@@ -267,6 +267,19 @@
   invisible(TRUE)
 }
 
+# Reconstruct full sample vector -----------------------------------------------
+# Uses the sample's logical vector to extend the reduced vector to full sample
+# size, introducing NAs in the obserations not used in estimation.
+.reconstruct_full_sample_vector <- function(reduced, sample_logical)
+{
+  if (length(sample_logical) < length(reduced))
+    cli::cli_abort("`sample_logical` must have more observations than `reduced`",
+                   call = NULL)
+  full <- rep(NA_real_, length(sample_logical))
+  full[sample_logical] <- reduced
+  full
+}
+
 # Log transformations ----------------------------------------------------------
 # Detect log transformation on the outcome variable
 #
@@ -1252,6 +1265,11 @@
   valid_rows <- complete.cases(coef_matrix)
   vcov_boot  <- var(coef_matrix[valid_rows, , drop = FALSE])
   
+  attr(vcov_boot, "repetitions") <- repetitions
+  attr(vcov_boot, "n_success") <- sum(success)
+  attr(vcov_boot, "n_failure") <- repetitions - sum(success)
+  attr(vcov_boot, "success_rate") <- success_rate
+  
   dimnames(vcov_boot) <- list(names(coef(object)), names(coef(object)))
   vcov_boot
 }
@@ -1404,6 +1422,58 @@
   centered  <- sweep(valid_coef, 2, theta_bar, FUN = "-")
   vcov_jack <- (n_valid - 1) / n_valid * crossprod(centered)
   
+  attr(vcov_jack, "n_success") <- n_valid
+  attr(vcov_jack, "success_rate") <- n_valid / n_jack * 100
+  
   dimnames(vcov_jack) <- list(names(coef(object)), names(coef(object)))
   vcov_jack
+}
+
+# -- 5. vcov_description -------------------------------------------------------
+# Creates the description string about the variance for print methods where they
+# use a variance in getting the estimates (print.summary(), print.waldtest()...)
+#' @keywords internal
+# Internal helper to create consistent variance description for printing
+.vcov_description <- function(vcov_mat) {
+  
+  if (is.null(vcov_mat) || !is.matrix(vcov_mat) || is.null(attr(vcov_mat, "vcov.type"))) {
+    return("User Supplied (Unknown)")
+  }
+  
+  vcov_type <- attr(vcov_mat, "vcov.type")
+  
+  # Base description
+  base <- switch(vcov_type,
+                 "oim"    = "Original Information Matrix",
+                 "opg"    = "Outer Product of Gradients (BHHH)",
+                 "robust" = "Robust",
+                 "boot"   = {
+                   n_succ <- attr(vcov_mat, "n_success")
+                   n_rep  <- attr(vcov_mat, "repetitions")
+                   rate   <- attr(vcov_mat, "success_rate") %||% 0
+                   sprintf("Bootstrap (%d/%d reps. - %.2f%% rate)", n_succ, n_rep, rate)
+                 },
+                 "jack"   = {
+                   n_succ <- attr(vcov_mat, "n_success")
+                   rate   <- attr(vcov_mat, "success_rate") %||% 0
+                   sprintf("Jackknife (%d valid reps. - %.2f%% rate)", n_succ, rate)
+                 },
+                 vcov_type   # fallback
+  )
+  
+  # Add cluster information if applicable
+  if (!is.null(attr(vcov_mat, "clustered")) && attr(vcov_mat, "clustered")) {
+    cluster_var  <- attr(vcov_mat, "cluster.var")
+    cluster_name <- attr(vcov_mat, "cluster.varname")
+    
+    n_clusters <- length(unique(cluster_var))
+    
+    if (!is.null(cluster_name) && nzchar(cluster_name)) {
+      return(paste0(base, " | Clusters: ", n_clusters, " (", cluster_name, ")"))
+    } else {
+      return(paste0(base, " | Clusters: ", n_clusters))
+    }
+  } else {
+    return(base)
+  }
 }

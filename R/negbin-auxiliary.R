@@ -145,19 +145,6 @@
   H_stacked
 }
 # NB1 Log-Likelihood by Observation --------------------------------------------
-#' Log-likelihood by Observations of an NB1 model.
-#' 
-#' Extracts the log-likelihood by observation from a model estimated by
-#' `ml_negbin` with `dispersion = 'NB1'`.
-#' 
-#' @param object An object of class `ml_negbin` and `object$model$dispersion = 'NB1'`.
-#' 
-#' @details
-#' For an estimated model it extracts the log-likelihood by observations.
-#' 
-#' @returns Vector with the log-likelihoods, with length equal to the length of 
-#' the sample used in estimation.
-#' 
 #' @keywords internal
 .ml_negbin_nb1_loglikeObs <- function(object)
 {
@@ -738,6 +725,11 @@
   valid_rows <- complete.cases(coef_matrix)
   vcov_boot  <- var(coef_matrix[valid_rows, , drop = FALSE])
   
+  attr(vcov_boot, "repetitions") <- repetitions
+  attr(vcov_boot, "n_success") <- sum(success)
+  attr(vcov_boot, "n_failure") <- repetitions - sum(success)
+  attr(vcov_boot, "success_rate") <- mean(success) * 100
+  
   dimnames(vcov_boot) <- list(names(coef(object)), names(coef(object)))
   vcov_boot
 }
@@ -873,6 +865,9 @@
   theta_bar <- colMeans(valid_coef)
   centered  <- sweep(valid_coef, 2, theta_bar, FUN = "-")
   vcov_jack <- (n_valid - 1) / n_valid * crossprod(centered)
+  
+  attr(vcov_jack, "n_success") <- n_valid
+  attr(vcov_jack, "success_rate") <- n_valid / n_jack * 100
   
   dimnames(vcov_jack) <- list(names(coef(object)), names(coef(object)))
   vcov_jack

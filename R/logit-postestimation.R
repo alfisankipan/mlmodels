@@ -290,27 +290,7 @@ print.summary.ml_logit <- function(x, digits = max(3L, getOption("digits") - 3L)
     }
   }
   
-  if(!is.null(x$vcov.type))
-    vcov_type <- switch (x$vcov.type,
-                         "oim" = "Original Information Matrix",
-                         "opg" = "Outer Product of Gradients (BHHH)",
-                         "robust" = if(is.null(x$vcov.cluster)) "Robust" else "Cluster-Robust",
-                         "boot" = if(is.null(x$vcov.cluster)) paste0("Bootstrap (",
-                                                                     x$boot.reps, " repetitions)")
-                         else paste0("Cluster Bootstrap (",
-                                     x$boot.reps, " repetitions)"),
-                         "jack" = if(is.null(x$vcov.cluster)) "Jackknife" else "Cluster Jackknife",
-                         x$vcov.type
-    )
-  else
-    vcov_type <- "User Supplied (Unknown)"
-  
-  cat("\nVariance type:", vcov_type)
-  if (!is.null(x$vcov.cluster)) {
-    cat(" | Clusters:", x$vcov.cluster$n_cluster)
-    if (!is.null(x$vcov.cluster$var_name))
-      cat(" (", x$vcov.cluster$var_name, ")", sep = "")
-  }
+  cat("\nVariance type:", x$var_description)
   cat("\n---------------------------------------\n")
   
   old_pen <- getOption("scipen")
@@ -463,25 +443,14 @@ summary.ml_logit <- function(object,
   s$converged     <- converged
   s$is_heteroskedastic <- is_heteroskedastic
   
-  s$vcov.type <- attr(vcov_mat, "vcov.type")
-  # Clustered variance handling
-  if (!is.null(attr(vcov_mat, "clustered")) && attr(vcov_mat, "clustered")) {
-    s$vcov.cluster <- .vcov_cluster_info(object, attr(vcov_mat, "cluster.var"))
-  } else if (vcov.type %in% c("cluster", "robust") && !is.null(cl_var)) {
-    # Fallback when attributes are missing (should rarely happen)
-    s$vcov.cluster <- .vcov_cluster_info(object, cl_var)
-  } else {
-    s$vcov.cluster <- NULL
-  }
+  vcov_type <- attr(vcov_mat, "vcov.type") %||% "user-supplied"
   
-  # Boostrap variance handling.
-  if(s$vcov.type == "boot")
-    s$boot.reps <- attr(vcov_mat, "rep")
+  # Call helper for variance type general description.
+  s$var_description <- .vcov_description(vcov_mat)
   
   # Checking for fractional response estimation, and variance
   if (!object$model$is_binary) {
-    vtype <- s$vcov.type %||% "user-supplied"
-    if (vtype %in% c("oim", "opg")) {
+    if (vcov_type %in% c("oim", "opg")) {
       cli::cli_warn(
         c("Outcome appears to be fractional (values strictly between 0 and 1).",
           "i" = "The standard logit likelihood is being used as a quasi-likelihood.",
@@ -490,7 +459,7 @@ summary.ml_logit <- function(object,
           "i" = "Consider setting `vcov.type = \"robust\"` or `vcov.type = \"cluster\"`.")
       )
     } 
-    else if (vtype == "user-supplied") {
+    else if (vcov_type == "user-supplied") {
       cli::cli_warn(
         c("Outcome appears to be fractional (values strictly between 0 and 1).",
           "i" = "The standard logit likelihood is being used as a quasi-likelihood.",
@@ -500,7 +469,6 @@ summary.ml_logit <- function(object,
       )
     }
   }
-  
   
   # Coefficient table
   se <- sqrt(diag(vcov_mat))
