@@ -44,13 +44,13 @@ if constraints are being supplied. If supplied without constraints they
 will be ignored. See \strong{Details}.}
 
 \item{method}{A string with the method used for optimization. See
-\code{\link[maxLik:maxLik]{maxLik::maxLik()}} for options, and see \strong{Details}.}
+\link[maxLik:maxLik]{maxLik} for options, and see \strong{Details}.}
 
-\item{control}{A list of control parameters passed to \code{\link[maxLik:maxLik]{maxLik::maxLik()}}.
+\item{control}{A list of control parameters passed to \link[maxLik:maxLik]{maxLik}.
 If \code{NULL} (default), a sensible set of options is chosen automatically
-depending on whether constraints are used. See \link[maxLik:maxControl]{maxLik::maxControl}.}
+depending on whether constraints are used. See \link[maxLik:maxControl]{maxControl}.}
 
-\item{...}{Additional arguments passed to \code{\link[maxLik:maxLik]{maxLik::maxLik()}}.}
+\item{...}{Additional arguments passed to \link[maxLik:maxLik]{maxLik}.}
 }
 \value{
 An object of class \code{ml_probit} that extends \code{mlmodel}.
@@ -84,6 +84,43 @@ When constraints are used, \code{ml_probit} automatically chooses \code{method}:
 }
 
 In these cases your supplied \code{method} argument (if any) is ignored.
+
+The probit model is appropriate for strictly binary outcomes (0/1).
+It uses the cumulative distribution function of the standard normal.
+For fractional responses (values strictly between 0 and 1), use
+\link{ml_logit} or \link{ml_beta} instead.
+}
+\examples{
+
+# Probit model (strictly binary outcome)
+data(smoke)
+smoke$smokes <- smoke$cigs > 0
+
+fit_probit <- ml_probit(smokes ~ cigpric + income + age, 
+                        data = smoke)
+
+summary(fit_probit, vcov.type = "robust")
+
+# Heteroskedastic probit model
+fit_probit_het <- ml_probit(smokes ~ cigpric + income + age,
+                            scale = ~ educ,
+                            data = smoke)
+
+summary(fit_probit_het, vcov.type = "robust")
+
+# Different predict types
+head(predict(fit_probit, type = "response")$fit)   # Probability of success
+head(predict(fit_probit, type = "prob0")$fit)      # Probability of failure
+head(predict(fit_probit, type = "link")$fit)       # Linear predictor (z)
+
+# Fitted values and residuals
+head(fitted(fit_probit))
+head(residuals(fit_probit))
+head(residuals(fit_probit, type = "pearson"))
+
+}
+\seealso{
+\link{ml_logit}
 }
 \author{
 Alfonso Sanchez-Penalver

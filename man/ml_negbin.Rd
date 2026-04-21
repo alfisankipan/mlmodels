@@ -53,13 +53,13 @@ if constraints are being supplied. If supplied without constraints they
 will be ignored. See \strong{Details}.}
 
 \item{method}{A string with the method used for optimization. See
-\code{\link[maxLik:maxLik]{maxLik::maxLik()}} for options, and see \strong{Details}.}
+\link[maxLik:maxLik]{maxLik} for options, and see \strong{Details}.}
 
-\item{control}{A list of control parameters passed to \code{\link[maxLik:maxLik]{maxLik::maxLik()}}.
+\item{control}{A list of control parameters passed to \link[maxLik:maxLik]{maxLik}.
 If \code{NULL} (default), a sensible set of options is chosen automatically
-depending on whether constraints are used. See \link[maxLik:maxControl]{maxLik::maxControl}.}
+depending on whether constraints are used. See \link[maxLik:maxControl]{maxControl}.}
 
-\item{...}{Additional arguments passed to \code{\link[maxLik:maxLik]{maxLik::maxLik()}}.}
+\item{...}{Additional arguments passed to \link[maxLik:maxLik]{maxLik}.}
 }
 \value{
 An object of class \code{ml_negbin} that extends \code{mlmodel.count} and \code{mlmodel}.
@@ -91,6 +91,43 @@ When constraints are used, \code{ml_lm} automatically chooses the optimizer:
 }
 
 In these cases your supplied \code{method} argument (if any) is ignored.
+}
+\examples{
+
+# Homoskedastic NB2 model (default dispersion)
+data(docvis)
+fit_nb2 <- ml_negbin(docvis ~ age + educyr + totchr, 
+                     data = docvis)
+
+summary(fit_nb2, vcov.type = "robust")
+
+# Homoskedastic NB1 model
+fit_nb1 <- ml_negbin(docvis ~ age + educyr + totchr, 
+                     dispersion = "NB1",
+                     data = docvis)
+
+summary(fit_nb1, vcov.type = "robust")
+
+# Heteroskedastic NB2 model
+fit_nb2_het <- ml_negbin(docvis ~ age + educyr + totchr,
+                         scale = ~ female + bh,
+                         data = docvis)
+
+summary(fit_nb2_het, vcov.type = "robust")
+
+# Different predict types
+head(predict(fit_nb2, type = "response")$fit)   # Expected count
+head(predict(fit_nb2, type = "var")$fit)       # Variance
+head(predict(fit_nb2, type = "alpha")$fit)     # Dispersion parameter
+
+# Fitted values and residuals
+head(fitted(fit_nb2))
+head(residuals(fit_nb2))
+head(residuals(fit_nb2, type = "pearson"))
+
+}
+\seealso{
+\link{ml_poisson}
 }
 \author{
 Alfonso Sanchez-Penalver

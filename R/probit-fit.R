@@ -15,14 +15,14 @@
 #'   vector of string constraints, a named list of string constraints, or a raw
 #'   maxLik constraints list. See **Details**.
 #' @param method A string with the method used for optimization. See
-#'   [maxLik::maxLik()] for options, and see **Details**.
+#'   [maxLik][maxLik::maxLik()] for options, and see **Details**.
 #' @param start Numeric vector of starting values for the coefficients. Required
 #'   if constraints are being supplied. If supplied without constraints they
 #'   will be ignored. See **Details**.
-#' @param control A list of control parameters passed to [maxLik::maxLik()].
+#' @param control A list of control parameters passed to [maxLik][maxLik::maxLik].
 #'   If `NULL` (default), a sensible set of options is chosen automatically
-#'   depending on whether constraints are used. See [maxLik::maxControl].
-#' @param ... Additional arguments passed to [maxLik::maxLik()].
+#'   depending on whether constraints are used. See [maxControl][maxLik::maxControl].
+#' @param ... Additional arguments passed to [maxLik][maxLik::maxLik].
 #'
 #' @details
 #' **Important:** Do not use the usual R syntax to remove the intercept in the
@@ -48,8 +48,43 @@
 #' - Inequality constraints => BFGS (`"BFGS"`)
 #'
 #' In these cases your supplied `method` argument (if any) is ignored.
+#' 
+#' The probit model is appropriate for strictly binary outcomes (0/1). 
+#' It uses the cumulative distribution function of the standard normal.
+#' For fractional responses (values strictly between 0 and 1), use 
+#' [ml_logit] or [ml_beta] instead.
 #'
 #' @return An object of class `ml_probit` that extends `mlmodel`.
+#' 
+#' @seealso [ml_logit]
+#' 
+#' @examples
+#' 
+#' # Probit model (strictly binary outcome)
+#' data(smoke)
+#' smoke$smokes <- smoke$cigs > 0
+#' 
+#' fit_probit <- ml_probit(smokes ~ cigpric + income + age, 
+#'                         data = smoke)
+#' 
+#' summary(fit_probit, vcov.type = "robust")
+#' 
+#' # Heteroskedastic probit model
+#' fit_probit_het <- ml_probit(smokes ~ cigpric + income + age,
+#'                             scale = ~ educ,
+#'                             data = smoke)
+#' 
+#' summary(fit_probit_het, vcov.type = "robust")
+#' 
+#' # Different predict types
+#' head(predict(fit_probit, type = "response")$fit)   # Probability of success
+#' head(predict(fit_probit, type = "prob0")$fit)      # Probability of failure
+#' head(predict(fit_probit, type = "link")$fit)       # Linear predictor (z)
+#' 
+#' # Fitted values and residuals
+#' head(fitted(fit_probit))
+#' head(residuals(fit_probit))
+#' head(residuals(fit_probit, type = "pearson"))
 #'
 #' @author Alfonso Sanchez-Penalver
 #'

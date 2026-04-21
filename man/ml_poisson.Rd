@@ -41,16 +41,16 @@ if constraints are being supplied. If supplied without constraints they
 will be ignored. See \strong{Details}.}
 
 \item{method}{A string with the method used for optimization. See
-\code{\link[maxLik:maxLik]{maxLik::maxLik()}} for options, and see \strong{Details}.}
+\link[maxLik:maxLik]{maxLik} for options, and see \strong{Details}.}
 
-\item{control}{A list of control parameters passed to \code{\link[maxLik:maxLik]{maxLik::maxLik()}}.
+\item{control}{A list of control parameters passed to \link[maxLik:maxLik]{maxLik}.
 If \code{NULL} (default), a sensible set of options is chosen automatically
-depending on whether constraints are used. See \link[maxLik:maxControl]{maxLik::maxControl}.}
+depending on whether constraints are used. See \link[maxLik:maxControl]{maxControl}.}
 
-\item{...}{Additional arguments passed to \code{\link[maxLik:maxLik]{maxLik::maxLik()}}.}
+\item{...}{Additional arguments passed to \link[maxLik:maxLik]{maxLik}.}
 }
 \value{
-An object of class \code{ml_poisson} that extends \code{mlmodel}.
+An object of class \code{ml_poisson} that extends \code{mlmodel.count} and \code{mlmodel}.
 }
 \description{
 Fit Poisson model by Maximum Likelihood
@@ -78,6 +78,33 @@ When constraints are used, \code{ml_lm} automatically chooses the optimizer:
 }
 
 In these cases your supplied \code{method} argument (if any) is ignored.
+
+The Poisson model assumes equidispersion (mean = variance).
+When the data show overdispersion (as is common), consider using
+\link{ml_negbin} instead.
+}
+\examples{
+
+# Poisson model
+data(docvis)
+fit_pois <- ml_poisson(docvis ~ age + educyr + totchr, 
+                       data = docvis)
+
+summary(fit_pois, vcov.type = "robust")
+
+# Different predict types
+head(predict(fit_pois, type = "response")$fit)   # Expected count
+head(predict(fit_pois, type = "P(2,)")$fit)      # Probability of at least 2
+head(predict(fit_pois, type = "P(3)")$fit)       # Probability of exactly 3
+
+# Fitted values and residuals
+head(fitted(fit_pois))
+head(residuals(fit_pois))
+head(residuals(fit_pois, type = "pearson"))
+
+}
+\seealso{
+\link{ml_negbin}
 }
 \author{
 Alfonso Sanchez-Penalver

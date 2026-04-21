@@ -22,11 +22,14 @@
 #'   if constraints are being supplied. If supplied without constraints they
 #'   will be ignored. See **Details**.
 #' @param method A string with the method used for optimization. See
-#'   [maxLik::maxLik()] for options, and see **Details**.
-#' @param control A list of control parameters passed to [maxLik::maxLik()].
+#'   [maxLik][maxLik::maxLik()] for options, and see **Details**.
+#' @param start Numeric vector of starting values for the coefficients. Required
+#'   if constraints are being supplied. If supplied without constraints they
+#'   will be ignored. See **Details**.
+#' @param control A list of control parameters passed to [maxLik][maxLik::maxLik].
 #'   If `NULL` (default), a sensible set of options is chosen automatically
-#'   depending on whether constraints are used. See [maxLik::maxControl].
-#' @param ... Additional arguments passed to [maxLik::maxLik()].
+#'   depending on whether constraints are used. See [maxControl][maxLik::maxControl].
+#' @param ... Additional arguments passed to [maxLik][maxLik::maxLik].
 #'
 #' @details
 #' **Important:** Do not use the usual R syntax to remove the intercept in the
@@ -52,6 +55,41 @@
 #' In these cases your supplied `method` argument (if any) is ignored.
 #'
 #' @return An object of class `ml_negbin` that extends `mlmodel.count` and `mlmodel`.
+#' 
+#' @seealso [ml_poisson]
+#' 
+#' @examples
+#' 
+#' # Homoskedastic NB2 model (default dispersion)
+#' data(docvis)
+#' fit_nb2 <- ml_negbin(docvis ~ age + educyr + totchr, 
+#'                      data = docvis)
+#' 
+#' summary(fit_nb2, vcov.type = "robust")
+#' 
+#' # Homoskedastic NB1 model
+#' fit_nb1 <- ml_negbin(docvis ~ age + educyr + totchr, 
+#'                      dispersion = "NB1",
+#'                      data = docvis)
+#' 
+#' summary(fit_nb1, vcov.type = "robust")
+#' 
+#' # Heteroskedastic NB2 model
+#' fit_nb2_het <- ml_negbin(docvis ~ age + educyr + totchr,
+#'                          scale = ~ female + bh,
+#'                          data = docvis)
+#' 
+#' summary(fit_nb2_het, vcov.type = "robust")
+#' 
+#' # Different predict types
+#' head(predict(fit_nb2, type = "response")$fit)   # Expected count
+#' head(predict(fit_nb2, type = "var")$fit)       # Variance
+#' head(predict(fit_nb2, type = "alpha")$fit)     # Dispersion parameter
+#' 
+#' # Fitted values and residuals
+#' head(fitted(fit_nb2))
+#' head(residuals(fit_nb2))
+#' head(residuals(fit_nb2, type = "pearson"))
 #'
 #' @author Alfonso Sanchez-Penalver
 #'

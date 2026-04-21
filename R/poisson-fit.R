@@ -16,11 +16,14 @@
 #'   if constraints are being supplied. If supplied without constraints they
 #'   will be ignored. See **Details**.
 #' @param method A string with the method used for optimization. See
-#'   [maxLik::maxLik()] for options, and see **Details**.
-#' @param control A list of control parameters passed to [maxLik::maxLik()].
+#'   [maxLik][maxLik::maxLik()] for options, and see **Details**.
+#' @param start Numeric vector of starting values for the coefficients. Required
+#'   if constraints are being supplied. If supplied without constraints they
+#'   will be ignored. See **Details**.
+#' @param control A list of control parameters passed to [maxLik][maxLik::maxLik].
 #'   If `NULL` (default), a sensible set of options is chosen automatically
-#'   depending on whether constraints are used. See [maxLik::maxControl].
-#' @param ... Additional arguments passed to [maxLik::maxLik()].
+#'   depending on whether constraints are used. See [maxControl][maxLik::maxControl].
+#' @param ... Additional arguments passed to [maxLik][maxLik::maxLik].
 #'
 #' @details
 #' **Important:** Do not use the usual R syntax to remove the intercept in the
@@ -43,8 +46,33 @@
 #' - Inequality constraints => BFGS (`"BFGS"`)
 #'
 #' In these cases your supplied `method` argument (if any) is ignored.
+#' 
+#' The Poisson model assumes equidispersion (mean = variance). 
+#' When the data show overdispersion (as is common), consider using 
+#' [ml_negbin] instead.
 #'
-#' @return An object of class `ml_poisson` that extends `mlmodel`.
+#' @return An object of class `ml_poisson` that extends `mlmodel.count` and `mlmodel`.
+#' 
+#' @seealso [ml_negbin]
+#' 
+#' @examples
+#' 
+#' # Poisson model
+#' data(docvis)
+#' fit_pois <- ml_poisson(docvis ~ age + educyr + totchr, 
+#'                        data = docvis)
+#' 
+#' summary(fit_pois, vcov.type = "robust")
+#' 
+#' # Different predict types
+#' head(predict(fit_pois, type = "response")$fit)   # Expected count
+#' head(predict(fit_pois, type = "P(2,)")$fit)      # Probability of at least 2
+#' head(predict(fit_pois, type = "P(3)")$fit)       # Probability of exactly 3
+#' 
+#' # Fitted values and residuals
+#' head(fitted(fit_pois))
+#' head(residuals(fit_pois))
+#' head(residuals(fit_pois, type = "pearson"))
 #'
 #' @author Alfonso Sanchez-Penalver
 #'
