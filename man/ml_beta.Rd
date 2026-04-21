@@ -87,6 +87,51 @@ When constraints are used, \code{ml_lm} automatically chooses the optimizer:
 }
 
 In these cases your supplied \code{method} argument (if any) is ignored.
+
+The Beta model is only defined for a strictly fractional response variable
+in the open interval (0, 1). Observations where the response is
+\code{y <= 0} or \code{y >= 1} are automatically dropped with a warning.
+If your data contains boundary values (0 or 1), consider using
+\code{ml_logit()} instead.
+}
+\examples{
+
+# Homoskedastic beta regression (fractional response)
+data(pw401k)
+
+# Beta regression requires 0 < y < 1. 
+# Observations at the boundaries (0 or 1) are automatically dropped.
+fit_beta <- ml_beta(prate ~ mrate + I(mrate^2) + log(totemp) + 
+                    I(log(totemp)^2) + age + I(age^2) + sole, 
+                    data = pw401k, 
+                    subset = prate < 1)   # drop y = 1
+
+summary(fit_beta, vcov.type = "robust")
+
+# Heteroskedastic beta regression
+fit_beta_het <- ml_beta(prate ~ mrate + I(mrate^2) + log(totemp) + 
+                        I(log(totemp)^2) + age + I(age^2) + sole,
+                        scale = ~ totemp + sole,
+                        data = pw401k, 
+                        subset = prate < 1)
+
+summary(fit_beta_het, vcov.type = "robust")
+
+
+# Note: All predictions (including those from predict(), fitted(), and 
+# residuals()) return values aligned to the original data, with NA 
+# for observations dropped due to subset or boundary values.
+
+# Different predict types
+head(predict(fit_beta, type = "response")$fit)   # Expected value E[y]
+head(predict(fit_beta, type = "variance")$fit)   # Variance of y
+head(predict(fit_beta, type = "phi")$fit)        # Precision parameter
+
+# Fitted values and residuals
+head(fitted(fit_beta))
+head(residuals(fit_beta))
+head(residuals(fit_beta, type = "pearson"))
+
 }
 \author{
 Alfonso Sanchez-Penalver
