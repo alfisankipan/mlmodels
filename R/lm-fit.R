@@ -51,6 +51,36 @@
 #' In these cases your supplied `method` argument (if any) is ignored.
 #'
 #' @return An object of class `ml_lm` that extends `mlmodel`.
+#' 
+#' @examples
+#' 
+#' # Homoskedastic linear model
+#' data(mroz)
+#' fit_lin <- ml_lm(faminc ~ age + I(age^2) + huswage + educ + unem, 
+#'                  data = mroz)
+#' summary(fit_lin, vcov.type = "robust")
+#' 
+#' # Heteroskedastic linear model
+#' fit_het <- ml_lm(faminc ~ age + I(age^2) + huswage + educ + unem,
+#'                  scale = ~ educ + exper,
+#'                  data = mroz)
+#' summary(fit_het, vcov.type = "robust")
+#' 
+#' # Lognormal (log-linear) model
+#' fit_log <- ml_lm(log(faminc) ~ age + I(age^2) + huswage + educ + unem,
+#'                  data = mroz)
+#' summary(fit_log, vcov.type = "robust")
+#' 
+#' # Different predict types
+#' head(predict(fit_log, type = "response")$fit)      # Expected value E[y]
+#' head(predict(fit_log, type = "median")$fit)        # Median of y
+#' head(predict(fit_log, type = "variance_y")$fit)    # Variance of y
+#' head(predict(fit_log, type = "var")$fit)           # Variance of log(y)
+#' 
+#' # Fitted values and residuals
+#' head(fitted(fit_lin))
+#' head(residuals(fit_lin))
+#' head(residuals(fit_lin, type = "pearson"))
 #'
 #' @author Alfonso Sanchez-Penalver
 #'
