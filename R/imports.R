@@ -5,6 +5,8 @@
 #' @importFrom tibble tibble
 #' @importFrom utils capture.output 
 #'
+#' @importFrom stats AIC
+#' @importFrom stats BIC
 #' @importFrom stats coef
 #' @importFrom stats complete.cases
 #' @importFrom stats cor
@@ -15,6 +17,7 @@
 #' @importFrom stats dnbinom
 #' @importFrom stats dpois
 #' @importFrom stats fitted
+#' @importFrom stats fitted.values
 #' @importFrom stats formula
 #' @importFrom stats lm
 #' @importFrom stats .lm.fit

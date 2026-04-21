@@ -18,12 +18,6 @@
 #'
 #' @return A numeric value with the AIC.
 #' 
-#' @importFrom stats AIC
-#' @export
-AIC <- function(object, ..., k = 2) UseMethod("AIC")
-
-# --- mlmodel ------------------------------------------------------------------
-#' @rdname AIC
 #' @export
 AIC.mlmodel <- function(object, ..., k = 2)
 {
@@ -62,12 +56,6 @@ AIC.summary.mlmodel <- function(object, ..., k = 2)
 #' @param object An object of class `"mlmodel"` or `"summary.mlmodel"`.
 #' @param ... Further arguments passed to methods.
 #'
-#' @importFrom stats BIC
-#' @export
-BIC <- function(object, ...) UseMethod("BIC")
-
-# --- mlmodel ------------------------------------------------------------------
-#' @rdname BIC
 #' @export
 BIC.mlmodel <- function(object, ...)
 {
@@ -216,34 +204,26 @@ confint.mlmodel <- function(object,
 }
 
 ## FITTED ======================================================================
-# --- mlmodel ------------------------------------------------------------------
-#' Returns the fitted values from an object of class `mlmodel`.
+#' Extract Fitted Values
+#'
+#' @param object An `mlmodel` object.
+#' @param ... Further arguments passed to methods (currently ignored).
+#'
+#' @return A numeric vector of fitted values, aligned to the original sample size.
+#'   Observations that were dropped (due to `subset`, `NA`s, etc.) will be `NA`.
 #' 
-#' @param object Object of class `mlmodel` estmated with one of the models in
-#'    package.
-#' 
-#' @param ... Additional arguments passed to methods.
-#' 
-#' @returns A vector with the fitted values of the model.
-#' 
-#' @importFrom stats fitted
 #' @export
-fitted.mlmodel <- function(object, ...)
-{
-  if (!inherits(object, "mlmodel"))
-    cli::cli_abort("`object` must be a model of class 'mlmodel'.",
-                   call = NULL)
+fitted.mlmodel <- function(object, ...) {
   
+  if (!inherits(object, "mlmodel")) {
+    cli::cli_abort("`object` must be of class 'mlmodel'.")
+  }
   
-  if (!is.null(object$model$fitted.values))
-    return(object$model$fitted.values)
-  
-  # Fallback to predict if not stored
-  predict(object, type = "response")
+  # Use predict() so we get the correctly aligned version with NAs
+  predict(object, type = "response")$fit
 }
 
 #' @rdname fitted.mlmodel
-#' @importFrom stats fitted.values
 #' @export
 fitted.values.mlmodel <- fitted.mlmodel
 
@@ -259,12 +239,6 @@ fitted.values.mlmodel <- fitted.mlmodel
 #' @returns A scalar numeric: the log-likelihood of the model. It includes the
 #' number of observations as the attribute 'nobs'.
 #'
-#' @importFrom stats logLik
-#' @export
-logLik <- function(object, ...) UseMethod("logLik")
-
-# --- mlmodel ------------------------------------------------------------------
-#' @rdname logLik
 #' @export
 logLik.mlmodel <- function(object, ...)
 {
@@ -282,7 +256,6 @@ logLik.mlmodel <- function(object, ...)
 }
 
 # --- summary.mlmodel ----------------------------------------------------------
-#' @rdname logLik
 #' @export
 logLik.summary.mlmodel <- function(object, ...)
 {
@@ -462,25 +435,6 @@ nobs.mlmodel <- function(object, ...) {
 #' @export
 predict.mlmodel <- function(object, ...) {
   UseMethod("predict")
-}
-
-# Fitted Values ----------------------------------------------------------------
-#' Extract Fitted Values
-#'
-#' @param object An `mlmodel` object.
-#' @param ... Further arguments passed to methods (currently ignored).
-#'
-#' @return A numeric vector of fitted values, aligned to the original sample size.
-#'   Observations that were dropped (due to `subset`, `NA`s, etc.) will be `NA`.
-#' @export
-fitted.mlmodel <- function(object, ...) {
-  
-  if (!inherits(object, "mlmodel")) {
-    cli::cli_abort("`object` must be of class 'mlmodel'.")
-  }
-  
-  # Use predict() so we get the correctly aligned version with NAs
-  predict(object, type = "response")$fit
 }
 
 ## RESIDUALS ===================================================================
