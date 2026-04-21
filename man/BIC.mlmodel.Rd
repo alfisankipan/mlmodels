@@ -2,12 +2,9 @@
 % Please edit documentation in R/mlmodel-utils.R
 \name{BIC.mlmodel}
 \alias{BIC.mlmodel}
-\alias{BIC.summary.mlmodel}
 \title{Extract BIC}
 \usage{
 \method{BIC}{mlmodel}(object, ...)
-
-\method{BIC}{summary.mlmodel}(object, ...)
 }
 \arguments{
 \item{object}{An object of class \code{"mlmodel"} or \code{"summary.mlmodel"}.}
