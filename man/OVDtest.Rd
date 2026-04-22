@@ -2,28 +2,46 @@
 % Please edit documentation in R/mlmodel-count-tests.R
 \name{OVDtest}
 \alias{OVDtest}
-\title{Overdispersion tests for count outcomes.}
+\title{Overdispersion Tests for Poisson Models}
 \usage{
 OVDtest(object)
 }
 \arguments{
-\item{object}{An object of class \code{'mlmodel.count'}, i.e estimated by one of
-our count variable models (ml_poisson, ml_negbin,...)}
+\item{object}{An object of class \code{"mlmodel.count"} fitted with \code{ml_poisson()}.}
 }
 \value{
-A list with the results of overdispersion tests of a poisson model
-against both a NB1 and NB2 negative binomial models.
+A list with the results of two overdispersion tests:
+\itemize{
+\item Test against NB1 (linear variance function)
+\item Test against NB2 (quadratic variance function)
+}
 }
 \description{
-Performs Cameron and Trivedi's test for overdispersion.
+Performs Cameron and Trivedi's (1990) regression-based tests for overdispersion
+in Poisson models.
+}
+\details{
+These tests check whether the conditional variance equals the conditional mean
+(the Poisson assumption). Rejection of the null indicates overdispersion and
+suggests that a negative binomial model may be more appropriate.
+}
+\examples{
+
+# Poisson model on docvis data
+fit_pois <- ml_poisson(docvis ~ private + medicaid + age + I(age^2) + 
+                       educyr + actlim + totchr, data = docvis)
+
+OVDtest(fit_pois)
+
 }
 \references{
-Cameron, A. C. and Trivedi, P. K. (1990). Regression-based tests for overdispersion in
-the Poisson model. \emph{Journal of Econometrics}, 46(3), 347-364.
+Cameron, A. C., & Trivedi, P. K. (1990). 'Regression-based tests for overdispersion
+in the Poisson model.' \emph{Journal of Econometrics}, 46(3), 347-364.
+\doi{10.1016/0304-4076(90)90014-K}
 
-Cameron, A. C. and Trivedi, P. K. (2013). \emph{Regression Analysis of Count Data}.
-2nd Edition. Cambridge University Press.
+Cameron, A. C., & Trivedi, P. K. (2013). \emph{Regression Analysis of Count Data} (2nd ed.).
+Cambridge University Press. \doi{10.1017/CBO9781139013567}
 }
 \seealso{
-\code{\link{IMtest}} for general misspecification testing.
+\code{\link[=IMtest]{IMtest()}}, \code{\link[=GOFtest]{GOFtest()}}
 }

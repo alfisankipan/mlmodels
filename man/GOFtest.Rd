@@ -3,56 +3,60 @@
 \name{GOFtest}
 \alias{GOFtest}
 \alias{GOFtest.mlmodel}
-\title{Goodness of Fit Test for Count Models}
+\title{Goodness-of-Fit Test for Count Models}
 \usage{
 GOFtest(object, bins = 0:5)
 
 \method{GOFtest}{mlmodel}(object, bins = 0:5)
 }
 \arguments{
-\item{object}{An object of class \code{mlmodel.count}, that has been estimated with
-one of our estimators for count data (ml_poisson, ml_negbin, ...)}
+\item{object}{An object of class \code{"mlmodel.count"} (typically from
+\code{ml_poisson()} or \code{ml_negbin()}).}
 
-\item{bins}{A vector of integers that sets the boundaries of the bins to
-analyze. Defaults to \code{0:5}.}
+\item{bins}{Integer vector. Defines the boundaries of the bins used
+to group counts. Default is \code{0:5}.}
 }
 \value{
-An object of class \code{GOFtest} with the following elements:
+An object of class \code{"GOFtest.mlmodel"} with components:
 \describe{
-\item{model}{A string with the estimation model type for which the test
-is being performed.}
-\item{matrix}{A matrix with the different statistics to display for the
-different bins.}
-\item{test}{A list with the values of the actual test. The elements are:
-\describe{
-\item{teststat}{The value of the test statistic.}
-\item{df}{The number of degrees of freedom in the test.}
-\item{pval}{The p-value of the test.}
-}
-}
+\item{model}{Description of the fitted model.}
+\item{matrix}{A table with observed and predicted frequencies, proportions,
+absolute differences, and Pearson contributions per bin.}
+\item{test}{A list containing \code{teststat}, \code{df}, and \code{pval} for the overall
+goodness-of-fit test.}
 }
 }
 \description{
-Performs the Manjon & Martinez (2014) Score Test of Overdispersion.
+Performs the Manjon and Martinez (2014) chi-squared goodness-of-fit test
+for count data models.
 }
 \details{
-While performing the test, it also prepares a table to display collecting
-the frequency, proportion of cases, average predicted probability, absolute
-difference between these two last values, and the pearson statistic for each
-of the bins implied by the vector of numbers in \code{bins}.
+The test compares the observed frequencies with the expected frequencies
+predicted by the model across different count bins. It produces both a
+binned comparison table and an overall regression-based chi-squared test
+statistic.
+
+A low p-value indicates that the model's predicted probabilities do not
+adequately match the observed count distribution (model misspecification).
 }
 \examples{
-set.seed(123)
-d <- data.frame(x = rnorm(100))
-d$y <- rpois(100, lambda = exp(d$x * 0.5))
-fit <- ml_poisson(y ~ x, data = d)
-GOFtest(fit, bins = 1:3)
 
+# Poisson model
+fit_pois <- ml_poisson(docvis ~ private + medicaid + age + I(age^2) + 
+                       educyr + actlim + totchr, data = docvis)
+
+GOFtest(fit_pois, bins = 0:5)
+
+# Negative binomial model
+fit_nb2 <- ml_negbin(docvis ~ private + medicaid + age + I(age^2) + 
+                     educyr + actlim + totchr, data = docvis)
+
+GOFtest(fit_nb2)
 
 }
 \references{
-Manjon, M., & Martinez, O. (2014). The chi-squared goodness-of-fit
-test for count-data models. \emph{The Stata Journal}, 14(4), 798-816.
+Manjon, M., & Martinez, O. (2014). 'The chi-squared goodness-of-fit test
+for count-data models.' \emph{The Stata Journal}, 14(4), 798-816.
 \doi{10.1177/1536867X1401400406}
 }
 \author{

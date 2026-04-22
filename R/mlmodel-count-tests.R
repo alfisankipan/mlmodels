@@ -1,50 +1,53 @@
 ## GOFtest =====================================================================
-#' Goodness of Fit Test for Count Models
-#' 
-#' Performs the Manjon & Martinez (2014) Score Test of Overdispersion.
-#' 
-#' @param object An object of class `mlmodel.count`, that has been estimated with
-#'   one of our estimators for count data (ml_poisson, ml_negbin, ...)
+#' Goodness-of-Fit Test for Count Models
 #'
-#' @param bins A vector of integers that sets the boundaries of the bins to
-#'   analyze. Defaults to `0:5`.
-#' 
-#' @returns An object of class `GOFtest` with the following elements:
-#' \describe{
-#'    \item{model}{A string with the estimation model type for which the test
-#'    is being performed.}
-#'    \item{matrix}{A matrix with the different statistics to display for the
-#'    different bins.}
-#'    \item{test}{A list with the values of the actual test. The elements are:
-#'        \describe{
-#'            \item{teststat}{The value of the test statistic.}
-#'            \item{df}{The number of degrees of freedom in the test.}
-#'            \item{pval}{The p-value of the test.}
-#'        }
-#'    }
-#' }
-#' 
+#' Performs the Manjon and Martinez (2014) chi-squared goodness-of-fit test
+#' for count data models.
+#'
+#' @param object An object of class `"mlmodel.count"` (typically from 
+#'   `ml_poisson()` or `ml_negbin()`).
+#' @param bins Integer vector. Defines the boundaries of the bins used
+#'   to group counts. Default is `0:5`.
+#'
 #' @details
-#' While performing the test, it also prepares a table to display collecting
-#' the frequency, proportion of cases, average predicted probability, absolute
-#' difference between these two last values, and the pearson statistic for each
-#' of the bins implied by the vector of numbers in `bins`.
-#' 
-#' @examples
-#' set.seed(123)
-#' d <- data.frame(x = rnorm(100))
-#' d$y <- rpois(100, lambda = exp(d$x * 0.5))
-#' fit <- ml_poisson(y ~ x, data = d)
-#' GOFtest(fit, bins = 1:3)
-#' 
-#' 
+#' The test compares the observed frequencies with the expected frequencies
+#' predicted by the model across different count bins. It produces both a
+#' binned comparison table and an overall regression-based chi-squared test
+#' statistic.
+#'
+#' A low p-value indicates that the model's predicted probabilities do not
+#' adequately match the observed count distribution (model misspecification).
+#'
+#' @return An object of class `"GOFtest.mlmodel"` with components:
+#' \describe{
+#'   \item{model}{Description of the fitted model.}
+#'   \item{matrix}{A table with observed and predicted frequencies, proportions,
+#'     absolute differences, and Pearson contributions per bin.}
+#'   \item{test}{A list containing `teststat`, `df`, and `pval` for the overall
+#'     goodness-of-fit test.}
+#' }
+#'
 #' @author Alfonso Sanchez-Penalver
 #' 
-#' @references 
-#' Manjon, M., & Martinez, O. (2014). The chi-squared goodness-of-fit 
-#' test for count-data models. \emph{The Stata Journal}, 14(4), 798-816. 
+#' @references
+#' Manjon, M., & Martinez, O. (2014). 'The chi-squared goodness-of-fit test 
+#' for count-data models.' *The Stata Journal*, 14(4), 798-816.
 #' \doi{10.1177/1536867X1401400406}
+#'
+#' @examples
 #' 
+#' # Poisson model
+#' fit_pois <- ml_poisson(docvis ~ private + medicaid + age + I(age^2) + 
+#'                        educyr + actlim + totchr, data = docvis)
+#' 
+#' GOFtest(fit_pois, bins = 0:5)
+#' 
+#' # Negative binomial model
+#' fit_nb2 <- ml_negbin(docvis ~ private + medicaid + age + I(age^2) + 
+#'                      educyr + actlim + totchr, data = docvis)
+#' 
+#' GOFtest(fit_nb2)
+#'
 #' @export
 GOFtest <- function(object, bins = 0:5) UseMethod("GOFtest")
 
@@ -182,7 +185,6 @@ GOFtest.mlmodel <- function(object, bins = 0:5)
   return(out)
 }
 
-
 #' @export
 print.GOFtest.mlmodel <- function(x, ...) {
   if(!inherits(x, "GOFtest.mlmodel"))
@@ -207,25 +209,39 @@ print.GOFtest.mlmodel <- function(x, ...) {
 }
 
 ## OVDtest =====================================================================
-#' Overdispersion tests for count outcomes.
-#' 
-#' Performs Cameron and Trivedi's test for overdispersion.
-#' 
-#' @param object An object of class `'mlmodel.count'`, i.e estimated by one of
-#'   our count variable models (ml_poisson, ml_negbin,...)
-#' 
+#' Overdispersion Tests for Poisson Models
 #'
-#' @returns A list with the results of overdispersion tests of a poisson model
-#'   against both a NB1 and NB2 negative binomial models.
-#'   
-#' @references 
-#' Cameron, A. C. and Trivedi, P. K. (1990). Regression-based tests for overdispersion in 
-#' the Poisson model. *Journal of Econometrics*, 46(3), 347-364.
+#' Performs Cameron and Trivedi's (1990) regression-based tests for overdispersion
+#' in Poisson models.
+#'
+#' @param object An object of class `"mlmodel.count"` fitted with `ml_poisson()`.
+#'
+#' @return A list with the results of two overdispersion tests:
+#'   * Test against NB1 (linear variance function)
+#'   * Test against NB2 (quadratic variance function)
+#'
+#' @details
+#' These tests check whether the conditional variance equals the conditional mean
+#' (the Poisson assumption). Rejection of the null indicates overdispersion and
+#' suggests that a negative binomial model may be more appropriate.
+#'
+#' @references
+#' Cameron, A. C., & Trivedi, P. K. (1990). 'Regression-based tests for overdispersion 
+#' in the Poisson model.' *Journal of Econometrics*, 46(3), 347-364.
+#' \doi{10.1016/0304-4076(90)90014-K}
+#'
+#' Cameron, A. C., & Trivedi, P. K. (2013). *Regression Analysis of Count Data* (2nd ed.).
+#' Cambridge University Press. \doi{10.1017/CBO9781139013567}
+#'
+#' @seealso [IMtest()], [GOFtest()]
+#'
+#' @examples
 #' 
-#' Cameron, A. C. and Trivedi, P. K. (2013). *Regression Analysis of Count Data*. 
-#' 2nd Edition. Cambridge University Press.
+#' # Poisson model on docvis data
+#' fit_pois <- ml_poisson(docvis ~ private + medicaid + age + I(age^2) + 
+#'                        educyr + actlim + totchr, data = docvis)
 #' 
-#' @seealso \code{\link{IMtest}} for general misspecification testing.
+#' OVDtest(fit_pois)
 #'
 #' @export
 OVDtest <- function(object)
