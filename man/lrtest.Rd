@@ -3,7 +3,7 @@
 \name{lrtest}
 \alias{lrtest}
 \alias{lrtest.mlmodel}
-\title{Likelihood Ratio Test}
+\title{Likelihood Ratio Test for Nested mlmodel Objects}
 \usage{
 lrtest(object_1, object_2, ...)
 
@@ -11,40 +11,54 @@ lrtest(object_1, object_2, ...)
 }
 \arguments{
 \item{object_1}{A fitted model object inheriting from \code{"mlmodel"}.
-This is typically the restricted (smaller) model.}
+Typically the restricted (smaller) model.}
 
 \item{object_2}{A fitted model object inheriting from \code{"mlmodel"}.
-This is typically the unrestricted (larger) model.
-Note: The order of \code{object_1} and \code{object_2} does not matter —
-the function automatically determines which is the restricted model.}
+Typically the unrestricted (larger) model.
+The order of \code{object_1} and \code{object_2} does not matter — the function
+automatically determines which is the restricted model.}
 
 \item{...}{Further arguments passed to methods (currently not used).}
 }
 \value{
-An object of class \code{"lrtest.mlmodel"}.
+An object of class \code{"lrtest.mlmodel"} with the test statistic,
+degrees of freedom, and p-value.
 }
 \description{
-Performs a likelihood ratio test for comparing two nested models fitted
-with the same estimator (e.g., \code{ml_lm}).
+Performs a likelihood ratio test comparing two nested models fitted with
+the same estimator (e.g. \code{ml_lm}, \code{ml_logit}, \code{ml_negbin}, etc.).
 }
 \details{
 The likelihood ratio test statistic is calculated as:
-\deqn{LR = 2 \times | \log L_{full} - \log L_{restricted} |}
-which follows a \eqn{\chi^2} distribution with degrees of freedom equal to
-the difference in the number of parameters between the two models.
+\deqn{LR = 2 \times (\log L_{\text{unrestricted}} - \log L_{\text{restricted}})}
 
-\strong{Important}: The restricted model must have a lower (or equal) log-likelihood
-than the unrestricted model. If this condition is violated, the test is invalid
-and an error will be thrown.
+Under the null hypothesis that the restricted model is correct, \code{LR} follows
+a \eqn{\chi^2} distribution with degrees of freedom equal to the difference
+in the number of parameters between the two models.
+
+\strong{Important:} The two models must be nested (the restricted model must be
+a special case of the unrestricted one) and fitted on exactly the same sample.
+The restricted model must have a lower (or equal) log-likelihood.
 }
 \examples{
-\dontrun{
-fit_small <- ml_lm(mpg ~ wt, data = mtcars)
-fit_large <- ml_lm(mpg ~ wt + hp + qsec, data = mtcars)
+
+# Linear model example
+data(mroz)
+mroz$incthou <- mroz$faminc / 1000
+
+fit_small <- ml_lm(incthou ~ age + huswage, data = mroz)
+fit_large <- ml_lm(incthou ~ age + I(age^2) + huswage + educ + unem, 
+                   data = mroz)
+
 lrtest(fit_small, fit_large)
-}
+
+# You can also reverse the order — the function detects the restricted model
+lrtest(fit_large, fit_small)
 
 }
 \seealso{
-\code{\link[=waldtest]{waldtest()}}, \code{\link[=IMtest]{IMtest()}}
+\code{\link[=waldtest]{waldtest()}}, \code{\link[=IMtest]{IMtest()}}, \code{\link[=vuongtest]{vuongtest()}}
+}
+\author{
+Alfonso Sanchez-Penalver
 }

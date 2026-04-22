@@ -3,7 +3,7 @@
 \name{IMtest}
 \alias{IMtest}
 \alias{IMtest.mlmodel}
-\title{Information Matrix Test}
+\title{Information Matrix Test for Model Misspecification}
 \usage{
 IMtest(object, ...)
 
@@ -12,17 +12,75 @@ IMtest(object, ...)
 \arguments{
 \item{object}{A fitted model object inheriting from \code{"mlmodel"}.}
 
-\item{...}{Further arguments passed to methods.}
+\item{...}{Further arguments passed to methods (currently not used).}
 
-\item{method}{Character. One of \code{"opg"}, \code{"quad"} (default), \code{"boot_opg"},
-or \code{"boot_quad"}.}
+\item{method}{Character string. Specifies the version of the test:
+\itemize{
+\item \code{"quad"} (default): Quadratic form of the Information Matrix test (most common).
+\item \code{"opg"}: Outer Product of Gradients version (Chesher-Lancaster).
+\item \code{"boot_quad"}: Analytical chi-square and p-value, plus bootstrap p-value for the quadratic form.
+\item \code{"boot_opg"}: Analytical chi-square and p-value, plus bootstrap p-value for the OPG version.
+}}
 
-\item{repetitions}{Integer. Number of bootstrap replications
-(only used for bootstrap methods). Default is 999.}
+\item{repetitions}{Integer. Number of bootstrap replications when using a
+bootstrap method. Default is 999.}
 
-\item{seed}{Integer. Random seed for bootstrap.}
+\item{seed}{Integer. Random seed for reproducibility in bootstrap methods.
+If \code{NULL}, a random seed is generated.}
+}
+\value{
+An object of class \code{"IMtest.mlmodel"} containing the analytical test
+statistic, degrees of freedom and p-value, plus the bootstrapped p-value
+(if a bootstrap method was selected).
 }
 \description{
 Performs the Information Matrix (IM) test for misspecification on models
-fitted with \code{ml_lm()} and other \verb{ml_*} models.
+fitted with the \code{mlmodels} package.
+}
+\details{
+The Information Matrix test checks whether the model is correctly specified
+by testing the equality between the Hessian and the outer product of the
+gradient (information matrix equality). Rejection of the null hypothesis
+indicates model misspecification (e.g., incorrect functional form,
+heteroskedasticity not properly modeled, omitted variables, etc.).
+
+Two main versions are implemented:
+\itemize{
+\item \strong{Quadratic form} (\code{"quad"}): Generally preferred for its better finite-sample properties.
+\item \strong{OPG version} (\code{"opg"}): Chesher and Lancaster (1983) version.
+}
+
+Bootstrap versions (\code{"boot_quad"} and \code{"boot_opg"}) provide p-values based on
+the empirical distribution of the test statistic and are useful when asymptotic
+approximations may be unreliable.
+}
+\examples{
+
+# Linear model example
+data(mroz)
+mroz$incthou <- mroz$faminc / 1000
+
+fit <- ml_lm(incthou ~ age + I(age^2) + huswage + educ + unem, 
+             data = mroz)
+
+# Default quadratic form test
+IMtest(fit)
+
+# OPG version
+IMtest(fit, method = "opg")
+
+# Bootstrap p-value (quadratic form)
+IMtest(fit, method = "boot_quad", repetitions = 200, seed = 123)
+
+# Heteroskedastic model
+fit_het <- ml_lm(incthou ~ age + I(age^2) + huswage + educ + unem,
+                 scale = ~ educ, data = mroz)
+IMtest(fit_het)
+
+}
+\seealso{
+\code{\link[=waldtest]{waldtest()}}, \code{\link[=lrtest]{lrtest()}}, \code{\link[=vuongtest]{vuongtest()}}
+}
+\author{
+Alfonso Sanchez-Penalver
 }

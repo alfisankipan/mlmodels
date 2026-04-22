@@ -3,7 +3,7 @@
 \name{waldtest}
 \alias{waldtest}
 \alias{waldtest.mlmodel}
-\title{Wald Test for \code{mlmodel} objects}
+\title{Wald Test for Linear Restrictions}
 \usage{
 waldtest(object, ...)
 
@@ -23,41 +23,88 @@ waldtest(object, ...)
 )
 }
 \arguments{
-\item{object}{An object of class \code{"mlmodel"} or any model that inherits
-from it (e.g. \code{"ml_lm"}).}
+\item{object}{An object of class \code{"mlmodel"}.}
 
 \item{...}{Further arguments passed to methods.}
 
-\item{indices}{Integer vector. Positions of the coefficients to test.}
+\item{indices}{Integer vector. Positions of the coefficients to be tested.}
 
 \item{coef_names}{Character vector. Names of the coefficients to test.}
 
-\item{rest_matrix}{Numeric matrix. A q × k restriction matrix (advanced).}
+\item{rest_matrix}{Numeric matrix. A q × k restriction matrix (advanced use).}
 
-\item{rhs}{Numeric. Value(s) the linear combination(s) should equal.
+\item{rhs}{Numeric vector. Value(s) the linear combination(s) should equal.
 Default is 0.}
 
-\item{vcov}{Optional user-supplied variance-covariance matrix.
-If provided, it will be used instead of computing one internally.
-Must be a square matrix with dimensions matching the number of
-coefficients in the model. Useful when you have pre-computed a
-bootstrap or clustered variance and want to reuse it.}
+\item{vcov}{Optional user-supplied variance-covariance matrix.}
 
-\item{vcov.type}{Character string specifying the type of variance-covariance
-matrix. One of \code{"oim"} (default), \code{"robust"}, \code{"opg"}, \code{"cluster"},
-or \code{"boot"}. See \code{\link[=vcov.mlmodel]{vcov.mlmodel()}} for details.}
+\item{vcov.type}{Character string. Type of variance-covariance matrix to use.
+One of \code{"oim"} (default), \code{"opg"}, \code{"robust"}, \code{"boot"}, or \code{"jack"}.
+See \code{\link[=vcov.mlmodel]{vcov.mlmodel()}} for details.}
 
-\item{cl_var}{Character string or vector. Clustering variable.
-Only used when \code{vcov.type = "cluster"} or \code{vcov.type = "boot"}.}
+\item{cl_var}{Character string or vector. Clustering variable when
+\code{vcov.type = "robust"} or \code{"boot"}.}
 
 \item{repetitions}{Integer. Number of bootstrap replications when
 \code{vcov.type = "boot"}. Default is 999.}
 
-\item{seed}{Integer. Random seed for reproducibility when \code{vcov.type = "boot"}.}
+\item{seed}{Integer. Random seed for bootstrap.}
 
-\item{progress}{Logical. Should a progress bar be displayed during
-bootstrapping? Default is \code{FALSE}.}
+\item{progress}{Logical. Show progress bar during bootstrapping? Default \code{FALSE}.}
+
+\item{constraints}{Character vector. Linear constraints written in the form
+\code{"value::varname = value"} or \code{"scale::varname = value"}.}
+}
+\value{
+An object of class \code{"waldtest.mlmodel"}.
 }
 \description{
-Performs a Wald test of linear restrictions on the parameters.
+Performs a Wald test of linear restrictions on the parameters of an
+\code{mlmodel} object.
+}
+\details{
+The Wald test evaluates linear restrictions of the form \eqn{R\beta = r}.
+
+Three convenient interfaces are provided:
+\itemize{
+\item \code{indices} or \code{coef_names}: Test individual coefficients (or groups of
+coefficients) against the value(s) in \code{rhs} (defaults to 0, which is
+useful for joint significance tests).
+\item \code{rest_matrix} + \code{rhs}: Test general linear combinations of coefficients
+(advanced use).
+}
+
+The test statistic follows a \eqn{\chi^2} distribution with degrees of
+freedom equal to the number of restrictions under the null hypothesis.
+}
+\examples{
+
+data(mroz)
+mroz$incthou <- mroz$faminc / 1000
+
+fit <- ml_lm(incthou ~ age + I(age^2) + huswage + educ + unem, 
+             data = mroz)
+
+# 1. Test single coefficients using indices (default OIM)
+waldtest(fit, indices = c(2, 5))
+
+# 2. Test using coefficient names and robust standard errors
+waldtest(fit, coef_names = c("value::educ", "value::unem"), 
+         vcov.type = "robust")
+         
+# 3. Test explicit constraints
+waldtest(fit, coef_names = "value::educ", rhs = 1, vcov.type = "robust")
+
+# 4. Test a linear combination of two coefficients using a restriction matrix
+# H0: educ + huswage = 3
+R <- matrix(c(0, 0, 0, 1, 1, 0, 0), nrow = 1)
+waldtest(fit, rest_matrix = R, rhs = 3, vcov.type = "boot", 
+         repetitions = 100, seed = 123)
+
+}
+\seealso{
+\code{\link[=lrtest]{lrtest()}}, \code{\link[=IMtest]{IMtest()}}, \code{\link[=confint.mlmodel]{confint.mlmodel()}}
+}
+\author{
+Alfonso Sanchez-Penalver
 }

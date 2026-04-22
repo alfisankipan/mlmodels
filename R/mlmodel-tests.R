@@ -3,41 +3,52 @@
 # =============================================================================
 
 ## LR TEST ---------------------------------------------------------------------
-
-#' Likelihood Ratio Test
+#' Likelihood Ratio Test for Nested mlmodel Objects
 #'
-#' Performs a likelihood ratio test for comparing two nested models fitted
-#' with the same estimator (e.g., `ml_lm`).
+#' Performs a likelihood ratio test comparing two nested models fitted with
+#' the same estimator (e.g. `ml_lm`, `ml_logit`, `ml_negbin`, etc.).
 #'
 #' @param object_1 A fitted model object inheriting from `"mlmodel"`.
-#'   This is typically the restricted (smaller) model.
+#'   Typically the restricted (smaller) model.
 #' @param object_2 A fitted model object inheriting from `"mlmodel"`.
-#'   This is typically the unrestricted (larger) model.
-#'   Note: The order of `object_1` and `object_2` does not matter —
-#'   the function automatically determines which is the restricted model.
-#'
+#'   Typically the unrestricted (larger) model.
+#'   The order of `object_1` and `object_2` does not matter — the function
+#'   automatically determines which is the restricted model.
 #' @param ... Further arguments passed to methods (currently not used).
 #'
 #' @details
 #' The likelihood ratio test statistic is calculated as:
-#' \deqn{LR = 2 \times | \log L_{full} - \log L_{restricted} |}
-#' which follows a \eqn{\chi^2} distribution with degrees of freedom equal to
-#' the difference in the number of parameters between the two models.
+#' \deqn{LR = 2 \times (\log L_{\text{unrestricted}} - \log L_{\text{restricted}})}
+#' 
+#' Under the null hypothesis that the restricted model is correct, `LR` follows
+#' a \eqn{\chi^2} distribution with degrees of freedom equal to the difference
+#' in the number of parameters between the two models.
 #'
-#' **Important**: The restricted model must have a lower (or equal) log-likelihood
-#' than the unrestricted model. If this condition is violated, the test is invalid
-#' and an error will be thrown.
+#' **Important:** The two models must be nested (the restricted model must be
+#' a special case of the unrestricted one) and fitted on exactly the same sample.
+#' The restricted model must have a lower (or equal) log-likelihood.
 #'
-#' @return An object of class `"lrtest.mlmodel"`.
+#' @return An object of class `"lrtest.mlmodel"` with the test statistic,
+#'   degrees of freedom, and p-value.
 #'
-#' @seealso [waldtest()], [IMtest()]
+#' @seealso [waldtest()], [IMtest()], [vuongtest()]
 #'
 #' @examples
-#' \dontrun{
-#' fit_small <- ml_lm(mpg ~ wt, data = mtcars)
-#' fit_large <- ml_lm(mpg ~ wt + hp + qsec, data = mtcars)
+#' 
+#' # Linear model example
+#' data(mroz)
+#' mroz$incthou <- mroz$faminc / 1000
+#' 
+#' fit_small <- ml_lm(incthou ~ age + huswage, data = mroz)
+#' fit_large <- ml_lm(incthou ~ age + I(age^2) + huswage + educ + unem, 
+#'                    data = mroz)
+#' 
 #' lrtest(fit_small, fit_large)
-#' }
+#' 
+#' # You can also reverse the order — the function detects the restricted model
+#' lrtest(fit_large, fit_small)
+#' 
+#' @author Alfonso Sanchez-Penalver
 #'
 #' @export
 lrtest <- function(object_1, object_2, ...) {
@@ -130,20 +141,69 @@ print.lrtest.mlmodel <- function(x, digits = 3, ...)
 }
 
 
-
 ## IM TEST ---------------------------------------------------------------------
-#' Information Matrix Test
+#' Information Matrix Test for Model Misspecification
 #'
 #' Performs the Information Matrix (IM) test for misspecification on models
-#' fitted with `ml_lm()` and other `ml_*` models.
+#' fitted with the `mlmodels` package.
 #'
 #' @param object A fitted model object inheriting from `"mlmodel"`.
-#' @param method Character. One of `"opg"`, `"quad"` (default), `"boot_opg"`,
-#'   or `"boot_quad"`.
-#' @param repetitions Integer. Number of bootstrap replications
-#'   (only used for bootstrap methods). Default is 999.
-#' @param seed Integer. Random seed for bootstrap.
-#' @param ... Further arguments passed to methods.
+#' @param method Character string. Specifies the version of the test:
+#'   * `"quad"` (default): Quadratic form of the Information Matrix test (most common).
+#'   * `"opg"`: Outer Product of Gradients version (Chesher-Lancaster).
+#'   * `"boot_quad"`: Analytical chi-square and p-value, plus bootstrap p-value for the quadratic form.
+#'   * `"boot_opg"`: Analytical chi-square and p-value, plus bootstrap p-value for the OPG version.
+#' @param repetitions Integer. Number of bootstrap replications when using a 
+#'   bootstrap method. Default is 999.
+#' @param seed Integer. Random seed for reproducibility in bootstrap methods.
+#'   If `NULL`, a random seed is generated.
+#' @param ... Further arguments passed to methods (currently not used).
+#'
+#' @details
+#' The Information Matrix test checks whether the model is correctly specified
+#' by testing the equality between the Hessian and the outer product of the 
+#' gradient (information matrix equality). Rejection of the null hypothesis
+#' indicates model misspecification (e.g., incorrect functional form, 
+#' heteroskedasticity not properly modeled, omitted variables, etc.).
+#'
+#' Two main versions are implemented:
+#' - **Quadratic form** (`"quad"`): Generally preferred for its better finite-sample properties.
+#' - **OPG version** (`"opg"`): Chesher and Lancaster (1983) version.
+#'
+#' Bootstrap versions (`"boot_quad"` and `"boot_opg"`) provide p-values based on 
+#' the empirical distribution of the test statistic and are useful when asymptotic 
+#' approximations may be unreliable.
+#'
+#' @return An object of class `"IMtest.mlmodel"` containing the analytical test
+#'   statistic, degrees of freedom and p-value, plus the bootstrapped p-value 
+#'   (if a bootstrap method was selected).
+#'
+#' @seealso [waldtest()], [lrtest()], [vuongtest()]
+#'
+#' @examples
+#' 
+#' # Linear model example
+#' data(mroz)
+#' mroz$incthou <- mroz$faminc / 1000
+#' 
+#' fit <- ml_lm(incthou ~ age + I(age^2) + huswage + educ + unem, 
+#'              data = mroz)
+#' 
+#' # Default quadratic form test
+#' IMtest(fit)
+#' 
+#' # OPG version
+#' IMtest(fit, method = "opg")
+#' 
+#' # Bootstrap p-value (quadratic form)
+#' IMtest(fit, method = "boot_quad", repetitions = 200, seed = 123)
+#' 
+#' # Heteroskedastic model
+#' fit_het <- ml_lm(incthou ~ age + I(age^2) + huswage + educ + unem,
+#'                  scale = ~ educ, data = mroz)
+#' IMtest(fit_het)
+#' 
+#' @author Alfonso Sanchez-Penalver
 #'
 #' @export
 IMtest <- function(object, ...) {
@@ -371,12 +431,6 @@ IMtest.mlmodel <- function(object,
   res
 }
 
-#' Prints the results of an object of class `IMtest.mlmodel`
-#' 
-#' @param x An object of class `'IMtest.mlmodel'`, i.e. from `IMtest()`
-#' @param digits Number of decimal places (not used)
-#' @param ... Not currently implemented
-#' 
 #' @export
 print.IMtest.mlmodel <- function(x, digits = 4, ...)
 {
@@ -406,22 +460,82 @@ print.IMtest.mlmodel <- function(x, digits = 4, ...)
 }
 
 ## VUONG's TEST ================================================================
-#' Vuong's Test for `mlmodel` objects
-#' 
-#' Performs Vuong's test between two models estimated via maximum likelihood.
-#' 
+#' Vuong's Test for Non-Nested Models
+#'
+#' Performs Vuong's (1989) test for comparing two non-nested models fitted
+#' via maximum likelihood with the `mlmodels` package.
+#'
 #' @param object_1 A fitted model object inheriting from `"mlmodel"`.
 #' @param object_2 A fitted model object inheriting from `"mlmodel"`.
-#' @param ... Further arguments passed to methods (not currently implemented).
+#' @param ... Further arguments passed to methods (currently not used).
+#'
+#' @details
+#' Vuong's test compares two non-nested models by testing the null hypothesis
+#' that the two models are equally close to the true data generating process.
 #' 
-#' @returns An object of class `vuongtest.mlmodel`
-#' 
-#' @author Alfonso Sanchez-Penalver
-#' 
+#' The test statistic is based on the difference in the per-observation 
+#' log-likelihood contributions between the two models. A positive significant 
+#' value favors `object_1`, a negative significant value favors `object_2`, 
+#' and a non-significant value leads to an "inconclusive" result.
+#'
+#' Both models must be estimated on exactly the same sample.
+#'
+#' @return An object of class `"vuongtest.mlmodel"` containing the test 
+#'   statistic, p-value, and a conclusion (which model is preferred or 
+#'   "inconclusive").
+#'
 #' @references
-#' Vuong, Q. H. (1989). Likelihood Ratio Tests for Model Selection and Non-Nested 
-#' Hypotheses. *Econometrica*, 57(2), 307-333. \doi{10.2307/1912557}
+#' Vuong, Q. H. (1989). 'Likelihood Ratio Tests for Model Selection and Non-Nested 
+#' Hypotheses.' *Econometrica*, 57(2), 307-333. 
+#' \doi{10.2307/1912557}
+#'
+#' @seealso [lrtest()], [waldtest()], [IMtest()]
+#'
+#' @examples
 #' 
+#' # Linear models example (lognormal vs gamma)
+#' data(mroz)
+#' mroz$incthou <- mroz$faminc / 1000
+#' 
+#' fit_lognormal <- ml_lm(log(incthou) ~ age + I(age^2) + huswage + educ + unem,
+#'                        data = mroz)
+#' 
+#' fit_gamma <- ml_gamma(incthou ~ age + I(age^2) + huswage + educ + unem,
+#'                       data = mroz)
+#' 
+#' 
+#' vuongtest(fit_lognormal, fit_gamma)
+#' 
+#' # Count models example
+#' 
+#' fit_poi <- ml_poisson(docvis ~ private + medicaid + age + I(age^2) + educyr +
+#'                           actlim + totchr,
+#'                       data = docvis)
+#' 
+#' fit_nb1 <- ml_negbin(docvis ~ private + medicaid + age + I(age^2) + educyr +
+#'                           actlim + totchr,
+#'                       data = docvis,
+#'                       dispersion = "NB1")
+#' 
+#' fit_nb2 <- ml_negbin(docvis ~ private + medicaid + age + I(age^2) + educyr +
+#'                           actlim + totchr,
+#'                       data = docvis)
+#'                       
+#' # Poisson vs. NB1
+#' vuongtest(fit_poi, fit_nb1)
+#' 
+#' # NB1 vs. NB2
+#' vuongtest(fit_nb1, fit_nb2)
+#' 
+#' # Binary models example
+#' data(smoke)
+#' smoke$smokes <- smoke$cigs > 0
+#' 
+#' fit_logit <- ml_logit(smokes ~ cigpric + income + age, data = smoke)
+#' fit_probit <- ml_probit(smokes ~ cigpric + income + age, data = smoke)
+#' 
+#' vuongtest(fit_logit, fit_probit)
+#'
 #' @export
 vuongtest <- function(object_1, object_2, ...) UseMethod("vuongtest")
 
@@ -459,13 +573,6 @@ vuongtest.mlmodel <- function(object_1, object_2, ...)
   return(res)
 }
 
-
-#' Prints the result of an object of class `vuongtest.mlmodel`
-#' 
-#' @param x An object of class `vuongtest.mlmodel`, i.e. from `vuongtest()`
-#' @param digits Number of decimal places to display (not used)
-#' @param ... Currently not implemented
-#' 
 #' @export
 print.vuongtest.mlmodel <- function(x, digits = 4, ...)
 {
@@ -494,33 +601,74 @@ print.vuongtest.mlmodel <- function(x, digits = 4, ...)
 }
 
 ## WALDTEST --------------------------------------------------------------------
-#' Wald Test for `mlmodel` objects
+#' Wald Test for Linear Restrictions
 #'
-#' Performs a Wald test of linear restrictions on the parameters.
+#' Performs a Wald test of linear restrictions on the parameters of an 
+#' `mlmodel` object.
 #'
-#' @param object An object of class `"mlmodel"` or any model that inherits
-#'   from it (e.g. `"ml_lm"`).
-#' @param indices Integer vector. Positions of the coefficients to test.
+#' @param object An object of class `"mlmodel"`.
+#' @param indices Integer vector. Positions of the coefficients to be tested.
 #' @param coef_names Character vector. Names of the coefficients to test.
-#' @param rest_matrix Numeric matrix. A q × k restriction matrix (advanced).
-#' @param rhs Numeric. Value(s) the linear combination(s) should equal.
+#' @param constraints Character vector. Linear constraints written in the form 
+#'   `"value::varname = value"` or `"scale::varname = value"`.
+#' @param rest_matrix Numeric matrix. A q × k restriction matrix (advanced use).
+#' @param rhs Numeric vector. Value(s) the linear combination(s) should equal.
 #'   Default is 0.
 #' @param vcov Optional user-supplied variance-covariance matrix.
-#'   If provided, it will be used instead of computing one internally.
-#'   Must be a square matrix with dimensions matching the number of
-#'   coefficients in the model. Useful when you have pre-computed a
-#'   bootstrap or clustered variance and want to reuse it.
-#' @param vcov.type Character string specifying the type of variance-covariance
-#'   matrix. One of `"oim"` (default), `"robust"`, `"opg"`, `"cluster"`,
-#'   or `"boot"`. See [vcov.mlmodel()] for details.
-#' @param cl_var Character string or vector. Clustering variable.
-#'   Only used when `vcov.type = "cluster"` or `vcov.type = "boot"`.
-#' @param repetitions Integer. Number of bootstrap replications when
+#' @param vcov.type Character string. Type of variance-covariance matrix to use.
+#'   One of `"oim"` (default), `"opg"`, `"robust"`, `"boot"`, or `"jack"`.
+#'   See [vcov.mlmodel()] for details.
+#' @param cl_var Character string or vector. Clustering variable when 
+#'   `vcov.type = "robust"` or `"boot"`.
+#' @param repetitions Integer. Number of bootstrap replications when 
 #'   `vcov.type = "boot"`. Default is 999.
-#' @param seed Integer. Random seed for reproducibility when `vcov.type = "boot"`.
-#' @param progress Logical. Should a progress bar be displayed during
-#'   bootstrapping? Default is `FALSE`.
+#' @param seed Integer. Random seed for bootstrap.
+#' @param progress Logical. Show progress bar during bootstrapping? Default `FALSE`.
 #' @param ... Further arguments passed to methods.
+#'
+#' @details
+#' The Wald test evaluates linear restrictions of the form \eqn{R\beta = r}.
+#' 
+#' Three convenient interfaces are provided:
+#' 
+#' - `indices` or `coef_names`: Test individual coefficients (or groups of 
+#'   coefficients) against the value(s) in `rhs` (defaults to 0, which is 
+#'   useful for joint significance tests).
+#' - `rest_matrix` + `rhs`: Test general linear combinations of coefficients 
+#'   (advanced use).
+#'
+#' The test statistic follows a \eqn{\chi^2} distribution with degrees of 
+#' freedom equal to the number of restrictions under the null hypothesis.
+#'
+#' @return An object of class `"waldtest.mlmodel"`.
+#'
+#' @seealso [lrtest()], [IMtest()], [confint.mlmodel()]
+#'
+#' @examples
+#' 
+#' data(mroz)
+#' mroz$incthou <- mroz$faminc / 1000
+#' 
+#' fit <- ml_lm(incthou ~ age + I(age^2) + huswage + educ + unem, 
+#'              data = mroz)
+#' 
+#' # 1. Test single coefficients using indices (default OIM)
+#' waldtest(fit, indices = c(2, 5))
+#' 
+#' # 2. Test using coefficient names and robust standard errors
+#' waldtest(fit, coef_names = c("value::educ", "value::unem"), 
+#'          vcov.type = "robust")
+#'          
+#' # 3. Test explicit constraints
+#' waldtest(fit, coef_names = "value::educ", rhs = 1, vcov.type = "robust")
+#' 
+#' # 4. Test a linear combination of two coefficients using a restriction matrix
+#' # H0: educ + huswage = 3
+#' R <- matrix(c(0, 0, 0, 1, 1, 0, 0), nrow = 1)
+#' waldtest(fit, rest_matrix = R, rhs = 3, vcov.type = "boot", 
+#'          repetitions = 100, seed = 123)
+#' 
+#' @author Alfonso Sanchez-Penalver
 #'
 #' @export
 waldtest <- function(object,
