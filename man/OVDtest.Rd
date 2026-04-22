@@ -2,36 +2,43 @@
 % Please edit documentation in R/mlmodel-count-tests.R
 \name{OVDtest}
 \alias{OVDtest}
-\title{Overdispersion Tests for Poisson Models}
+\title{Overdispersion Tests for Count Models}
 \usage{
 OVDtest(object)
 }
 \arguments{
-\item{object}{An object of class \code{"mlmodel.count"} fitted with \code{ml_poisson()}.}
+\item{object}{An object of class \code{"mlmodel.count"} (fitted with
+\code{ml_poisson()} or \code{ml_negbin()}).}
 }
 \value{
-A list with the results of two overdispersion tests:
-\itemize{
-\item Test against NB1 (linear variance function)
-\item Test against NB2 (quadratic variance function)
-}
+A list containing the results of the tests against NB1 and NB2
+alternatives, with coefficient estimates, t-statistics, and p-values.
 }
 \description{
 Performs Cameron and Trivedi's (1990) regression-based tests for overdispersion
-in Poisson models.
+in count models.
 }
 \details{
-These tests check whether the conditional variance equals the conditional mean
-(the Poisson assumption). Rejection of the null indicates overdispersion and
-suggests that a negative binomial model may be more appropriate.
+These tests evaluate the null hypothesis that the conditional variance equals
+the conditional mean (the Poisson assumption). Rejection indicates overdispersion
+and suggests that a negative binomial model may be more appropriate.
+
+When the input object is not a Poisson model, a Poisson regression is fitted
+internally using the value (mean) equation specification from \code{object} in order
+to perform the test.
 }
 \examples{
 
-# Poisson model on docvis data
+# Poisson model
 fit_pois <- ml_poisson(docvis ~ private + medicaid + age + I(age^2) + 
                        educyr + actlim + totchr, data = docvis)
-
 OVDtest(fit_pois)
+
+# Negative binomial model (the test still fits a Poisson internally using 
+# only the value equation, so results are identical)
+fit_nb2 <- ml_negbin(docvis ~ private + medicaid + age + I(age^2) + 
+                     educyr + actlim + totchr, data = docvis)
+OVDtest(fit_nb2)
 
 }
 \references{
@@ -44,4 +51,7 @@ Cambridge University Press. \doi{10.1017/CBO9781139013567}
 }
 \seealso{
 \code{\link[=IMtest]{IMtest()}}, \code{\link[=GOFtest]{GOFtest()}}
+}
+\author{
+Alfonso Sanchez-Penalver
 }

@@ -209,21 +209,25 @@ print.GOFtest.mlmodel <- function(x, ...) {
 }
 
 ## OVDtest =====================================================================
-#' Overdispersion Tests for Poisson Models
+#' Overdispersion Tests for Count Models
 #'
 #' Performs Cameron and Trivedi's (1990) regression-based tests for overdispersion
-#' in Poisson models.
+#' in count models.
 #'
-#' @param object An object of class `"mlmodel.count"` fitted with `ml_poisson()`.
-#'
-#' @return A list with the results of two overdispersion tests:
-#'   * Test against NB1 (linear variance function)
-#'   * Test against NB2 (quadratic variance function)
+#' @param object An object of class `"mlmodel.count"` (fitted with 
+#'   `ml_poisson()` or `ml_negbin()`).
 #'
 #' @details
-#' These tests check whether the conditional variance equals the conditional mean
-#' (the Poisson assumption). Rejection of the null indicates overdispersion and
-#' suggests that a negative binomial model may be more appropriate.
+#' These tests evaluate the null hypothesis that the conditional variance equals
+#' the conditional mean (the Poisson assumption). Rejection indicates overdispersion
+#' and suggests that a negative binomial model may be more appropriate.
+#'
+#' When the input object is not a Poisson model, a Poisson regression is fitted
+#' internally using the value (mean) equation specification from `object` in order
+#' to perform the test.
+#'
+#' @return A list containing the results of the tests against NB1 and NB2 
+#'   alternatives, with coefficient estimates, t-statistics, and p-values.
 #'
 #' @references
 #' Cameron, A. C., & Trivedi, P. K. (1990). 'Regression-based tests for overdispersion 
@@ -237,11 +241,18 @@ print.GOFtest.mlmodel <- function(x, ...) {
 #'
 #' @examples
 #' 
-#' # Poisson model on docvis data
+#' # Poisson model
 #' fit_pois <- ml_poisson(docvis ~ private + medicaid + age + I(age^2) + 
 #'                        educyr + actlim + totchr, data = docvis)
-#' 
 #' OVDtest(fit_pois)
+#' 
+#' # Negative binomial model (the test still fits a Poisson internally using 
+#' # only the value equation, so results are identical)
+#' fit_nb2 <- ml_negbin(docvis ~ private + medicaid + age + I(age^2) + 
+#'                      educyr + actlim + totchr, data = docvis)
+#' OVDtest(fit_nb2)
+#' 
+#' @author Alfonso Sanchez-Penalver
 #'
 #' @export
 OVDtest <- function(object)
