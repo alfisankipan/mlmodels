@@ -331,7 +331,6 @@ logLik.summary.mlmodel <- function(object, ...)
 #' parameters from an `mlmodel` object.
 #'
 #' @param object An `mlmodel` object.
-#' @param ... Not currently used.
 #'
 #' @return A numeric matrix with one row per observation and one column per 
 #'   parameter. Each row contains the gradient of the log-likelihood for that 
@@ -360,7 +359,6 @@ gradientObs.mlmodel <- function(object)
 #' parameters from an `mlmodel` object.
 #'
 #' @param object An `mlmodel` object.
-#' @param ... Not currently used.
 #'
 #' @return A numeric matrix of dimension `(N*K) x K`, where `N` is the number 
 #'   of observations and `K` is the number of parameters. The Hessian for each 
@@ -391,7 +389,6 @@ hessianObs.mlmodel <- function(object)
 #' object.
 #'
 #' @param object An `mlmodel` object.
-#' @param ... Not currently used.
 #'
 #' @return A numeric vector of length `nobs(object)` containing the 
 #'   log-likelihood contribution of each observation.

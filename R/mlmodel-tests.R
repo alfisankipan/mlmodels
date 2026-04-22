@@ -609,8 +609,6 @@ print.vuongtest.mlmodel <- function(x, digits = 4, ...)
 #' @param object An object of class `"mlmodel"`.
 #' @param indices Integer vector. Positions of the coefficients to be tested.
 #' @param coef_names Character vector. Names of the coefficients to test.
-#' @param constraints Character vector. Linear constraints written in the form 
-#'   `"value::varname = value"` or `"scale::varname = value"`.
 #' @param rest_matrix Numeric matrix. A q × k restriction matrix (advanced use).
 #' @param rhs Numeric vector. Value(s) the linear combination(s) should equal.
 #'   Default is 0.

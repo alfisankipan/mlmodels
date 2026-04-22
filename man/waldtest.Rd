@@ -51,9 +51,6 @@ See \code{\link[=vcov.mlmodel]{vcov.mlmodel()}} for details.}
 \item{seed}{Integer. Random seed for bootstrap.}
 
 \item{progress}{Logical. Show progress bar during bootstrapping? Default \code{FALSE}.}
-
-\item{constraints}{Character vector. Linear constraints written in the form
-\code{"value::varname = value"} or \code{"scale::varname = value"}.}
 }
 \value{
 An object of class \code{"waldtest.mlmodel"}.

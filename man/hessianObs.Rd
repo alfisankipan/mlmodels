@@ -11,8 +11,6 @@ hessianObs(object)
 }
 \arguments{
 \item{object}{An \code{mlmodel} object.}
-
-\item{...}{Not currently used.}
 }
 \value{
 A numeric matrix of dimension \verb{(N*K) x K}, where \code{N} is the number

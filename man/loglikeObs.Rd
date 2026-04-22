@@ -11,8 +11,6 @@ loglikeObs(object)
 }
 \arguments{
 \item{object}{An \code{mlmodel} object.}
-
-\item{...}{Not currently used.}
 }
 \value{
 A numeric vector of length \code{nobs(object)} containing the
