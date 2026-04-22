@@ -157,3 +157,21 @@ find_variables.mlmodel <- function(x, ...) {
 #' @rdname get_data.mlmodel
 #' @export
 get_modeldata.mlmodel <- get_data.mlmodel
+
+
+# Register mlmodels with marginaleffects onload.
+.onLoad <- function(libname, pkgname) {
+  
+  # Only register with marginaleffects if the user has it installed
+  if (requireNamespace("marginaleffects", quietly = TRUE)) {
+    
+    current <- getOption("marginaleffects_model_classes", default = character(0))
+    
+    if (!"mlmodel" %in% current) {
+      new_classes <- c(current, "mlmodel")
+      options("marginaleffects_model_classes" = unique(new_classes))
+    }
+  }
+  
+  invisible(NULL)
+}
