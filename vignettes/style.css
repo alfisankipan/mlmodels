@@ -1,0 +1,28 @@
+/* Main content styling */
+body {
+  font-family: Verdana, Geneva, sans-serif;
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 30px 20px;
+  line-height: 1.7;
+  color: #333;
+}
+
+/* Solid bullets */
+ul {
+  list-style-type: disc !important;
+}
+
+/* Nice grey background for inline code in setup chunk */
+pre.sourceCode.r code span.fu {
+  background-color: #f8f8f8;
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+
+/* Optional: make all inline code look nicer */
+code {
+  background-color: #f8f8f8;
+  padding: 2px 4px;
+  border-radius: 3px;
+}

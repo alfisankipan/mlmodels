@@ -1,0 +1,149 @@
+---
+title: "Maximum Likelihood Models in R"
+output: 
+  rmarkdown::html_vignette:
+    css: style.css
+vignette: >
+  %\VignetteIndexEntry{Maximum Likelihood Models in R}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(mlmodels)
+```
+The `mlmodels` package provides a consistent and flexible framework for estimating a wide range of maximum likelihood models in R.
+
+Unlike `glm()`, which is limited to a small set of distributions and does not allow direct modeling of the scale parameter (variance, dispersion, precision, or shape), `mlmodels` lets you explicitly model both the **location/mean** and the **scale** of the outcome in a unified way.
+
+Even for homoskedastic models, maximum likelihood estimation is often statistically more efficient than the quasi-likelihood approach used by `glm()`. With `mlmodels`, you get this efficiency **plus** the ability to model heteroskedasticity or other forms of dispersion when it is present in your data.
+
+## Core Features
+* Consistent S3 interface across all models
+* Support for modeling the scale parameter alongside the mean
+* Rich `predict()` method with many useful output types
+* Multiple variance-covariance estimators (`oim`, `opg`, `robust`, `boot`, `jack`, clustered)
+* Standard R methods that "just work": `summary()`, `confint()`, `residuals()`, `fitted()`, `AIC()`, `BIC()`, etc.
+* Comprehensive suite of hypothesis tests (`waldtest`, `lrtest`, `IMtest`, `vuongtest`, `OVDtest`, `GOFtest`)
+
+All models share the same syntax and workflow, making it easy to compare specifications and switch between model families. The package is designed with practitioners in mind, focusing on the information and flexibility researchers need in their work.
+
+The package builds on the excellent [`maxLik`](https://cran.r-project.org/package=maxLik) package for maximum likelihood optimization (Henningsen and Toomet, 2011). This foundation allows `mlmodels` to deliver precise, numerically stable estimations while providing a consistent and intuitive user interface across all model families.
+
+## Quick Start
+
+Let's fit a simple linear model to get a feel for the package:
+```{r}
+# Load example data
+data(mroz)
+mroz$incthou <- mroz$faminc / 1000
+
+# Fit a homoskedastic linear model
+fit <- ml_lm(incthou ~ age + I(age^2) + huswage + educ + unem, 
+             data = mroz)
+
+# View the results with robust standard errors
+summary(fit, vcov.type = "robust")
+```
+You immediately get a clean summary with Wald tests, AIC, BIC, and more.
+
+## Making Predictions
+The `predict()` method is very flexible:
+```{r}
+# Basic prediction (expected value)
+head(predict(fit, type = "response")$fit)
+
+# Variance of the outcome
+head(predict(fit, type = "variance")$fit)
+
+# Prediction with standard errors using robust variance
+pred <- predict(fit, type = "response", vcov.type = "robust", se.fit = TRUE)
+head(pred$fit)      # Fitted values / expected values
+head(pred$se.fit)   # Standard errors
+```
+
+## Modeling Heteroskedasticity
+
+One of the most powerful features of `mlmodels` is the ability to explicitly model the scale parameter (variance/dispersion) alongside the mean.
+
+```{r}
+# Heteroskedastic linear model
+fit_het <- ml_lm(incthou ~ age + I(age^2) + huswage + educ + unem,
+                 scale = ~ educ + exper, 
+                 data = mroz)
+
+summary(fit_het, vcov.type = "robust")
+```
+Notice how the coefficients' table is separated into two parts:
+
+* **Value (mean) equation** - The usual coefficients for the location.
+* **Scale (log(sigma)) equation** - How the log of the standard deviation changes with predictors.
+
+The real benefit becomes clear when you make predictions:
+```{r}
+  head(predict(fit_het, type = "variance")$fit)
+```
+Compare this to the homoskedastic model earlier, where we predicted that the variance was the same for every observation. Modeling the scale parameter allows the uncertainty to vary realistically across individuals.
+
+The modeling of heterogeneity works the same way across almost all models in the package. You simply add a `scale = ~ ...` argument with the desired right-hand-side variables.
+
+The only model that does not accept a scale argument is `ml_poisson()`, because its variance is fully determined by the mean.
+
+For a deeper look at predictions, see the Predictions and marginaleffects vignette.
+
+## Binary Outcomes: Logit
+
+The same consistent syntax applies to all our models. Here we use the `inlf` variable from the `mroz` dataset (whether the wife is in the labor force) to estimate a logit model, because it is already binary (0/1).
+
+```{r}
+# Homoskedastic logit model
+fit_logit <- ml_logit(inlf ~ age + I(age^2) + huswage + educ + unem, 
+                      data = mroz)
+summary(fit_logit, vcov.type = "robust")
+
+# Heteroskedastic logit model
+fit_logit_het <- ml_logit(inlf ~ age + I(age^2) + huswage + educ + unem,
+                          scale = ~ educ + exper,
+                          data = mroz)
+
+summary(fit_logit_het, vcov.type = "robust")
+```
+
+Notice how the modeling of the homoskedastic and heteroskedastic models are identical in structure to the linear case. The same pattern works for `ml_probit()`, `ml_negbin()`, `ml_gamma()`, and `ml_beta()`.
+
+For a deeper discussion of the different models see the dedicated vignettes to the topics that involve them.
+
+## Where to Go Next
+
+You have now seen the core philosophy of the `mlmodels` package: a consistent interface that works the same way whether you are estimating a linear model, a count model, a binary choice model, or a fractional response model.
+
+To go deeper, explore the following vignettes:
+
+- **[Predictions and marginaleffects integration](mlmodels-predictions.html)** — Detailed guide to the unified `predict()` method and how to compute marginal effects.
+- **[Exploring the variance types](mlmodels-variance.html)** — How to get different types of variances (`oim`, `robust`, `boot`, `jack`, clustered), when to use each, and how to store a bootstrapped or jackknifed variance matrix for reuse.
+- **Working with count data** — We illustrate how to work with our count data models while reproducing classic examples from *Microeconometrics Using Stata* (Cameron and Trivedi), including overdispersion and goodness-of-fit tests. We also demonstrate additional functionality, most notably **heteroskedastic NB1 estimation**, allowing direct comparison between homoskedastic and heteroskedastic versions of both NB1 and NB2 models. See the vignette **[Introduction to Count Data](mlmodels-countintro.html)**.
+- **Gamma versus lognormal** — Comparing predictions and variance behavior on income data.
+- **Fractional responses: logit versus beta** — When to use each model and how they differ in practice.
+
+We hope this vignette has given you a solid foundation for getting started with maximum likelihood modeling in R.
+
+Happy modeling!
+
+## References
+
+Cameron, A. C., & Trivedi, P. K. (2022). *Microeconometrics Using Stata: Volumes I and II* (2nd ed.). Stata Press.
+
+Henningsen, A., & Toomet, O. (2011). 
+"maxLik: A package for maximum likelihood estimation in R." 
+*Computational Statistics*, 26(3), 443–458. 
+<https://doi.org/10.1007/s00180-010-0217-1>
+
+(Also available as the R package `maxLik` on CRAN: 
+<https://cran.r-project.org/package=maxLik>)

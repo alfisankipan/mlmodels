@@ -34,3 +34,4 @@ dev/
 # Hidden files and OS junk
 .DS_Store
 Thumbs.db
+inst/doc
