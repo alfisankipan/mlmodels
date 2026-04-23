@@ -2,8 +2,6 @@
 library(testthat)
 library(marginaleffects)
 
-options("marginaleffects_model_classes" = "mlmodel")
-
 data(docvis)
 data(pw401k)  # for possible future extensions
 

@@ -1,5 +1,4 @@
 # tests/testthat/test-vcov.R
-
 library(testthat)
 
 test_that("vcov.mlmodel returns matrix with correct dimensions", {

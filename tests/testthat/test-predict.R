@@ -2,15 +2,13 @@
 library(testthat)
 library(marginaleffects)
 
-options("marginaleffects_model_classes" = "mlmodel")
-
 data("docvis")
 data("pw401k")
 data("mroz")
 data("smoke")
 
 mroz$incthou <- mroz$faminc / 1000 # Scaling for linear models.
-smoke$smokes <- smoke$cigs > 0 # Binary for logit / probit
+smoke$smokes <- smoke$cigs > 0     # Binary for logit / probit
 
 
 # -- 1. Linear and Loglinear Model (ml_lm) -------------------------------------

@@ -1,5 +1,4 @@
 # tests/testthat/test-constraints.R
-
 library(testthat)
 
 # =============================================================================

@@ -1,5 +1,4 @@
 # tests/testthat/test-waldtest.R
-
 library(testthat)
 
 test_that("waldtest works with indices", {

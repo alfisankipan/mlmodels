@@ -1,10 +1,6 @@
 # tests/testthat/test-ml_lm.R
-
 library(testthat)
 library(marginaleffects)
-
-options("marginaleffects_model_classes" = "mlmodel")
-
 
 mroz$incthou <- mroz$faminc / 1000
 

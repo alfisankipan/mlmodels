@@ -1,5 +1,4 @@
 # tests/testthat/test-lrtest.R
-
 library(testthat)
 
 # Basic functionality

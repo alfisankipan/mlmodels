@@ -2,8 +2,6 @@
 library(testthat)
 library(marginaleffects)
 
-options("marginaleffects_model_classes" = "mlmodel")
-
 data(pw401k)
 
 val_for <- prate ~ mrate + I(mrate^2) + log(totemp) + I(log(totemp)^2) + 
