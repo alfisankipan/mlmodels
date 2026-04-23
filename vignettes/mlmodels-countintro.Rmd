@@ -119,6 +119,51 @@ summary(nb1, vcov.type = "robust")
 nb2 <- ml_negbin(mean_for, data = docvis)
 summary(nb2, vcov.type = "robust")
 ```
+
+## Mean Predictions: Poisson vs Negative Binomial
+
+Before comparing the two negative binomial models, it is useful to examine whether the Poisson model already provides reasonable predictions for the **mean** (the quantity of primary interest in many applications).
+
+```{r mean-comp}
+mpoi <- predict(pois, vcov.type = "robust", se.fit = TRUE)
+mnb1 <- predict(nb1, vcov.type = "robust", se.fit = TRUE)
+mnb2 <- predict(nb2, vcov.type = "robust", se.fit = TRUE)
+
+comp <- data.frame(
+  poi_mean = mpoi$fit,
+  poi_se   = mpoi$se.fit,
+  nb1_mean = mnb1$fit,
+  nb1_se   = mnb1$se.fit,
+  nb2_mean = mnb2$fit,
+  nb2_se   = mnb2$se.fit
+)
+
+comp[1:10, ]
+```
+The individual predicted means and their standard errors are very close across the three models.
+
+We can also look at the average predicted value across the sample:
+
+```{r avg-mean}
+avg_predictions(pois, vcov = "robust")
+avg_predictions(nb1, vcov = "robust")
+avg_predictions(nb2, vcov = "robust")
+```
+
+The average predictions (and their standard errors) are even closer to each other.
+
+Even the **average marginal effects** on the mean are very similar across the three models:
+
+```{r avg-slopes}
+avg_slopes(pois, vcov = "robust")
+avg_slopes(nb1, vcov = "robust")
+avg_slopes(nb2, vcov = "robust")
+```
+
+This illustrates the important practical point we made earlier: **if you are primarily interested in inference about the conditional mean**, the Poisson model with robust standard errors often performs quite well, even when overdispersion is present. 
+
+The negative binomial models become more valuable when you also care about correctly modeling the **variance** or making accurate **probability predictions**, as we shall see.
+
 ## Model Comparison: NB1 versus NB2
 
 Looking at the estimation results, the NB1 model appears to fit these data better than the NB2 model. The log-likelihood is higher for NB1 (−10,531.05 versus −10,589.34), which also produces lower values of both AIC and BIC. 
