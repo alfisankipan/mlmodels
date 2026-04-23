@@ -100,9 +100,6 @@ ml_poisson <- function(value,
   # formulas.
   cl$value <- eval(value)
   
-  if(!is.null(scale))
-    cl$scale <- eval(scale)
-  
   # -- 0. Save original data dimensions and create keep vector ------------
   n_orig <- nrow(data)
   keep <- rep(TRUE, n_orig)          # Start with all observations kept
