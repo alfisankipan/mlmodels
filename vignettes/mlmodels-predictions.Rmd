@@ -296,11 +296,11 @@ plot_predictions(fit_gamma,
 
 And we can do the same for the marginal effects:
 ```{r interaction-slopes, fig.width=10, fig.height=8, dpi=72}
-plot_slopes(fit_gamma, 
+plot_comparisons(fit_gamma, 
             variables = "minors",
             condition = "age",
             vcov = "robust") +
-  labs(title = "Marginal Effect of Having Children on Family Income",
+  labs(title = "Contrast of Having Small Children on Family Income",
        subtitle = "By age (Gamma model)") +
   theme_minimal(base_size = 15)
 ```
