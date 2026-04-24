@@ -122,8 +122,8 @@ There are several distinctions between our `predict()` and `predictions()`, from
 * Both functions can perform **out-of-sample** predictions by passing the full dataset via the `newdata` argument.
 * **`predict()`** provides delta-method standard errors using any variance type supported by `mlmodels` (`oim`, `opg`, `robust`, `boot`, `jack`, etc.).
 * **`predictions()`** uses the same delta-method approach by default and can take advantage of most of our variance types directly through the `vcov` argument. The only exception is `vcov = "boot"`, which has a special meaning in `marginaleffects` (see the bootstrapping section below).
-* You can also **pre-compute** any of our variance matrices (including bootstrapped and jackknifed), using `vcov()`, and pass the resulting matrix through the `vcov` argument. This is especially recommended for bootstrapped and jackknifed standard errors when you plan to compute multiple predictions or marginal effects.
-* **`predictions()`** also offers **additional uncertainty methods** — such as full bootstrap, simulation (Krinsky-Robb), `rsample`, etc. — which you can control more through its `inferences()` function.
+* You can also **pre-compute** any of our variance matrices (including bootstrapped and jackknifed), using `vcov()`, and pass the resulting matrix to `predictions()` through the `vcov` argument. This is especially recommended for bootstrapped and jackknifed standard errors when you plan to compute multiple predictions or marginal effects.
+* **`predictions()`** also offers **additional uncertainty methods** — such as estimate bootstrap, simulation (Krinsky-Robb), `rsample`, etc. — which you can control more through its `inferences()` function.
 
 We start illustrating the relationship with a simple prediction with robust standard errors.
 
@@ -247,8 +247,10 @@ boot_delta <- predictions(fit, vcov = v_boot)
 boot_pred <- predictions(fit) |>
   inferences(method = "boot", R = 200) # Inferences allows you to set the repetitions.
 
+# The estimate is the same in both methods
 comp <- data.frame(
   obs = 1:8,
+  Estimate = boot_delta$estimate[1:8],
   Delta_Low = boot_delta$conf.low[1:8],
   Delta_High = boot_delta$conf.high[1:8],
   Pred_Low = boot_pred$conf.low[1:8],
