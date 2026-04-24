@@ -98,9 +98,7 @@ predict.ml_gamma <- function(object,
 
   # ── Align in-sample predictions to original data length ────────────
   if (is.null(newdata) && any(!sample_idx)) {
-    full_out <- rep(NA_real_, n_orig)
-    full_out[sample_idx] <- out
-    out <- full_out
+    out <- .predict_align_estimates(object, out)
   }
   
   if (!se.fit)
@@ -159,9 +157,7 @@ predict.ml_gamma <- function(object,
   
   # Align in-sample SEs
   if (is.null(newdata) && any(!sample_idx)) {
-    full_se <- rep(NA_real_, n_orig)
-    full_se[sample_idx] <- se_fit
-    se_fit <- full_se
+    se_fit <- .predict_align_estimates(object, se_fit)
   }
   
   res <- list(

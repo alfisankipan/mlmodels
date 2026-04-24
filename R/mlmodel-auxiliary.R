@@ -882,6 +882,43 @@
 }
 
 ## PREDICTION HELPERS ==========================================================
+# --- Align estimates to original dataset --------------------------------------
+#' @keywords internal
+.predict_align_estimates <- function(object, x) {
+  UseMethod(".predict_align_estimates")
+}
+#' @keywords internal
+.predict_align_estimates.mlmodel <- function(object, x) {
+  
+  if (!inherits(object, "mlmodel"))
+    cli::cli_abort("`object` must be an 'mlmodel' object.", call = NULL)
+  
+  if (!is.numeric(x))
+    cli::cli_abort("`x` must be a numeric vector.", call = NULL)
+  
+  samp <- object$model$sample
+  
+  # Already full length (e.g. user passed newdata)
+  if (length(x) == length(samp)) {
+    return(x)
+  }
+  
+  # Length matches number of observations used in estimation
+  n_used <- sum(samp)
+  if (length(x) != n_used) {
+    cli::cli_abort(paste0(
+      "`x` has length {.val {length(x)}}, but the model used ",
+      "{.val {n_used}} observations."
+    ), call = NULL)
+  }
+  
+  # Align to full original data
+  full <- rep(NA_real_, length(samp))
+  full[samp] <- x
+  
+  return(full)
+}
+
 # --- Type parsing for probabilities -------------------------------------------
 # Internal parser for probability types.
 #
