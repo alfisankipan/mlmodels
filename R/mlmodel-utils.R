@@ -267,6 +267,24 @@ fitted.mlmodel <- function(object, ...) {
 #' @export
 fitted.values.mlmodel <- fitted.mlmodel
 
+## FORMULA =====================================================================
+#' Extract value formula from mlmodel objects
+#' 
+#' @param object An `mlmodel` object
+#' @param ... Currently not implemented
+#'
+#' @export
+formula.mlmodel <- function(object, ...) {
+  # Return the main (value) formula
+  if (!is.null(object$model$formula)) {
+    object$model$formula
+  } else if (!is.null(object$model$value$blueprint$formula)) {
+    object$model$value$blueprint$formula
+  } else {
+    NULL
+  }
+}
+
 ## LOGLIK ======================================================================
 # --- General ------------------------------------------------------------------
 #' Extract Log-Likelihood from mlmodel objects

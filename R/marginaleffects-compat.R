@@ -72,14 +72,15 @@ set_coef.mlmodel <- function(model, coefs, ...)
 #' @importFrom insight get_data
 #' @export
 get_data.mlmodel <- function(x, ...) {
-  # Data is stored inside the $model element.
+  # Data is stored inside the $model element. We return only the observations used
+  # in estimation to ensure that bootstrapping is done right.
   if (!is.null(x$model$data) && is.data.frame(x$model$data)) {
-    return(x$model$data)
+    return(x$model$data[x$model$sample, , drop = FALSE])
   }
 
   # Safety fallback (in case we ever store it at root level in future models)
   if (!is.null(x$data) && is.data.frame(x$data)) {
-    return(x$data)
+    return(x$data[x$model$sample, , drop = FALSE])
   }
 
   cli::cli_abort("Could not recover the original data from the mlmodel object.",
