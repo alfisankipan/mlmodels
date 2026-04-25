@@ -293,7 +293,6 @@ ml_poisson <- function(value,
     gradientObs    = .ml_poisson_gradientObs,
     hessianObs     = .ml_poisson_hessianObs,
     loglikeObs     = .ml_poisson_loglikeObs,
-    update         = update.ml_poisson,
     loglik         = .ml_poisson_ll,
     fit            = .ml_poisson.fit
   )

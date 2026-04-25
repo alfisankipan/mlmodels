@@ -4,10 +4,10 @@
 \alias{formula.mlmodel}
 \title{Extract value formula from mlmodel objects}
 \usage{
-\method{formula}{mlmodel}(object, ...)
+\method{formula}{mlmodel}(x, ...)
 }
 \arguments{
-\item{object}{An \code{mlmodel} object}
+\item{x}{An \code{mlmodel} object}
 
 \item{...}{Currently not implemented}
 }

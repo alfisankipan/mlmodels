@@ -350,8 +350,7 @@ ml_negbin <- function(value,
     predict        = predict.ml_negbin,
     gradientObs    = if (dispersion == "NB2") .ml_negbin_nb2_gradientObs else .ml_negbin_nb1_gradientObs,
     hessianObs     = if (dispersion == "NB2") .ml_negbin_nb2_hessianObs else .ml_negbin_nb1_hessianObs,
-    loglikeObs     = if (dispersion == "NB2") .ml_negbin_nb2_loglikeObs else .ml_negbin_nb1_loglikeObs, 
-    update         = update.ml_negbin,
+    loglikeObs     = if (dispersion == "NB2") .ml_negbin_nb2_loglikeObs else .ml_negbin_nb1_loglikeObs,
     loglik         = if (dispersion == "NB2") .ml_negbin_nb2_ll else .ml_negbin_nb1_ll,
     fit            = .ml_negbin.fit
   )

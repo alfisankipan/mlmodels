@@ -343,7 +343,6 @@ ml_lm <- function(value,
     gradientObs    = .ml_lm_gradientObs,
     hessianObs     = .ml_lm_hessianObs,
     loglikeObs     = .ml_lm_loglikeObs,
-    update         = update.ml_lm,
     loglik         = .ml_lm_ll,
     fit            = .ml_lm.fit
   )

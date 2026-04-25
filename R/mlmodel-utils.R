@@ -270,16 +270,16 @@ fitted.values.mlmodel <- fitted.mlmodel
 ## FORMULA =====================================================================
 #' Extract value formula from mlmodel objects
 #' 
-#' @param object An `mlmodel` object
+#' @param x An `mlmodel` object
 #' @param ... Currently not implemented
 #'
 #' @export
-formula.mlmodel <- function(object, ...) {
+formula.mlmodel <- function(x, ...) {
   # Return the main (value) formula
-  if (!is.null(object$model$formula)) {
-    object$model$formula
-  } else if (!is.null(object$model$value$blueprint$formula)) {
-    object$model$value$blueprint$formula
+  if (!is.null(x$model$formula)) {
+    x$model$formula
+  } else if (!is.null(x$model$value$blueprint$formula)) {
+    x$model$value$blueprint$formula
   } else {
     NULL
   }
@@ -735,6 +735,8 @@ summary.mlmodel <- function(object,
 #' @param scale. An updated formula for the scale equation (if supported by the model).
 #' @param data A data frame to be used when re-fitting the model.
 #' @param weights Optional case weights.
+#' @param subset An expression or logical vector to subset, or a vector of indices
+#'   to resample (`sandwich` uses it for that).
 #' @param evaluate Logical. If `TRUE` (default), the updated call is evaluated 
 #'   and the new fitted model is returned. If `FALSE`, the updated call 
 #'   (as a language object) is returned without evaluation.
@@ -746,11 +748,22 @@ summary.mlmodel <- function(object,
 #' mechanism in bootstrap and jackknife variance estimation when a model-specific 
 #' implementation is not available.
 #'
-#' **Note:** While the generic `update()` method is provided, it is not intended 
-#' for general use with packages such as `sandwich::vcovBS()`. Those packages 
-#' do not work reliably with `mlmodel` objects (particularly heteroskedastic 
-#' models with scale equations). Use the built-in bootstrap support instead:
-#' `vcov(object, type = "boot")`.
+#' @details
+#' **`sandwich` package compatibility**
+#' 
+#' The functions `sandwich::vcovBS()` and `sandwich::vcovJK()` are supported
+#' through this `update()` method. They produce numerically equivalent results
+#' to our own `vcov(object, type = "boot")` and `vcov(object, type = "jack")`
+#' when all bootstrap/jackknife replications converge, taking longer to compute
+#' them.
+#' 
+#' **Important difference**: When some replications fail to converge,
+#' `sandwich` includes those failed iterations in the variance calculation,
+#' while our `vcov()` implementation uses **only successful replications**.
+#' The latter is statistically more appropriate.
+#' 
+#' We therefore strongly recommend using the native `vcov()` methods provided
+#' by **mlmodels** for bootstrap and jackknife variance-covariance matrices.
 #'
 #' @method update mlmodel
 #' @export
@@ -759,10 +772,101 @@ update.mlmodel <- function(object,
                            scale. = NULL,
                            data = NULL,
                            weights = NULL,
+                           subset = NULL,
                            ...,
                            evaluate = TRUE)
 {
-  UseMethod("update")
+  if (is.null(call <- object$call))
+    cli::cli_abort("`object` does not contain a `call` component.", call = NULL)
+  
+  # Update value formula if explicitly requested (rare for bootstrap)
+  if (!is.null(formula.)) {
+    call$value <- update.formula(formula(object), formula.)
+  }
+  
+  # Update scale formula if explicitly requested
+  if (!is.null(scale.)) {
+    if (identical(scale., ~1) || identical(scale., ~0)) {
+      call$scale <- NULL
+    } else {
+      call$scale <- scale.
+    }
+  }
+  # If scale. is not supplied → keep the original scale formula (crucial for heteroskedastic models)
+  
+  # Update data (the main thing vcovBS passes)
+  if (!is.null(data)) {
+    call$data <- data
+  }
+  
+  # Update weights — this is the important part you asked about
+  if (!is.null(weights)) {
+    call$weights <- weights          # Yes, this correctly adds/replaces weights
+  }
+  # If weights is NULL (most common case from vcovBS), we do NOTHING → original weights stay in the call
+  
+  # Process Subset (sandwich uses a vector fo indices in it to resample data)
+  if (!is.null(subset) && is.numeric(subset) && !all(subset %in% c(0L, 1L))) {
+    
+    # This is a vector of indices of the rows from the estimated data that
+    # have to be in the new estimation data (resampling).
+    
+    # We pull the original dataset and index it to reduce it to the observations
+    # used in the original estimation.
+    est_data <- object$model$data[object$model$sample, , drop = FALSE]
+    
+    if (min(subset) < 1 || max(subset) > nrow(est_data)) {
+      cli::cli_abort("Invalid indices in `subset` vector.")
+    }
+    
+    # If bootstrapping the vector will have a length equal to the number of
+    # observations in est_data, but if jackknifing it will be the number of
+    # observations minus one (the one dropped out).
+    est_n <- nrow(est_data)
+    
+    if (length(subset) == est_n) {
+      # Bootstrapping. We just index est_data with the vector to form the new
+      # dataframe.
+      new_data <- est_data[subset, , drop = FALSE]
+      
+    } else if (length(subset) == est_n - 1) {
+      # Jackknifing, we form a logical vector with length equal to est_n that will
+      # end up having FALSE in the observation that was dropped.
+      full_idx <- rep(FALSE, est_n)
+      full_idx[subset] <- TRUE        # subset = indices to KEEP
+      # And now we index est_data to return all observations except the FALSE one.
+      new_data <- est_data[full_idx, , drop = FALSE]
+    } else {
+      cli::cli_abort("`subset` vector length ({length(subset)}) is invalid for bootstrap or jackknife.")
+    }
+    
+    call$data   <- new_data      # Pass the resampled data
+    # Since we are passing a dataframe with only data used in the original estimation
+    # we must set the subset argument in the call to NULL, in case the original
+    # estimation was done with a subset condition, because the dataset has already
+    # been subset.
+    call$subset <- NULL
+  }
+  else if (!is.null(subset)) {
+    # If subset is not a vector of integers different from 0 and 1, then it must
+    # be a true subset condition: we modify the argument in the call
+    call$subset <- subset
+  }
+  
+  # Forward any other arguments the user might pass explicitly
+  extras <- match.call(expand.dots = FALSE)$...
+  if (length(extras) > 0) {
+    for (arg in names(extras)) {
+      call[[arg]] <- extras[[arg]]
+    }
+  }
+  
+  # Evaluate or return the updated call
+  if (evaluate) {
+    eval(call, envir = parent.frame())
+  } else {
+    call
+  }
 }
 
 ## VARIANCE ====================================================================

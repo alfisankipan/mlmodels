@@ -288,7 +288,7 @@ IMtest.mlmodel <- function(object,
 
         suppressMessages(
           boot_obj <- tryCatch({
-            object$model$functions$update(
+            update(
               object,
               data   = orig_data[idx, , drop = FALSE],
               weights = w[idx]
@@ -373,7 +373,7 @@ IMtest.mlmodel <- function(object,
         
         suppressMessages(
           boot_obj <- tryCatch({
-            object$model$functions$update(
+            update(
               object,
               data   = orig_data[idx, , drop = FALSE],
               weights = w[idx]

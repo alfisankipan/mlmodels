@@ -53,36 +53,11 @@ predict.ml_logit <- function(object,
                              "sigma", "variance", "zd", "xb"))
   
   is_heteroskedastic <- !is.null(object$model$scale)
+  predictors <- .prepare_prediction_data(object, newdata = newdata)
+  X <- predictors$X
+  Z <- predictors$Z
   
-  # ── Prepare predictors using hardhat ─────────────────────────────
-  if (is.null(newdata)) {
-    val_predictors <- object$model$value$predictors
-    scale_predictors <- if (is_heteroskedastic)
-      object$model$scale$predictors
-    else
-      matrix(1, nrow = nrow(val_predictors), ncol = 1)
-    sample_idx <- object$model$sample
-    n_orig <- length(sample_idx)
-  } else {
-    # Forge newdata using the original blueprint
-    val_bp <- object$model$value$blueprint
-    forged <- hardhat::forge(newdata, blueprint = val_bp, outcomes = FALSE)
-    val_predictors <- forged$predictors
-    
-    if (is_heteroskedastic) {
-      scale_bp <- object$model$scale$blueprint
-      scale_forged <- hardhat::forge(newdata, blueprint = scale_bp, outcomes = FALSE)
-      scale_predictors <- scale_forged$predictors
-    } else {
-      scale_predictors <- matrix(1, nrow = nrow(val_predictors), ncol = 1)
-    }
-    sample_idx <- NULL
-    n_orig <- nrow(val_predictors)
-  }
-  
-  n_obs <- nrow(val_predictors)
-  X <- as.matrix(val_predictors)
-  Z <- if (is_heteroskedastic) as.matrix(scale_predictors) else NULL
+  n_obs <- nrow(X)
   
   # Extract coefficients
   cfs <- coef(object)
@@ -119,7 +94,7 @@ predict.ml_logit <- function(object,
   )
   
   # Align in-sample predictions if needed
-  if (is.null(newdata) && any(!sample_idx)) {
+  if (is.null(newdata)) {
     out <- .predict_align_estimates(object, out)
   }
   
@@ -230,7 +205,7 @@ predict.ml_logit <- function(object,
     se_fit <- sqrt(rowSums(g * (g %*% full_vcov)))
   
   # Align in-sample SEs
-  if (is.null(newdata) && any(!sample_idx)) {
+  if (is.null(newdata)) {
     se_fit <- .predict_align_estimates(object, se_fit)
   }
   res <- list(
@@ -525,59 +500,4 @@ summary.ml_logit <- function(object,
   s$model_type <- object$model$description
   class(s) <- c("summary.ml_logit", "summary.mlmodel", "summary")
   s
-}
-
-## UPDATE ======================================================================
-#' @rdname update.mlmodel
-#' @export
-update.ml_logit <- function(object,
-                            formula. = NULL,
-                            scale. = NULL,
-                            data = NULL,
-                            weights = NULL,
-                            ...,
-                            evaluate = TRUE)
-{
-  if (is.null(call <- object$call))
-    cli::cli_abort("`object` does not contain a `call` component.", call = NULL)
-  
-  # Update value formula if explicitly requested
-  if (!is.null(formula.)) {
-    call$value <- update.formula(formula(object), formula.)
-  }
-  
-  # Update scale formula if explicitly requested
-  if (!is.null(scale.)) {
-    if (identical(scale., ~1) || identical(scale., ~0)) {
-      call$scale <- NULL
-    } else {
-      call$scale <- scale.
-    }
-  }
-  # If scale. was not supplied → keep original scale formula
-  
-  # Update data if supplied (what vcovBS passes)
-  if (!is.null(data)) {
-    call$data <- data
-  }
-  
-  # Update weights ONLY if explicitly supplied and non-NULL
-  if (!is.null(weights)) {
-    call$weights <- weights
-  }
-  
-  # Forward any extra arguments
-  extras <- match.call(expand.dots = FALSE)$...
-  if (length(extras) > 0) {
-    for (arg in names(extras)) {
-      call[[arg]] <- extras[[arg]]
-    }
-  }
-  
-  # Evaluate or return the call
-  if (evaluate) {
-    eval(call, envir = parent.frame())
-  } else {
-    call
-  }
 }

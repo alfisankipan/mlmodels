@@ -919,6 +919,57 @@
   return(full)
 }
 
+# --- Prepare data for predictions ---------------------------------------------
+
+#' @keywords internal
+.prepare_prediction_data <- function(object, newdata = NULL)
+{
+  UseMethod(".prepare_prediction_data")
+}
+
+#' @keywords internal
+.prepare_prediction_data.mlmodel <- function(object, newdata = NULL) {
+  
+  if (!inherits(object, "mlmodel"))
+    cli::cli_abort("`object` must be an 'mlmodel' object.")
+  
+  if (is.null(newdata)) {
+    # ── In-sample prediction ─────────────────────────────────────
+    X <- as.matrix(object$model$value$predictors)
+    
+    # Scale matrix
+    if (is.null(object$model$scale)) {
+      Z <- NULL                          # Poisson or homoskedastic logit/probit
+    } else {
+      Z <- as.matrix(object$model$scale$predictors)
+    }
+    
+  } else {
+    # ── Out-of-sample prediction ─────────────────────────────────
+    # Value predictors
+    val_bp <- object$model$value$blueprint
+    forged_val <- hardhat::forge(newdata, blueprint = val_bp, outcomes = FALSE)
+    X <- as.matrix(forged_val$predictors)
+    
+    # Scale predictors
+    if (is.null(object$model$scale)) {
+      Z <- NULL                          # Poisson or homoskedastic logit/probit
+      
+    } else if (is.null(object$model$scale$blueprint)) {
+      # Homoskedastic models that always have a scale (lm, gamma, beta, negbin)
+      Z <- matrix(1, nrow = nrow(X), ncol = 1)
+      
+    } else {
+      # Heteroskedastic case (including logit/probit with scale)
+      scale_bp <- object$model$scale$blueprint
+      forged_scale <- hardhat::forge(newdata, blueprint = scale_bp, outcomes = FALSE)
+      Z <- as.matrix(forged_scale$predictors)
+    }
+  }
+  
+  list(X = X, Z = Z)
+}
+
 # --- Type parsing for probabilities -------------------------------------------
 # Internal parser for probability types.
 #
@@ -1015,10 +1066,10 @@
 }
 
 ## SUBSET PROCESSING ===========================================================
-# Helper function to process the subset argument in estimtation.
+# Helper function to process the subset argument in estimation.
 #
 # Arguments:
-#   subset_expr   either the exxpression to evaluate into a logical vector or the
+#   subset_expr   either the expression to evaluate into a logical vector or the
 #                 logical vector itself.
 #   data          The data.frame used in the estimation.
 #

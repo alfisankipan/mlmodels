@@ -366,7 +366,6 @@ ml_gamma <- function(value,
     gradientObs    = .ml_gamma_gradientObs,
     hessianObs     = .ml_gamma_hessianObs,
     loglikeObs     = .ml_gamma_loglikeObs,
-    update         = update.ml_gamma,
     loglik         = .ml_gamma_ll,
     fit            = .ml_gamma.fit
   )

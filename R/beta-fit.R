@@ -356,11 +356,10 @@ ml_beta <- function(value,
   # -- 12.a. The functions list --------------------------------------
   
   functions <- list(
-    # predict        = predict.ml_beta,
+    predict        = predict.ml_beta,
     gradientObs    = .ml_beta_gradientObs,
     hessianObs     = .ml_beta_hessianObs,
-    # loglikeObs     = .ml_beta_loglikeObs,
-    update         = update.ml_beta,
+    loglikeObs     = .ml_beta_loglikeObs,
     loglik         = .ml_beta_ll,
     fit            = .ml_beta.fit
   )

@@ -53,21 +53,12 @@ predict.ml_poisson <- function(object,
   }
   
   # ── Prepare predictors (using hardhat) ─────────────────────────────
-  if (is.null(newdata)) {
-    val_predictors <- object$model$value$predictors
-    sample_idx <- object$model$sample
-    n_orig <- length(sample_idx)
-  } else {
-    val_bp <- object$model$value$blueprint
-    forged <- hardhat::forge(newdata, blueprint = val_bp, outcomes = FALSE)
-    val_predictors <- forged$predictors
-    sample_idx <- rep(TRUE, nrow(val_predictors))
-    n_orig <- nrow(val_predictors)
-  }
+  predictors <- .prepare_prediction_data(object, newdata = newdata)
+  X <- predictors$X
   
   # ── Extract coefficients and compute linear predictors ─────────────
   beta <- coef(object)
-  X <- as.matrix(val_predictors)
+  
   xb <- as.vector(X %*% beta)
   mu <- exp(xb)
   if (parsed_type$base_type == "prob") {
@@ -113,7 +104,7 @@ predict.ml_poisson <- function(object,
   }
   
   # ── Align in-sample predictions to original data length ────────────
-  if (is.null(newdata) && any(!sample_idx)) {
+  if (is.null(newdata)) {
     out <- .predict_align_estimates(object, out)
   }
   
@@ -179,7 +170,7 @@ predict.ml_poisson <- function(object,
   }
   
   # Align in-sample SEs
-  if (is.null(newdata) && any(!sample_idx)) {
+  if (is.null(newdata)) {
     se_fit <- .predict_align_estimates(object, se_fit)
   }
   res <- list(
@@ -434,6 +425,7 @@ update.ml_poisson <- function(object,
                               formula. = NULL,
                               data = NULL,
                               weights = NULL,
+                              subset = NULL,
                               ...,
                               evaluate = TRUE)
 {
@@ -453,6 +445,54 @@ update.ml_poisson <- function(object,
   # Update weights ONLY if explicitly supplied and non-NULL
   if (!is.null(weights)) {
     call$weights <- weights
+  }
+  
+  # Process Subset (sandwich uses a vector fo indices in it to resample data)
+  if (!is.null(subset) && is.numeric(subset) && !all(subset %in% c(0L, 1L))) {
+    
+    # This is a vector of indices of the rows from the estimated data that
+    # have to be in the new estimation data (resampling).
+    
+    # We pull the original dataset and index it to reduce it to the observations
+    # used in the original estimation.
+    est_data <- object$model$data[object$model$sample, , drop = FALSE]
+    
+    if (min(subset) < 1 || max(subset) > nrow(est_data)) {
+      cli::cli_abort("Invalid indices in `subset` vector.")
+    }
+    
+    # If bootstrapping the vector will have a length equal to the number of
+    # observations in est_data, but if jackknifing it will be the number of
+    # observations minus one (the one dropped out).
+    est_n <- nrow(est_data)
+    
+    if (length(subset) == est_n) {
+      # Bootstrapping. We just index est_data with the vector to form the new
+      # dataframe.
+      new_data <- est_data[subset, , drop = FALSE]
+      
+    } else if (length(subset) == est_n - 1) {
+      # Jackknifing, we form a logical vector with length equal to est_n that will
+      # end up having FALSE in the observation that was dropped.
+      full_idx <- rep(FALSE, est_n)
+      full_idx[subset] <- TRUE        # subset = indices to KEEP
+      # And now we index est_data to return all observations except the FALSE one.
+      new_data <- est_data[full_idx, , drop = FALSE]
+    } else {
+      cli::cli_abort("`subset` vector length ({length(subset)}) is invalid for bootstrap or jackknife.")
+    }
+    
+    call$data   <- new_data      # Pass the resampled data
+    # Since we are passing a dataframe with only data used in the original estimation
+    # we must set the subset argument in the call to NULL, in case the original
+    # estimation was done with a subset condition, because the dataset has already
+    # been subset.
+    call$subset <- NULL
+  }
+  else if (!is.null(subset)) {
+    # If subset is not a vector of integers different from 0 and 1, then it must
+    # be a true subset condition: we modify the argument in the call
+    call$subset <- subset
   }
   
   # Forward any extra arguments

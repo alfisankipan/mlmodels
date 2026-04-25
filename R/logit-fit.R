@@ -325,7 +325,6 @@ ml_logit <- function(value,
     gradientObs    = .ml_logit_gradientObs,
     hessianObs     = .ml_logit_hessianObs,
     loglikeObs     = .ml_logit_loglikeObs,
-    update         = update.ml_logit,
     loglik         = .ml_logit_ll,
     fit            = .ml_logit.fit
   )

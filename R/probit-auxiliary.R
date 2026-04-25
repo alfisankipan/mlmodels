@@ -560,7 +560,7 @@
   success_rate <- mean(success) * 100
   if(progress && success_rate == 100)
   {
-    cli::cli_text("Bootstrapping finished - {.val {round(success_rate, 1)}}% of replications converged.")
+    cli::cli_text("Jackknife finished - {.val {round(success_rate, 1)}}% of replications converged.")
   }
   
   valid_rows <- complete.cases(coef_matrix)

@@ -42,38 +42,18 @@ predict.ml_lm <- function(object,
                                    "sigma_y", "sd_y", "var", "var_y", "variance_y",
                                    "link", "zd"))
   # ── Prepare predictors (using hardhat) ─────────────────────────────
-  is_heteroskedastic <- !is.null(object$model$scale_formula)
   log_info <- object$model$log_info$value
-  if (is.null(newdata)) {
-    val_predictors <- object$model$value$predictors
-    scale_predictors <- if (is_heteroskedastic)
-      object$model$scale$predictors
-    else
-      matrix(1, nrow = nrow(val_predictors), ncol = 1)
-    sample_idx <- object$model$sample
-    n_orig <- length(sample_idx)
-  } else {
-    val_bp <- object$model$value$blueprint
-    forged <- hardhat::forge(newdata, blueprint = val_bp, outcomes = FALSE)
-    val_predictors <- forged$predictors
-    scale_predictors <- if (is_heteroskedastic)
-    {
-      scale_bp <- object$model$scale$blueprint
-      forged <- hardhat::forge(newdata, blueprint = scale_bp, outcomes = FALSE)
-      forged$predictors
-    }
-    else
-      matrix(1, nrow = nrow(val_predictors), ncol = 1)
-    sample_idx <- rep(TRUE, nrow(val_predictors))
-    n_orig <- nrow(val_predictors)
-  }
+  is_heteroskedastic <- !is.null(object$model$scale_formula)
+  predictors <- .prepare_prediction_data(object, newdata = newdata)
+  X <- predictors$X
+  Z <- predictors$Z
+  
   # ── Extract coefficients and compute linear predictors ─────────────
   coefs <- coef(object)
-  k_mean <- ncol(val_predictors)
+  k_mean <- ncol(X)
   beta <- coefs[1:k_mean]
   delta <- coefs[(k_mean + 1):length(coefs)]
-  X <- as.matrix(val_predictors)
-  Z <- as.matrix(scale_predictors)
+  
   xb <- as.vector(X %*% beta)
   zd <- as.vector(Z %*% delta)
   sigma <- exp(zd)
@@ -126,9 +106,8 @@ predict.ml_lm <- function(object,
   }
   
   # ── Align in-sample predictions to original data length ────────────
-  if (is.null(newdata) && any(!sample_idx)) {
+  if (is.null(newdata))
     out <- .predict_align_estimates(object, out)
-  }
   
   if (!se.fit)
   {
@@ -280,9 +259,10 @@ predict.ml_lm <- function(object,
   }
   
   # Align in-sample SEs
-  if (is.null(newdata) && any(!sample_idx)) {
+  if (is.null(newdata)) {
     se_fit <- .predict_align_estimates(object, se_fit)
   }
+  
   res <- list(
     fit = out,
     se.fit = se_fit
@@ -540,60 +520,4 @@ summary.ml_lm <- function(object,
   s$model_type <- object$model$description
   class(s) <- c("summary.ml_lm", "summary.mlmodel", "summary")
   s
-}
-
-## UPDATE ======================================================================
-#' @rdname update.mlmodel
-#' @export
-update.ml_lm <- function(object,
-                         formula. = NULL,
-                         scale. = NULL,
-                         data = NULL,
-                         weights = NULL,
-                         ...,
-                         evaluate = TRUE)
-{
-  if (is.null(call <- object$call))
-    cli::cli_abort("`object` does not contain a `call` component.", call = NULL)
-  
-  # Update value formula if explicitly requested (rare for bootstrap)
-  if (!is.null(formula.)) {
-    call$value <- update.formula(formula(object), formula.)
-  }
-  
-  # Update scale formula if explicitly requested
-  if (!is.null(scale.)) {
-    if (identical(scale., ~1) || identical(scale., ~0)) {
-      call$scale <- NULL
-    } else {
-      call$scale <- scale.
-    }
-  }
-  # If scale. is not supplied → keep the original scale formula (crucial for heteroskedastic models)
-  
-  # Update data (the main thing vcovBS passes)
-  if (!is.null(data)) {
-    call$data <- data
-  }
-  
-  # Update weights — this is the important part you asked about
-  if (!is.null(weights)) {
-    call$weights <- weights          # Yes, this correctly adds/replaces weights
-  }
-  # If weights is NULL (most common case from vcovBS), we do NOTHING → original weights stay in the call
-  
-  # Forward any other arguments the user might pass explicitly
-  extras <- match.call(expand.dots = FALSE)$...
-  if (length(extras) > 0) {
-    for (arg in names(extras)) {
-      call[[arg]] <- extras[[arg]]
-    }
-  }
-  
-  # Evaluate or return the updated call
-  if (evaluate) {
-    eval(call, envir = parent.frame())
-  } else {
-    call
-  }
 }
