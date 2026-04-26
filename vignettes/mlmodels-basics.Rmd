@@ -94,9 +94,49 @@ Compare this to the homoskedastic model earlier, where we predicted that the var
 
 The modeling of heterogeneity works the same way across almost all models in the package. You simply add a `scale = ~ ...` argument with the desired right-hand-side variables.
 
-The only model that does not accept a scale argument is `ml_poisson()`, because its variance is fully determined by the mean.
+The only model that does not accept a scale argument is `ml_poisson()`, because its probability mass function is fully determined by its mean, as is its variance.
 
 For a deeper look at predictions, see the Predictions and marginaleffects vignette.
+
+## Controlling Intercepts
+
+All `mlmodels` estimating functions allow you to explicitly control whether an intercept is included in the `value` (mean) equation and/or the `scale` equation. This is done through the dedicated arguments `noint_value` and `noint_scale`. Trying to do it through the formulas in the `value` and/or `scale` arguments will throw an error and abort the estimation.
+
+Let's see how:
+```{r intercepts}
+# No intercept in the value function (wrong way)
+fit_no_int <- tryCatch({
+  ml_lm(incthou ~ 0 + age + I(age^2) + huswage + educ + unem,
+                 scale = ~ educ + exper, 
+                 data = mroz)
+}, error = function(e) {
+  print(e)
+  invisible(NULL)
+})
+
+# No intercept in the value function (right way)
+fit_no_int <- ml_lm(incthou ~ age + I(age^2) + huswage + educ + unem,
+                 scale = ~ educ + exper, 
+                 noint_value = TRUE,
+                 data = mroz)
+summary(fit_no_int)
+```
+
+In the above code we catch the error and reproduce the stop message you would have received from `hardhat::mold()`, so that the rest of the code could be executed, and you can see the wording you will receive if you try that.
+
+You can see how in the second estimation's results there is no intercept estimate for the value equation, which is what we wanted.
+
+**Important Notes**
+
+* Using formula syntax like `~0 + ...` or `~-1 + ...` will not work as expected. It will trigger errors from `hardhat::mold()`.
+* Always use the dedicated arguments:
+    - `noint_value = TRUE` &rarr; removes intercept from the mean/value equation
+    - `noint_scale = TRUE` &rarr; removes intercept from the scale equation (when present)
+* `ml_poisson()` only has noint_value (its proability doesn't have a scale parameter).
+
+**Why this design?**
+
+Our models use `hardhat` blueprints for consistent and safe formula handling. The `noint_*` arguments give you explicit, reliable control over intercepts while maintaining compatibility with the internal structure.
 
 ## Binary Outcomes: Logit
 
@@ -126,11 +166,12 @@ You have now seen the core philosophy of the `mlmodels` package: a consistent in
 
 To go deeper, explore the following vignettes:
 
-- **[Predictions and marginaleffects integration](mlmodels-predictions.html)** — Detailed guide to the unified `predict()` method and how to compute marginal effects.
-- **[Exploring the variance types](mlmodels-variance.html)** — How to get different types of variances (`oim`, `robust`, `boot`, `jack`, clustered), when to use each, and how to store a bootstrapped or jackknifed variance matrix for reuse.
-- **Working with count data** — We illustrate how to work with our count data models while reproducing classic examples from *Microeconometrics Using Stata* (Cameron and Trivedi), including overdispersion and goodness-of-fit tests. We also demonstrate additional functionality, most notably **heteroskedastic NB1 estimation**, allowing direct comparison between homoskedastic and heteroskedastic versions of both NB1 and NB2 models. See the vignette **[Introduction to Count Data](mlmodels-countintro.html)**.
-- **Gamma versus lognormal** — Comparing predictions and variance behavior on income data.
-- **Fractional responses: logit versus beta** — When to use each model and how they differ in practice.
+- **[Predictions and marginaleffects integration](mlmodels-predictions.html)** -- Detailed guide to the unified `predict()` method and how to compute marginal effects.
+- **[Variance-Covariance Estimation in `mlmodels`](mlmodels-variance.html)** -- Learn about the different variance-covariance estimators available (`oim`, `opg`, `robust`, `cluster`, `boot`, and `jack`), when to use each one, how they relate to one another, and why we implemented our own `vcov()` method instead of relying solely on external packages.
+- **Working with count data** -- We illustrate how to work with our count data models while reproducing classic examples from *Microeconometrics Using Stata* (Cameron and Trivedi), including overdispersion and goodness-of-fit tests. We also demonstrate additional functionality, most notably **heteroskedastic NB1 estimation**, allowing direct comparison between homoskedastic and heteroskedastic versions of both NB1 and NB2 models. See the vignette **[Introduction to Count Data](mlmodels-countintro.html)**.
+- **Gamma versus Lognormal** -- Comparing two strong estimators for positive, right-skewed outcomes. We look at estimation, predicted moments of the outcome (mean, variance, etc.), and practical differences between the two approaches.
+- **Fractional responses: logit versus beta** -- When to use each model and how they differ in practice.
+- **Diagnostic tools** -- Learn about the diagnostic tests implemented in the package (`IMtest`, `waldtest`, `OVDtest`, etc.), how to use them, and how to interpret the results.
 
 We hope this vignette has given you a solid foundation for getting started with maximum likelihood modeling in R.
 
