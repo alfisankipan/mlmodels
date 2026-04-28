@@ -4,7 +4,7 @@ output:
   rmarkdown::html_vignette:
     css: style.css
 vignette: >
-  %\VignetteIndexEntry{Predictions with mlmodels}
+  %\VignetteIndexEntry{Predictions with `mlmodels`}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---

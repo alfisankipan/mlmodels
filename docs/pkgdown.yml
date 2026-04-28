@@ -1,0 +1,12 @@
+pandoc: 3.8.3
+pkgdown: 2.2.0
+pkgdown_sha: ~
+articles:
+  mlmodels-basics: mlmodels-basics.html
+  mlmodels-countintro: mlmodels-countintro.html
+  mlmodels-diagnostics: mlmodels-diagnostics.html
+  mlmodels-fractional: mlmodels-fractional.html
+  mlmodels-gamma-lognormal: mlmodels-gamma-lognormal.html
+  mlmodels-predictions: mlmodels-predictions.html
+  mlmodels-variance: mlmodels-variance.html
+last_built: 2026-04-28T16:10Z
