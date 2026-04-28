@@ -203,6 +203,16 @@ print.lrtest.mlmodel <- function(x, digits = 3, ...)
 #'                  scale = ~ educ, data = mroz)
 #' IMtest(fit_het)
 #' 
+#' @references
+#' Chesher, A. (1983). The information matrix test: Simplified calculation 
+#' via a score test interpretation. Economics Letters, 13(1), 45-48.
+#' 
+#' Lancaster, T. (1984). The covariance matrix of the information matrix test. 
+#' Econometrica, 52(4), 1051-1053.
+#' 
+#' White, H. (1982). Maximum likelihood estimation of misspecified models. 
+#' Econometrica, 50(1), 1-25.
+#' 
 #' @author Alfonso Sanchez-Penalver
 #'
 #' @export
@@ -728,6 +738,10 @@ waldtest.mlmodel <- function(object,
   
   # Pass the matrix to the description helper to create the string
   var_description <- .vcov_description(V)
+  
+  # Check fractional response inference for oim or opg (the helper checks if
+  # they're logit or probit, so no need to do it here)
+  .fractional_response_inference_alert(object, V)
   
   # Build restriction matrix R
   if (!is.null(indices))

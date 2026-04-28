@@ -18,17 +18,18 @@ knitr::opts_chunk$set(
 
 ```{r setup}
 library(mlmodels)
+library(marginaleffects)
 ```
 The `mlmodels` package provides a consistent and flexible framework for estimating a wide range of maximum likelihood models in R.
 
 Unlike `glm()`, which is limited to a small set of distributions and does not allow direct modeling of the scale parameter (variance, dispersion, precision, or shape), `mlmodels` lets you explicitly model both the **location/mean** and the **scale** of the outcome in a unified way.
 
-Even for homoskedastic models, maximum likelihood estimation is often statistically more efficient than the quasi-likelihood approach used by `glm()`. With `mlmodels`, you get this efficiency **plus** the ability to model heteroskedasticity or other forms of dispersion when it is present in your data.
+Even for homoskedastic models, maximum likelihood estimation is often statistically more efficient than the quasi-likelihood approach used by `glm()`. With `mlmodels`, you get this efficiency **plus** the ability to model heteroskedasticity, dispersion, precision, shape or other parameters particular to the model.
 
 ## Core Features
-* Consistent S3 interface across all models
-* Support for modeling the scale parameter alongside the mean
-* Rich `predict()` method with many useful output types
+* Consistent S3 interface across all models.
+* Support for modeling scale parameters alongside the mean.
+* Rich `predict()` method with many useful output types and integration with `marginaleffects`.
 * Multiple variance-covariance estimators (`oim`, `opg`, `robust`, `boot`, `jack`, clustered)
 * Standard R methods that "just work": `summary()`, `confint()`, `residuals()`, `fitted()`, `AIC()`, `BIC()`, etc.
 * Comprehensive suite of hypothesis tests (`waldtest`, `lrtest`, `IMtest`, `vuongtest`, `OVDtest`, `GOFtest`)
@@ -52,7 +53,61 @@ fit <- ml_lm(incthou ~ age + I(age^2) + huswage + educ + unem,
 # View the results with robust standard errors
 summary(fit, vcov.type = "robust")
 ```
-You immediately get a clean summary with Wald tests, AIC, BIC, and more.
+
+To get the summary statistics from the model, you use the familiar function `summary()`. Through the use of the `vcov.type` argument, you select what type of standard errors you want to use for inference. In this case, `robust` (sandwich estimator).
+
+The presentation is clean, and consistent for all models. It has a header with the type of model you fitted. It, then, presents the call, the log-likelihood and joint significance test(s). In this case, since the estimation was homoskedastic, the overall significance test is the only one presented.
+
+After that, you are presented with the type of standard errors used for inference and, immediately after, the coefficients table separated into two clear groups: value and scale. The value section holds the parameters of the conditional mean, and the scale section the parameters of the standard deviation, in this case.
+
+All our models add the prefixes `value::` and `scale::` to the names of the coefficients in the corresponding equation. The purpose is twofold:
+
+* It avoids naming the coefficients equally if you entered the same variable as a predictor in both equations.
+
+* It points immediately to which equation the coefficient belongs to, giving you an easy way to select just the coefficients of a given equation, in case you'd like to separate them.
+
+As we mentioned, we use the name scale consistently for that equation across models. The following is a table with what the scale equation models for each of the estimators that model scale in the package:
+
+<table>
+  <thead>
+    <tr>
+      <th style="width: 25%;">Model</th>
+      <th style="width: 28%;">Scale Parameter</th>
+      <th style="width: 47%;">Interpretation</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Normal / Lognormal</td>
+      <td><code>log(sigma)</code></td>
+      <td>Log of the standard deviation</td>
+    </tr>
+    <tr>
+      <td>Logit / Probit</td>
+      <td><code>log(sigma)</code></td>
+      <td>Log of the deviations from the unidentified overall standard deviation</td>
+    </tr>
+    <tr>
+      <td>Negative Binomial</td>
+      <td><code>log(alpha)</code></td>
+      <td>Log of the dispersion parameter</td>
+    </tr>
+    <tr>
+      <td>Gamma</td>
+      <td><code>log(nu)</code></td>
+      <td>Log of the shape parameter</td>
+    </tr>
+    <tr>
+      <td>Beta</td>
+      <td><code>log(phi)</code></td>
+      <td>Log of the precision parameter</td>
+    </tr>
+  </tbody>
+</table>
+
+The purpose of naming the equation scale consistently across models, even though it may reflect different type of parameters across models, is that you can use the same format to access the estimates of the equation, independent of what model you used. That way you don't have to remember exactly which parameter you are modeling in each case to access its coefficients and standard errors. Nevertheless, in the header for the scale equation, you are reminded of what that equation actually models (`log(sigma)` in this case).
+
+Finally, after the coefficients' table, we present information about the number of observations, goodness of fit measures, and information about the predicted values of the scale equation. Since this estimation was of a homoskedastic normal model, the prediction is if `sigma`.
 
 ## Making Predictions
 The `predict()` method is very flexible:
@@ -71,7 +126,7 @@ head(pred$se.fit)   # Standard errors
 
 ## Modeling Heteroskedasticity
 
-One of the most powerful features of `mlmodels` is the ability to explicitly model the scale parameter (variance/dispersion) alongside the mean.
+One of the most powerful features of `mlmodels` is the ability to explicitly model the scale parameter (variance/dispersion) alongside the mean. To do that we add the `scale` argument to the call, with a formula with just right hand side variables: the predictors for that equation.
 
 ```{r}
 # Heteroskedastic linear model
@@ -81,10 +136,13 @@ fit_het <- ml_lm(incthou ~ age + I(age^2) + huswage + educ + unem,
 
 summary(fit_het, vcov.type = "robust")
 ```
-Notice how the coefficients' table is separated into two parts:
 
-* **Value (mean) equation** - The usual coefficients for the location.
-* **Scale (log(sigma)) equation** - How the log of the standard deviation changes with predictors.
+Notice how the presentation follows the pattern we described for the homoskedastic case. The main differences are that now:
+
+* The joint significance tests include one for the parameters of the value equation, and another for the parameters of the scale equation, in addition to the overall one.
+* At the bottom we present summary statistics of the predicted standard deviation, instead of the single value.
+
+This allows you to immediately identify if there is heteroskedasticity present, and how much the standard deviation varies within the sample used in the estimation.
 
 The real benefit becomes clear when you make predictions:
 ```{r}
@@ -92,11 +150,15 @@ The real benefit becomes clear when you make predictions:
 ```
 Compare this to the homoskedastic model earlier, where we predicted that the variance was the same for every observation. Modeling the scale parameter allows the uncertainty to vary realistically across individuals.
 
-The modeling of heterogeneity works the same way across almost all models in the package. You simply add a `scale = ~ ...` argument with the desired right-hand-side variables.
+To get the partial effects on the standard deviation, you can use the functions from the `marginaleffects` package:
+```{r meffs-sigma}
+# AMEs for the standard deviation using robust standard errors
+avg_slopes(fit_het, variables = c("educ", "exper"), type = "sigma", vcov = "robust")
+```
 
 The only model that does not accept a scale argument is `ml_poisson()`, because its probability mass function is fully determined by its mean, as is its variance.
 
-For a deeper look at predictions, see the Predictions and marginaleffects vignette.
+For a deeper look at predictions, see the [Predictions with `mlmodels`](mlmodels-predictions.html) vignette.
 
 ## Controlling Intercepts
 
@@ -166,12 +228,12 @@ You have now seen the core philosophy of the `mlmodels` package: a consistent in
 
 To go deeper, explore the following vignettes:
 
-- **[Predictions and marginaleffects integration](mlmodels-predictions.html)** -- Detailed guide to the unified `predict()` method and how to compute marginal effects.
+- **[Predictions with `mlmodels`](mlmodels-predictions.html)** -- Detailed guide to the unified `predict()` method and how to compute predictions, marginal effects, and bootstrap the predictions with the `marginaleffects` package.
 - **[Variance-Covariance Estimation in `mlmodels`](mlmodels-variance.html)** -- Learn about the different variance-covariance estimators available (`oim`, `opg`, `robust`, `cluster`, `boot`, and `jack`), when to use each one, how they relate to one another, and why we implemented our own `vcov()` method instead of relying solely on external packages.
-- **Working with count data** -- We illustrate how to work with our count data models while reproducing classic examples from *Microeconometrics Using Stata* (Cameron and Trivedi), including overdispersion and goodness-of-fit tests. We also demonstrate additional functionality, most notably **heteroskedastic NB1 estimation**, allowing direct comparison between homoskedastic and heteroskedastic versions of both NB1 and NB2 models. See the vignette **[Introduction to Count Data](mlmodels-countintro.html)**.
-- **Gamma versus Lognormal** -- Comparing two strong estimators for positive, right-skewed outcomes. We look at estimation, predicted moments of the outcome (mean, variance, etc.), and practical differences between the two approaches.
-- **Fractional responses: logit versus beta** -- When to use each model and how they differ in practice.
-- **Diagnostic tools** -- Learn about the diagnostic tests implemented in the package (`IMtest`, `waldtest`, `OVDtest`, etc.), how to use them, and how to interpret the results.
+- **[Introduction to Count Data](mlmodels-countintro.html)** -- We illustrate how to work with our count data models while reproducing classic examples from *Microeconometrics Using Stata* (Cameron and Trivedi 2022), including overdispersion and goodness-of-fit tests. We also demonstrate additional functionality, most notably **heteroskedastic NB1 estimation**, allowing direct comparison between homoskedastic and heteroskedastic versions of both NB1 and NB2 models.
+- **[Gamma versus Lognormal](mlmodels-gamma-lognormal.html)** -- Comparing two strong estimators for positive, right-skewed outcomes. We look at estimation, predicted moments of the outcome (mean, variance, etc.), and practical differences between the two approaches.
+- **[Fractional Response Outcomes](mlmodels-fractional.html)** -- We consider QMLE estimation with logit or probit, and MLE estimation with the Beta model. We go over when either type is suitable, and how, as well as look at an application from the seminal article, Papke and Wooldridge (1996), to compare the estimators.
+- **[Diagnostic Tools in `mlmodels`](mlmodels-diagnostics.html)** -- Learn about the diagnostic tests implemented in the package (`IMtest`, `waldtest`, `OVDtest`, etc.), how to use them, and how to interpret the results.
 
 We hope this vignette has given you a solid foundation for getting started with maximum likelihood modeling in R.
 
@@ -185,6 +247,7 @@ Henningsen, A., & Toomet, O. (2011).
 "maxLik: A package for maximum likelihood estimation in R." 
 *Computational Statistics*, 26(3), 443–458. 
 <https://doi.org/10.1007/s00180-010-0217-1>
-
 (Also available as the R package `maxLik` on CRAN: 
 <https://cran.r-project.org/package=maxLik>)
+
+Papke, L. E., & Wooldridge, J. M. (1996). "Econometric methods for fractional response variables with an application to 401(k) plan participation rates." *Journal of Applied Econometrics*, 11(6), 619--632. [https://doi.org/10.1002/(SICI)1099-1255(199611)11:6<619::AID-JAE418>3.0.CO;2-1](https://doi.org/10.1002/(SICI)1099-1255(199611)11:6%3C619::AID-JAE418%3E3.0.CO;2-1)

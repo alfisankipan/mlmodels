@@ -64,11 +64,8 @@ formula (\code{- 1} or \code{+ 0}) for the value equation. Use the dedicated arg
 \code{noint_value} instead. For the scale equation (if modeling heteroskedasticity),
 the formula must contain only the predictors (right-hand side).
 
-For strictly binary outcomes (0/1), both \code{ml_logit()} and
-\code{ml_probit()} are appropriate.
-
-\code{ml_logit()} can also handle fractional responses
-(\code{0 < y < 1}). When using fractional responses, it is recommended
+\code{ml_logit()} handles both strictly binary (\code{0/1}), and fractional response
+(\code{0 <= y <= 1}) outcomes. When using fractional responses, it is recommended
 to use robust standard errors (\code{vcov.type = "robust"}).
 
 Coefficient names in the fitted object use the prefixes \verb{value::} and
@@ -119,7 +116,7 @@ head(residuals(fit_logit, type = "pearson"))
 
 }
 \seealso{
-\code{\link{ml_probit}} for the probit counterpart.
+\link{ml_probit} \link{ml_beta}
 }
 \author{
 Alfonso Sanchez-Penalver

@@ -881,6 +881,43 @@
   data
 }
 
+## FRACTIONAL RESPONSE INFERENCE ===============================================
+# --- Logit/Probit check for fractional response
+#' @keywords internal
+.fractional_response_inference_alert <- function(object, vcov)
+{
+  
+  if (!inherits(object, c("ml_logit", "ml_probit")) || isTRUE(object$model$is_binary)) {
+    return(invisible(TRUE))
+  }
+  
+  vcov_type <- attr(vcov, "vcov.type") %||% "user-supplied"
+  
+  # Checking for fractional response estimation, and variance
+  if (!object$model$is_binary) {
+    if (vcov_type %in% c("oim", "opg")) {
+      cli::cli_warn(
+        c("Outcome appears to be fractional (values strictly between 0 and 1).",
+          "i" = "Estimation is quasi-maximum likelihood (QMLE).",
+          "i" = "Variance type `'{vcov_type}'` is not appropriate in this case.",
+          "i" = "It is strongly recommended to use robust standard errors.",
+          "i" = "Consider setting `vcov.type = \"robust\"` or `vcov.type = \"boot\"`.")
+      )
+    } 
+    else if (vcov_type == "user-supplied") {
+      cli::cli_warn(
+        c("Outcome appears to be fractional (values strictly between 0 and 1).",
+          "i" = "Estimation is quasi-maximum likelihood (QMLE).",
+          "i" = "Could not determine the type of variance matrix used.",
+          "i" = "It is strongly recommended to use robust standard errors.",
+          "i" = "Consider using `vcov.type = \"robust\"` or `vcov.type = \"boot\"`.")
+      )
+    }
+  }
+  
+  invisible(TRUE)
+}
+
 ## PREDICTION HELPERS ==========================================================
 # --- Align estimates to original dataset --------------------------------------
 #' @keywords internal

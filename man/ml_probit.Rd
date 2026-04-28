@@ -70,6 +70,10 @@ Coefficient names in the fitted object use the prefixes \verb{value::} and
 \verb{scale::} (when heteroskedasticity is modeled) to clearly identify which
 equation each coefficient belongs to.
 
+\code{ml_probit()} handles both strictly binary (\code{0/1}), and fractional response
+(\code{0 <= y <= 1}) outcomes. When using fractional responses, it is recommended
+to use robust standard errors (\code{vcov.type = "robust"}).
+
 Either inequality or equality linear constraints are accepted, but not both.
 A constraint cannot have a linear combination of more than two coefficients.
 
@@ -84,11 +88,6 @@ When constraints are used, \code{ml_probit} automatically chooses \code{method}:
 }
 
 In these cases your supplied \code{method} argument (if any) is ignored.
-
-The probit model is appropriate for strictly binary outcomes (0/1).
-It uses the cumulative distribution function of the standard normal.
-For fractional responses (values strictly between 0 and 1), use
-\link{ml_logit} or \link{ml_beta} instead.
 }
 \examples{
 
@@ -120,7 +119,7 @@ head(residuals(fit_probit, type = "pearson"))
 
 }
 \seealso{
-\link{ml_logit}
+\link{ml_logit} \link{ml_beta}
 }
 \author{
 Alfonso Sanchez-Penalver

@@ -78,6 +78,16 @@ fit_het <- ml_lm(incthou ~ age + I(age^2) + huswage + educ + unem,
 IMtest(fit_het)
 
 }
+\references{
+Chesher, A. (1983). The information matrix test: Simplified calculation
+via a score test interpretation. Economics Letters, 13(1), 45-48.
+
+Lancaster, T. (1984). The covariance matrix of the information matrix test.
+Econometrica, 52(4), 1051-1053.
+
+White, H. (1982). Maximum likelihood estimation of misspecified models.
+Econometrica, 50(1), 1-25.
+}
 \seealso{
 \code{\link[=waldtest]{waldtest()}}, \code{\link[=lrtest]{lrtest()}}, \code{\link[=vuongtest]{vuongtest()}}
 }

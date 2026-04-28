@@ -29,11 +29,8 @@
 #' `noint_value` instead. For the scale equation (if modeling heteroskedasticity),
 #' the formula must contain only the predictors (right-hand side).
 #'
-#' For strictly binary outcomes (0/1), both \code{ml_logit()} and 
-#' \code{ml_probit()} are appropriate. 
-#' 
-#' \code{ml_logit()} can also handle fractional responses 
-#' (\code{0 < y < 1}). When using fractional responses, it is recommended 
+#' \code{ml_logit()} handles both strictly binary (`0/1`), and fractional response  
+#' (\code{0 <= y <= 1}) outcomes. When using fractional responses, it is recommended
 #' to use robust standard errors (\code{vcov.type = "robust"}).
 #'  
 #' Coefficient names in the fitted object use the prefixes `value::` and
@@ -55,8 +52,7 @@
 #'
 #' @return An object of class `ml_logit` that extends `mlmodel`.
 #' 
-#' @seealso
-#' \code{\link{ml_probit}} for the probit counterpart.
+#' @seealso [ml_probit] [ml_beta]
 #' 
 #' @examples
 #' 
@@ -329,10 +325,24 @@ ml_logit <- function(value,
     fit            = .ml_logit.fit
   )
 
+  model_desc <- {
+    if(!is.null(scale))
+    {
+      # Hetero
+      if(is_binary) "Heteroskedastic Binary Logit"
+      else "Heteroskedastic Fractional Response Logit"
+    }
+    else
+    {
+      # Homo
+      if(is_binary) "Homoskedastic Binary Logit"
+      else "Homoskedastic Fractional Response Logit"
+    }
+  }
+  
   # -- 13.b. The model_list list --------------------------------------
   model_list <- list(
-    description   = if (!is.null(scale)) "Heteroskedastic Binary Logit"
-                    else "Homoskedastic Binary Logit",
+    description   = model_desc,
     value         = model_value,
     scale         = model_scale,
     factor_mapping  = factor_mapping %||% list(value = list()),

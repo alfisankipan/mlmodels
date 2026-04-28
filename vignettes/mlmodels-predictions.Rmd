@@ -1,5 +1,5 @@
 ---
-title: "Predictions with mlmodels"
+title: "Predictions with `mlmodels`"
 output: 
   rmarkdown::html_vignette:
     css: style.css

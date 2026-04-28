@@ -328,7 +328,7 @@ print.OVDtest <- function(x, digits = 4, ...)
   if(!inherits(x, "OVDtest"))
     cli::cli_abort("`x` needs to be of class `'OVDtest'`")
   
-  cat("\nCameron and Trivedi Overdispersion Test:",
+  cat("\nCameron and Trivedi (1990) Overdispersion Test:",
       "--------------------------------------",
       "  H0: Poisson (alpha = 0)",
       "  H1: Overdispersion (alpha > 0)",

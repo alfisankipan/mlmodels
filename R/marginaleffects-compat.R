@@ -52,7 +52,12 @@ get_vcov.mlmodel <- function(model,
 #' @export
 get_coef.mlmodel <- function(model, ...)
 {
-  coef(model, ...)
+  coefs <- coef(model)
+  # names(coefs) <- gsub("^value::", "", names(coefs))
+  # if(!is.null(model$model$scale))
+  #   names(coefs) <- gsub("^scale::", "scale_", names(coefs))
+  
+  coefs
 }
 
 #' @importFrom marginaleffects set_coef

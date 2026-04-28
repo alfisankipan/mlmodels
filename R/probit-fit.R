@@ -35,6 +35,11 @@
 #' Coefficient names in the fitted object use the prefixes `value::` and
 #' `scale::` (when heteroskedasticity is modeled) to clearly identify which
 #' equation each coefficient belongs to.
+#' 
+#' \code{ml_probit()} handles both strictly binary (`0/1`), and fractional response  
+#' (\code{0 <= y <= 1}) outcomes. When using fractional responses, it is recommended
+#' to use robust standard errors (\code{vcov.type = "robust"}).
+
 #'
 #' Either inequality or equality linear constraints are accepted, but not both.
 #' A constraint cannot have a linear combination of more than two coefficients.
@@ -48,15 +53,10 @@
 #' - Inequality constraints => BFGS (`"BFGS"`)
 #'
 #' In these cases your supplied `method` argument (if any) is ignored.
-#' 
-#' The probit model is appropriate for strictly binary outcomes (0/1). 
-#' It uses the cumulative distribution function of the standard normal.
-#' For fractional responses (values strictly between 0 and 1), use 
-#' [ml_logit] or [ml_beta] instead.
 #'
 #' @return An object of class `ml_probit` that extends `mlmodel`.
 #' 
-#' @seealso [ml_logit]
+#' @seealso [ml_logit] [ml_beta]
 #' 
 #' @examples
 #' 
@@ -201,14 +201,13 @@ ml_probit <- function(value,
   y <- as.numeric(model_value$outcomes[[1]])
   
   # -- 7. Validity of outcome variable ------------------
-  # Check binary
-  if (any(y != 0 & y != 1)) {
-    cli::cli_abort(c(
-      "Probit models require a strictly binary outcome (only 0s and 1s).",
-      "i" = "The outcome variable contains values different from 0 and 1.",
-      "i" = "For fractional responses, please use {.fn ml_logit} instead."
-    ), call = NULL)
+  # Check range
+  if (any(y < 0 | y > 1)) {
+    cli::cli_abort("Outcome variable must be in the [0, 1] interval.", call = NULL)
   }
+  
+  # Check if it's purely binary
+  is_binary <- all(y %in% c(0, 1))
   
   x <- as.matrix(model_value$predictors)
   
@@ -332,10 +331,24 @@ ml_probit <- function(value,
     fit            = .ml_probit.fit
   )
   
+  model_desc <- {
+    if(!is.null(scale))
+    {
+      # Hetero
+      if(is_binary) "Heteroskedastic Binary Probit"
+      else "Heteroskedastic Fractional Response Probit"
+    }
+    else
+    {
+      # Homo
+      if(is_binary) "Homoskedastic Binary Probit"
+      else "Homoskedastic Fractional Response Probit"
+    }
+  }
+  
   # -- 13.b. The model_list list --------------------------------------
   model_list <- list(
-    description   = if (!is.null(scale)) "Heteroskedastic Binary Probit"
-                    else "Homoskedastic Binary Probit",
+    description   = model_desc,
     value         = model_value,
     scale         = model_scale,
     factor_mapping  = factor_mapping %||% list(value = list()),
@@ -356,7 +369,8 @@ ml_probit <- function(value,
     control       = control,
     constraints   = parsed_constraints,
     start         = start,
-    method        = method
+    method        = method,
+    is_binary     = is_binary
   )
   
   if (!(ml$code %in% c(0, 1, 2, 8))) {

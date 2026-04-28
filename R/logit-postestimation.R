@@ -197,7 +197,10 @@ predict.ml_logit <- function(object,
         "i" = "Standard errors will be returned as NA.")
     )
     se_fit <- rep(NA_real_, length(out))
-  } 
+  }
+  
+  # Check fractional response inference for oim or opg
+  .fractional_response_inference_alert(object, full_vcov)
   
   # We may have se_fit being NA from this final check and the one we did in the
   # homoskedastic case for sigma, zd, and variance types.
@@ -400,32 +403,12 @@ summary.ml_logit <- function(object,
   s$converged     <- converged
   s$is_heteroskedastic <- is_heteroskedastic
   
-  vcov_type <- attr(vcov_mat, "vcov.type") %||% "user-supplied"
   
   # Call helper for variance type general description.
   s$var_description <- .vcov_description(vcov_mat)
   
   # Checking for fractional response estimation, and variance
-  if (!object$model$is_binary) {
-    if (vcov_type %in% c("oim", "opg")) {
-      cli::cli_warn(
-        c("Outcome appears to be fractional (values strictly between 0 and 1).",
-          "i" = "The standard logit likelihood is being used as a quasi-likelihood.",
-          "i" = "Variance type '{vtype}' is not appropriate in this case.",
-          "i" = "It is strongly recommended to use robust standard errors.",
-          "i" = "Consider setting `vcov.type = \"robust\"` or `vcov.type = \"cluster\"`.")
-      )
-    } 
-    else if (vcov_type == "user-supplied") {
-      cli::cli_warn(
-        c("Outcome appears to be fractional (values strictly between 0 and 1).",
-          "i" = "The standard logit likelihood is being used as a quasi-likelihood.",
-          "i" = "Could not determine the type of variance matrix used.",
-          "i" = "It is strongly recommended to use robust standard errors.",
-          "i" = "Consider using `vcov.type = \"robust\"` or `vcov.type = \"cluster\"`.")
-      )
-    }
-  }
+  .fractional_response_inference_alert(object, vcov_mat)
   
   # Coefficient table
   se <- sqrt(diag(vcov_mat))
@@ -463,21 +446,24 @@ summary.ml_logit <- function(object,
       # Joint significance tests (reuse vcov_mat)
       idx_mean <- if (object$model$value$blueprint$intercept) 2:k_mean else 1:k_mean
       
-      if (is_heteroskedastic) {
-        idx_scale <- (k_mean + 1):k_total
-        
-        s$significance <- list(
-          all  = waldtest(object, indices = c(idx_mean, idx_scale), vcov = vcov_mat),
-          mean = waldtest(object, indices = idx_mean, vcov = vcov_mat),
-          scale = waldtest(object, indices = idx_scale, vcov = vcov_mat)
-        )
-      } else {
-        s$significance <- list(
-          all  = waldtest(object, indices = idx_mean, vcov = vcov_mat),
-          mean = NULL,
-          scale = NULL
-        )
-      }
+      # Avoid duplicate warning of fractional response inference from waldtest.
+      suppressWarnings({
+        if (is_heteroskedastic) {
+          idx_scale <- (k_mean + 1):k_total
+          
+          s$significance <- list(
+            all  = waldtest(object, indices = c(idx_mean, idx_scale), vcov = vcov_mat),
+            mean = waldtest(object, indices = idx_mean, vcov = vcov_mat),
+            scale = waldtest(object, indices = idx_scale, vcov = vcov_mat)
+          )
+        } else {
+          s$significance <- list(
+            all  = waldtest(object, indices = idx_mean, vcov = vcov_mat),
+            mean = NULL,
+            scale = NULL
+          )
+        }
+      })
     }
     else
     {

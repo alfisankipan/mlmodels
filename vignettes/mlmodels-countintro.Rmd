@@ -120,7 +120,7 @@ nb2 <- ml_negbin(mean_for, data = docvis)
 summary(nb2, vcov.type = "robust")
 ```
 
-## Mean Predictions: Poisson vs Negative Binomial
+## Predictions of the Mean: Poisson vs Negative Binomial
 
 Before comparing the two negative binomial models, it is useful to examine whether the Poisson model already provides reasonable predictions for the **mean** (the quantity of primary interest in many applications).
 

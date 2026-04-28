@@ -214,10 +214,10 @@ ml_beta <- function(value,
   if(obs_int != obs_sample)
   {
     cli::cli_warn(c(
-      "Dropped {.val {obs_sample - obs_int}} observation(s) with values at or beyond the boundaries.",
-        "i" = "The Beta distribution is only defined on the open interval (0, 1).",
-        "*" = "If you wish to include boundary values, consider using {.fn ml_logit}."
-      ))
+      "!" = "Dropped {.val {obs_sample - obs_int}} observation(s) at the boundaries (y <= 0 or y >= 1).",
+      "i" = "The Beta distribution is only defined on the open interval (0, 1).",
+      "*" = "If boundary values are meaningful in your context, consider using {.fn ml_logit} or {.fn ml_probit} instead."
+    ))
   }
   
   sample <- int_idx
