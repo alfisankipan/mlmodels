@@ -27,7 +27,7 @@ test_that("ml_beta fits homoskedastic and heteroskedastic models", {
 test_that("ml_beta drops boundary observations and issues warning", {
   expect_warning(
     ml_beta(val_for, data = pw401k),
-    "Dropped .* observation\\(s\\) with values at or beyond the boundaries"
+    "Dropped .* observation\\(s\\) at the boundaries"
   )
 })
 

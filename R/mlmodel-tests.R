@@ -140,7 +140,6 @@ print.lrtest.mlmodel <- function(x, digits = 3, ...)
   invisible(x)
 }
 
-
 ## IM TEST ---------------------------------------------------------------------
 #' Information Matrix Test for Model Misspecification
 #'
@@ -196,7 +195,7 @@ print.lrtest.mlmodel <- function(x, digits = 3, ...)
 #' IMtest(fit, method = "opg")
 #' 
 #' # Bootstrap p-value (quadratic form)
-#' IMtest(fit, method = "boot_quad", repetitions = 200, seed = 123)
+#' IMtest(fit, method = "boot_quad", repetitions = 100, seed = 123)
 #' 
 #' # Heteroskedastic model
 #' fit_het <- ml_lm(incthou ~ age + I(age^2) + huswage + educ + unem,

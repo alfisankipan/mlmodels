@@ -35,13 +35,13 @@ test_that("ml_logit accepts fractional responses (pw401k)", {
   expect_s3_class(fit_frac, "mlmodel")
 })
 
-test_that("ml_probit rejects fractional responses", {
-  expect_error(
-    ml_probit(prate ~ mrate + I(mrate^2) + log(totemp) + 
-                I(log(totemp)^2) + age + I(age^2) + sole, 
-              data = pw401k),
-    "Probit models require a strictly binary outcome"
-  )
+test_that("ml_probit accepts fractional responses", {
+  fit_frac <- ml_probit(prate ~ mrate + I(mrate^2) + log(totemp) + 
+                          I(log(totemp)^2) + age + I(age^2) + sole, 
+                        data = pw401k)
+  
+  expect_s3_class(fit_frac, "ml_probit")
+  expect_s3_class(fit_frac, "mlmodel")
 })
 
 # ------------------------------------------------------------------------------
