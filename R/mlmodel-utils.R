@@ -221,7 +221,7 @@ confint.mlmodel <- function(object,
                         progress = progress)
   
   
-  # ── Check for unusable variance matrix ─────────────────────────────
+  # -- Check for unusable variance matrix --------------------------------------
   if (any(!is.finite(vcov)) || any(is.na(vcov))) {
     cli::cli_warn(
       c("Variance matrix is unusable (contains NAs or non-finite values).",
@@ -792,18 +792,17 @@ update.mlmodel <- function(object,
       call$scale <- scale.
     }
   }
-  # If scale. is not supplied → keep the original scale formula (crucial for heteroskedastic models)
+  # If scale. is not supplied -> keep the original scale formula (crucial for heteroskedastic models)
   
   # Update data (the main thing vcovBS passes)
   if (!is.null(data)) {
     call$data <- data
   }
   
-  # Update weights — this is the important part you asked about
+  # Update weights
   if (!is.null(weights)) {
-    call$weights <- weights          # Yes, this correctly adds/replaces weights
+    call$weights <- weights
   }
-  # If weights is NULL (most common case from vcovBS), we do NOTHING → original weights stay in the call
   
   # Process Subset (sandwich uses a vector fo indices in it to resample data)
   if (!is.null(subset) && is.numeric(subset) && !all(subset %in% c(0L, 1L))) {
@@ -897,12 +896,12 @@ update.mlmodel <- function(object,
 #' @details
 #' The package provides several variance-covariance estimators through the `type` argument:
 #' 
-#' * `"oim"` – Observed Information Matrix (default)
-#' * `"opg"` – Outer Product of Gradients (BHHH)
-#' * `"robust"` – Robust (sandwich) estimator
+#' * `"oim"` - Observed Information Matrix (default)
+#' * `"opg"` - Outer Product of Gradients (BHHH)
+#' * `"robust"` - Robust (sandwich) estimator
 #' * `"cluster"` - Alias for `"robust"` when clustering the variance but requires `cl_var` to be set.
-#' * `"boot"` – Bootstrap (with optional clustering)
-#' * `"jack"` – Jackknife (with optional clustering)
+#' * `"boot"` - Bootstrap (with optional clustering)
+#' * `"jack"` - Jackknife (with optional clustering)
 #' * `"jackknife"` - alias for `"jack"`
 #' 
 #' Clustered standard errors are obtained by setting `cl_var` when using `"robust"`/`"cluster"`, `"boot"`, or `"jack"`.

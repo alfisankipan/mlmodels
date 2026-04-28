@@ -52,13 +52,13 @@ predict.ml_beta <- function(object,
   
   type <-  rlang::arg_match(type, c("response", "fitted", "mean", "odds", "link", "zd", "phi", "shape1", "shape2", "mode", "variance", "var", "sd", "sigma"))
   
-  # ── Prepare predictors (using hardhat) ─────────────────────────────
+  # -- Prepare predictors (using hardhat) --------------------------------------
   is_heteroskedastic <- !is.null(object$model$scale_formula)
   predictors <- .prepare_prediction_data(object, newdata = newdata)
   X <- predictors$X
   Z <- predictors$Z
   
-  # ── Extract coefficients and compute linear predictors ─────────────
+  # -- Extract coefficients and compute linear predictors ----------------------
   coefs <- coef(object)
   k_mean <- ncol(X)
   beta <- coefs[1:k_mean]
@@ -94,7 +94,7 @@ predict.ml_beta <- function(object,
                 cli::cli_abort("Unknown prediction type '{type}'.", 
                                call = NULL))
   
-  # ── Align in-sample predictions to original data length ────────────
+  # -- Align in-sample predictions to original data length ---------------------
   if (is.null(newdata)) {
     out <- .predict_align_estimates(object, out)
   }
@@ -155,7 +155,7 @@ predict.ml_beta <- function(object,
                              seed = seed,
                              progress = progress)
   
-  # ── Check for unusable variance matrix ─────────────────────────────
+  # -- Check for unusable variance matrix --------------------------------------
   if (any(!is.finite(full_vcov)) || any(is.na(full_vcov))) {
     cli::cli_warn(
       c("Variance matrix is unusable (contains NAs or non-finite values).",
@@ -164,7 +164,7 @@ predict.ml_beta <- function(object,
     )
     se_fit <- rep(NA_real_, length(out))
   } else {
-    # ── Delta-method standard errors ─────────────────────────────────
+    # -- Delta-method standard errors ------------------------------------------
     se_fit <- sqrt(rowSums(g * (g %*% full_vcov)))
   }
   
@@ -353,7 +353,7 @@ summary.ml_beta <- function(object,
   # Basic information
   s$model_type <- object$model$description
   s$logLik <- as.numeric(object$maximum %||% NA_real_)
-  s$call           <- object$call                    # ← Now using root-level call
+  s$call           <- object$call                    # <- Now using root-level call
   s$formula        <- object$model$formula
   s$scale_formula  <- object$model$scale_formula
   s$nobs           <- n

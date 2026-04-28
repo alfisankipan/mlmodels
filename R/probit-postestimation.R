@@ -13,11 +13,11 @@
 #' | `"prob"`      | Alias for `"response"`              | Alias for `"response"`                   | - |
 #' | `"fitted"`    | Alias for `"response"`              | Alias for `"response"`                   | - |
 #' | `"prob0"`     | P(y=0 \| x)                         | P(y=0 \| x)                              | Prob. of failure |
-#' | `"link"`      | Linear predictor xb                 | xb / exp(z'delta)                        | Probit index |
+#' | `"link"`      | Linear predictor xb                 | xb / exp(zd)                             | Probit index |
 #' | `"odds"`      | Odds = prob / prob0                 | Odds = prob / prob0.                     | - |
-#' | `"sigma"`     | 1 (constant)                        | Std. Deviation: exp(z'delta)             | Only available if heteroskedastic |
-#' | `"variance"`  | 1 (constant)                        | Variance: exp(2*z'delta)                 | Only available if heteroskedastic |
-#' | `"zd"`        | 0 (constant)                        | z'delta                                  | Linear predictor for scale |
+#' | `"sigma"`     | 1 (constant)                        | Std. Deviation: exp(zd)                  | Only available if heteroskedastic |
+#' | `"variance"`  | 1 (constant)                        | Variance: exp(2*zd)                      | Only available if heteroskedastic |
+#' | `"zd"`        | 0 (constant)                        | Linear predictor zd                      | Linear predictor for scale |
 #'
 #' In binary probit models, the **overall scale** of the latent error term is 
 #' not identified and is normalized to 1. In the homoskedastic case there is 
@@ -69,7 +69,7 @@ predict.ml_probit <- function(object,
   beta <- cfs[1:ncol(X)]
   delta <- if (is_heteroskedastic) cfs[(ncol(X)+1):length(cfs)] else NULL
   
-  # ── Compute the requested type ─────────────────────────────────────
+  # -- Compute the requested type ----------------------------------------------
   xb <- as.vector(X %*% beta)
   
   if (is_heteroskedastic) {
@@ -113,7 +113,7 @@ predict.ml_probit <- function(object,
     class(res) <- c("predict.ml_probit", "predict.mlmodel")
     return(res)
   }
-  # ── Standard errors (delta method) ─────────────────────────────────────
+  # -- Standard errors (delta method) ------------------------------------------
   se_fit <- NULL
   # Common dimensions
   n_obs   <- length(xb)
@@ -195,7 +195,7 @@ predict.ml_probit <- function(object,
                              seed = seed,
                              progress = progress)
   
-  # ── Check for unusable variance matrix ─────────────────────────────
+  # -- Check for unusable variance matrix --------------------------------------
   if (any(!is.finite(full_vcov)) || any(is.na(full_vcov))) {
     cli::cli_warn(
       c("Variance matrix is unusable (contains NAs or non-finite values).",

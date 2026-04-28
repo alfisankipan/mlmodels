@@ -30,6 +30,7 @@ Suggests:
     ggplot2,
     knitr,
     patchwork,
+    pkgdown,
     rmarkdown,
     testthat (>= 3.0.0),
     wooldridge

@@ -208,14 +208,14 @@ for all supported types.
 The \code{type} argument controls what quantity is returned. Behavior differs
 depending on whether the outcome was modeled in logs (\code{log(y)}).\tabular{llll}{
    Type \tab Normal (linear) case \tab Lognormal case (\code{log(y)}) \tab Notes \cr
-   \code{link} \tab Linear predictor for scale (zd) \tab Linear predictor on log scale (μ_log) \tab Scale equation \cr
+   \code{link} \tab Linear predictor for scale (zd) \tab Linear predictor on log scale (mu-log) \tab Scale equation \cr
    \code{fitted} \tab xb (mean predictor) \tab xb (original log-scale predictor) \tab Mean equation \cr
-   \code{response}, \code{mean}, \code{mu} \tab xb (E\code{[y]}) \tab E\code{[y]} = exp(μ_log + σ²/2) - shift \tab Proper expected value on original scale \cr
-   \code{median} \tab xb (same as mean) \tab exp(μ_log) - shift \tab Median of y \cr
-   \code{sigma}, \code{sd} \tab σ (sd of ε) \tab σ (sd of \code{log(y)}) \tab On log scale \cr
-   \code{sigma_y}, \code{sd_y} \tab same as \code{sigma} \tab sd(y) \tab Only meaningful in lognormal case \cr
-   \code{variance}, \code{var} \tab σ² \tab σ² (variance of \code{log(y)}) \tab On log scale \cr
-   \code{variance_y}, \code{var_y} \tab same as \code{variance} \tab Var(y) = exp(2μ_log + σ²)(exp(σ²) - 1) \tab Only meaningful in lognormal case \cr
+   \code{response}, \code{mean}, \code{mu} \tab xb (E\code{[y]}) \tab E\code{[y]} = exp(mu-log + sigma^2/2) - shift \tab Proper expected value on original scale \cr
+   \code{median} \tab xb (same as mean) \tab exp(mu-log) - shift \tab Median of y \cr
+   \code{sigma}, \code{sd} \tab sd of y \tab sd of \code{log(y)} \tab On log scale \cr
+   \code{sigma_y}, \code{sd_y} \tab same as \code{sigma} \tab sd of y \tab Only meaningful in lognormal case \cr
+   \code{variance}, \code{var} \tab sigma^2 \tab sigma^2 (variance of \code{log(y)}) \tab On log scale \cr
+   \code{variance_y}, \code{var_y} \tab same as \code{variance} \tab Var(y) = exp(2 mu-log + sigma^2)(exp(sigma^2) - 1) \tab Only meaningful in lognormal case \cr
    \code{zd} \tab Linear predictor for scale (zd) \tab Linear predictor for scale (zd) \tab Alias for \code{link} \cr
 }
 
@@ -235,11 +235,11 @@ depending on whether the model is homoskedastic or heteroskedastic.\tabular{llll
    \code{"prob"} \tab Alias for \code{"response"} \tab Alias for \code{"response"} \tab - \cr
    \code{"fitted"} \tab Alias for \code{"response"} \tab Alias for \code{"response"} \tab - \cr
    \code{"prob0"} \tab P(y=0 | x) \tab P(y=0 | x) \tab Prob. of failure \cr
-   \code{"link"} \tab Linear predictor xb \tab xb / exp(z'delta) \tab Log-odds \cr
-   \code{"odds"} \tab Odds = exp(xb) \tab Odds = exp(xb / exp(z'delta)) \tab - \cr
-   \code{"sigma"} \tab 1 (constant) \tab Std. Deviation: exp(z'delta) \tab Only available if heteroskedastic \cr
-   \code{"variance"} \tab 1 (constant) \tab Variance: exp(2*z'delta) \tab Only available if heteroskedastic \cr
-   \code{"zd"} \tab 0 (constant) \tab z'delta \tab Linear predictor for scale \cr
+   \code{"link"} \tab Linear predictor xb \tab xb / exp(zd) \tab Log-odds \cr
+   \code{"odds"} \tab Odds = exp(xb) \tab Odds = exp(xb / exp(zd)) \tab - \cr
+   \code{"sigma"} \tab 1 (constant) \tab Std. Deviation: exp(zd) \tab Only available if heteroskedastic \cr
+   \code{"variance"} \tab 1 (constant) \tab Variance: exp(2*zd) \tab Only available if heteroskedastic \cr
+   \code{"zd"} \tab 0 (constant) \tab Linear predictor zd \tab Linear predictor for scale \cr
 }
 
 
@@ -271,10 +271,10 @@ using the \code{P(...)} syntax.\tabular{lll}{
    \code{"var"} \tab Alias for \code{"variance"} \tab - \cr
    \code{"sigma"} \tab Standard deviation of outcome variable \tab sqrt(\code{"variance"}) \cr
    \code{"sd"} \tab Alias for \code{"sigma"} \tab - \cr
-   \code{P(k)} \tab P(Y = k) \tab Exact probability, k integer ≥ 0 \cr
-   \code{P(,k)} \tab P(Y ≤ k) \tab Cumulative (lower tail) \cr
-   \code{P(k,)} \tab P(Y ≥ k) \tab Survival (upper tail) \cr
-   \code{P(a,b)} \tab P(a ≤ Y ≤ b) \tab Interval probability, a ≤ b, a ≥ 0 \cr
+   \code{P(k)} \tab P(Y = k) \tab Exact probability, k integer >= 0 \cr
+   \code{P(,k)} \tab P(Y <= k) \tab Cumulative (lower tail) \cr
+   \code{P(k,)} \tab P(Y >= k) \tab Survival (upper tail) \cr
+   \code{P(a,b)} \tab P(a <= Y <= b) \tab Interval probability, a <= b, a >= 0 \cr
 }
 
 
@@ -293,10 +293,10 @@ using the \code{P(...)} syntax.\tabular{lll}{
    \code{"mean"} \tab Alias for \code{"response"} \tab - \cr
    \code{"mu"} \tab Alias for \code{"response"} \tab - \cr
    \code{"fitted"} \tab Alias for \code{"response"} \tab - \cr
-   \code{P(k)} \tab P(Y = k) \tab Exact probability, k integer ≥ 0 \cr
-   \code{P(,k)} \tab P(Y ≤ k) \tab Cumulative (lower tail) \cr
-   \code{P(k,)} \tab P(Y ≥ k) \tab Survival (upper tail) \cr
-   \code{P(a,b)} \tab P(a ≤ Y ≤ b) \tab Interval probability, a ≤ b, a ≥ 0 \cr
+   \code{P(k)} \tab P(Y = k) \tab Exact probability, k integer >= 0 \cr
+   \code{P(,k)} \tab P(Y <= k) \tab Cumulative (lower tail) \cr
+   \code{P(k,)} \tab P(Y >= k) \tab Survival (upper tail) \cr
+   \code{P(a,b)} \tab P(a <= Y <= b) \tab Interval probability, a <= b, a >= 0 \cr
 }
 
 
@@ -314,11 +314,11 @@ depending on whether the model is homoskedastic or heteroskedastic.\tabular{llll
    \code{"prob"} \tab Alias for \code{"response"} \tab Alias for \code{"response"} \tab - \cr
    \code{"fitted"} \tab Alias for \code{"response"} \tab Alias for \code{"response"} \tab - \cr
    \code{"prob0"} \tab P(y=0 | x) \tab P(y=0 | x) \tab Prob. of failure \cr
-   \code{"link"} \tab Linear predictor xb \tab xb / exp(z'delta) \tab Probit index \cr
+   \code{"link"} \tab Linear predictor xb \tab xb / exp(zd) \tab Probit index \cr
    \code{"odds"} \tab Odds = prob / prob0 \tab Odds = prob / prob0. \tab - \cr
-   \code{"sigma"} \tab 1 (constant) \tab Std. Deviation: exp(z'delta) \tab Only available if heteroskedastic \cr
-   \code{"variance"} \tab 1 (constant) \tab Variance: exp(2*z'delta) \tab Only available if heteroskedastic \cr
-   \code{"zd"} \tab 0 (constant) \tab z'delta \tab Linear predictor for scale \cr
+   \code{"sigma"} \tab 1 (constant) \tab Std. Deviation: exp(zd) \tab Only available if heteroskedastic \cr
+   \code{"variance"} \tab 1 (constant) \tab Variance: exp(2*zd) \tab Only available if heteroskedastic \cr
+   \code{"zd"} \tab 0 (constant) \tab Linear predictor zd \tab Linear predictor for scale \cr
 }
 
 

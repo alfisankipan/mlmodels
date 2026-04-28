@@ -6,14 +6,14 @@
 #'
 #' | Type | Normal (linear) case | Lognormal case (\code{log(y)}) | Notes |
 #' |---------------------|---------------------------------------|------------------------------------------------------|-------|
-#' | `link` | Linear predictor for scale (zd) | Linear predictor on log scale (μ_log) | Scale equation |
+#' | `link` | Linear predictor for scale (zd) | Linear predictor on log scale (mu-log) | Scale equation |
 #' | `fitted` | xb (mean predictor) | xb (original log-scale predictor) | Mean equation |
-#' | `response`, `mean`, `mu` | xb (E\code{[y]}) | E\code{[y]} = exp(μ_log + σ²/2) - shift | Proper expected value on original scale |
-#' | `median` | xb (same as mean) | exp(μ_log) - shift | Median of y |
-#' | `sigma`, `sd` | σ (sd of ε) | σ (sd of \code{log(y)}) | On log scale |
-#' | `sigma_y`, `sd_y` | same as `sigma` | sd(y) | Only meaningful in lognormal case |
-#' | `variance`, `var` | σ² | σ² (variance of \code{log(y)}) | On log scale |
-#' | `variance_y`, `var_y` | same as `variance` | Var(y) = exp(2μ_log + σ²)(exp(σ²) - 1) | Only meaningful in lognormal case |
+#' | `response`, `mean`, `mu` | xb (E\code{[y]}) | E\code{[y]} = exp(mu-log + sigma^2/2) - shift | Proper expected value on original scale |
+#' | `median` | xb (same as mean) | exp(mu-log) - shift | Median of y |
+#' | `sigma`, `sd` |  sd of y | sd of \code{log(y)} | On log scale |
+#' | `sigma_y`, `sd_y` | same as `sigma` | sd of y | Only meaningful in lognormal case |
+#' | `variance`, `var` | sigma^2 | sigma^2 (variance of \code{log(y)}) | On log scale |
+#' | `variance_y`, `var_y` | same as `variance` | Var(y) = exp(2 mu-log + sigma^2)(exp(sigma^2) - 1) | Only meaningful in lognormal case |
 #' | `zd` | Linear predictor for scale (zd) | Linear predictor for scale (zd) | Alias for `link` |
 #'
 #' When the outcome is log-transformed, `response` (or `mean`) returns the
@@ -41,14 +41,14 @@ predict.ml_lm <- function(object,
                                    "sigma", "sd", "variance",
                                    "sigma_y", "sd_y", "var", "var_y", "variance_y",
                                    "link", "zd"))
-  # ── Prepare predictors (using hardhat) ─────────────────────────────
+  # -- Prepare predictors (using hardhat) --------------------------------------
   log_info <- object$model$log_info$value
   is_heteroskedastic <- !is.null(object$model$scale_formula)
   predictors <- .prepare_prediction_data(object, newdata = newdata)
   X <- predictors$X
   Z <- predictors$Z
   
-  # ── Extract coefficients and compute linear predictors ─────────────
+  # -- Extract coefficients and compute linear predictors ----------------------
   coefs <- coef(object)
   k_mean <- ncol(X)
   beta <- coefs[1:k_mean]
@@ -57,7 +57,7 @@ predict.ml_lm <- function(object,
   xb <- as.vector(X %*% beta)
   zd <- as.vector(Z %*% delta)
   sigma <- exp(zd)
-  # ── Point predictions ──────────────────────────────────────────────
+  # -- Point predictions -------------------------------------------------------
   if (!log_info$is_log) {
     # Normal case
     out <- switch(type,
@@ -105,7 +105,7 @@ predict.ml_lm <- function(object,
                   "variance_y" = Vy)
   }
   
-  # ── Align in-sample predictions to original data length ────────────
+  # -- Align in-sample predictions to original data length ---------------------
   if (is.null(newdata))
     out <- .predict_align_estimates(object, out)
   
@@ -118,14 +118,14 @@ predict.ml_lm <- function(object,
     class(res) <- c("predict.ml_lm", "predict.mlmodel")
     return(res)
   }
-  # ── Delta-method standard errors ───────────────────────────────────
+  # -- Delta-method standard errors ------------------------------------------
   n_obs   <- length(xb)
   n_beta  <- length(beta)
   n_delta <- length(delta)
   g <- matrix(0, nrow = n_obs, ncol = n_beta + n_delta)
   
   if (!log_info$is_log) {
-    # ── Normal case: pre-compute all possible gradients (cheap) ─────
+    # -- Normal case: pre-compute all possible gradients (cheap) ---------------
     g_mean_beta   <- X
     g_mean_delta  <- matrix(0, n_obs, n_delta)
     g_link_beta   <- matrix(0, n_obs, n_beta)
@@ -169,7 +169,7 @@ predict.ml_lm <- function(object,
                                                    "var_y"    = ,
                                                    "variance_y" = g_var_delta)
   } else {
-    # Lognormal case — all moments computed unconditionally (independent of type)
+    # -- Lognormal case --------------------------------------------------------
     mu_log   <- xb - log(log_info$multiplier)
     Ey       <- exp(mu_log + sigma^2 / 2) - log_info$shift # true mean
     My       <- exp(mu_log) - log_info$shift                 # median
@@ -245,7 +245,7 @@ predict.ml_lm <- function(object,
                              seed = seed,
                              progress = progress)
   
-  # ── Check for unusable variance matrix ─────────────────────────────
+  # -- Check for unusable variance matrix --------------------------------------
   if (any(!is.finite(full_vcov)) || any(is.na(full_vcov))) {
     cli::cli_warn(
       c("Variance matrix is unusable (contains NAs or non-finite values).",
@@ -254,7 +254,6 @@ predict.ml_lm <- function(object,
     )
     se_fit <- rep(NA_real_, length(out))
   } else {
-    # ── Delta-method standard errors ─────────────────────────────────
     se_fit <- sqrt(rowSums(g * (g %*% full_vcov)))
   }
   
@@ -443,7 +442,7 @@ summary.ml_lm <- function(object,
 
   # Basic information
   s$logLik <- as.numeric(object$maximum %||% NA_real_)
-  s$call           <- object$call                    # ← Now using root-level call
+  s$call           <- object$call                    # <- Now using root-level call
   s$formula        <- object$model$formula
   s$scale_formula  <- object$model$scale_formula
   s$nobs           <- n

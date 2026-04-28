@@ -971,7 +971,7 @@
     cli::cli_abort("`object` must be an 'mlmodel' object.")
   
   if (is.null(newdata)) {
-    # ── In-sample prediction ─────────────────────────────────────
+    # -- In-sample prediction --------------------------------------------------
     X <- as.matrix(object$model$value$predictors)
     
     # Scale matrix
@@ -982,7 +982,7 @@
     }
     
   } else {
-    # ── Out-of-sample prediction ─────────────────────────────────
+    # -- Out-of-sample prediction ----------------------------------------------
     # Value predictors
     val_bp <- object$model$value$blueprint
     forged_val <- hardhat::forge(newdata, blueprint = val_bp, outcomes = FALSE)
@@ -1035,7 +1035,7 @@
 {
   type <- tolower(trimws(type))
   
-  # Not a probability request → return as base_type
+  # Not a probability request -> return as base_type
   if (!grepl("^p\\(.*\\)$", type)) {
     return(list(base_type = type, 
                 prob_type = NULL, 
@@ -1053,7 +1053,7 @@
   
   if (!grepl(",", content))
   {
-    # P(k) → exact count
+    # P(k) -> exact count
     k <- suppressWarnings(as.numeric(content))
     if (is.na(k) || !is.finite(k) || k < 0 || k != round(k)) {
       cli::cli_abort("P(k) requires a non-negative integer k.", call = NULL)

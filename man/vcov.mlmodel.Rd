@@ -48,12 +48,12 @@ using different methods.
 \details{
 The package provides several variance-covariance estimators through the \code{type} argument:
 \itemize{
-\item \code{"oim"} – Observed Information Matrix (default)
-\item \code{"opg"} – Outer Product of Gradients (BHHH)
-\item \code{"robust"} – Robust (sandwich) estimator
+\item \code{"oim"} - Observed Information Matrix (default)
+\item \code{"opg"} - Outer Product of Gradients (BHHH)
+\item \code{"robust"} - Robust (sandwich) estimator
 \item \code{"cluster"} - Alias for \code{"robust"} when clustering the variance but requires \code{cl_var} to be set.
-\item \code{"boot"} – Bootstrap (with optional clustering)
-\item \code{"jack"} – Jackknife (with optional clustering)
+\item \code{"boot"} - Bootstrap (with optional clustering)
+\item \code{"jack"} - Jackknife (with optional clustering)
 \item \code{"jackknife"} - alias for \code{"jack"}
 }
 

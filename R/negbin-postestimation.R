@@ -21,10 +21,10 @@
 #' | `"var"`       | Alias for `"variance"`                   | - |
 #' | `"sigma"`     | Standard deviation of outcome variable   | sqrt(`"variance"`) |
 #' | `"sd"`        | Alias for `"sigma"`                      | - |
-#' | `P(k)`        | P(Y = k)                                 | Exact probability, k integer ≥ 0 |
-#' | `P(,k)`       | P(Y ≤ k)                                 | Cumulative (lower tail) |
-#' | `P(k,)`       | P(Y ≥ k)                                 | Survival (upper tail) |
-#' | `P(a,b)`      | P(a ≤ Y ≤ b)                             | Interval probability, a ≤ b, a ≥ 0 |
+#' | `P(k)`        | P(Y = k)                                 | Exact probability, k integer >= 0 |
+#' | `P(,k)`       | P(Y <= k)                                 | Cumulative (lower tail) |
+#' | `P(k,)`       | P(Y >= k)                                 | Survival (upper tail) |
+#' | `P(a,b)`      | P(a <= Y <= b)                             | Interval probability, a <= b, a >= 0 |
 #'
 #' When `se.fit = TRUE`, standard errors are computed using the delta method
 #' for all supported types.
@@ -57,13 +57,13 @@ predict.ml_negbin <- function(object,
                                               c("response", "fitted", "mean", "link", "zd", "alpha", "variance", "var", "sd", "sigma"))
   }
   
-  # ── Prepare predictors (using hardhat) ─────────────────────────────
+  # -- Prepare predictors (using hardhat) --------------------------------------
   is_heteroskedastic <- !is.null(object$model$scale_formula)
   predictors <- .prepare_prediction_data(object, newdata = newdata)
   X <- predictors$X
   Z <- predictors$Z
   
-  # ── Extract coefficients and compute linear predictors ─────────────
+  # -- Extract coefficients and compute linear predictors ----------------------
   coefs <- coef(object)
   k_mean <- ncol(X)
   beta <- coefs[1:k_mean]
@@ -158,7 +158,7 @@ predict.ml_negbin <- function(object,
                                  call = NULL))
   }
   
-  # ── Align in-sample predictions to original data length ────────────
+  # -- Align in-sample predictions to original data length ---------------------
   if (is.null(newdata)) {
     out <- .predict_align_estimates(object, out)
   }
@@ -291,7 +291,7 @@ predict.ml_negbin <- function(object,
                              seed = seed,
                              progress = progress)
   
-  # ── Check for unusable variance matrix ─────────────────────────────
+  # -- Check for unusable variance matrix --------------------------------------
   if (any(!is.finite(full_vcov)) || any(is.na(full_vcov))) {
     cli::cli_warn(
       c("Variance matrix is unusable (contains NAs or non-finite values).",
@@ -300,7 +300,7 @@ predict.ml_negbin <- function(object,
     )
     se_fit <- rep(NA_real_, length(out))
   } else {
-    # ── Delta-method standard errors ─────────────────────────────────
+    # -- Delta-method standard errors ------------------------------------------
     se_fit <- sqrt(rowSums(g * (g %*% full_vcov)))
   }
   
@@ -492,7 +492,7 @@ summary.ml_negbin <- function(object,
   
   # Basic information
   s$logLik <- as.numeric(object$maximum %||% NA_real_)
-  s$call           <- object$call                    # ← Now using root-level call
+  s$call           <- object$call                    # <- Now using root-level call
   s$formula        <- object$model$formula
   s$scale_formula  <- object$model$scale_formula
   s$nobs           <- n

@@ -474,7 +474,7 @@ new_ml_lm <- function(object, ...) {
       rss <- sum(resid^2)
       g0 <- 0.5 * (log(rss) - log(n))
     } else {
-      # Heteroskedastic case => auxiliary regression on log(resid²)
+      # Heteroskedastic case => auxiliary regression on log(resid^2)
       ln_res2 <- log(resid^2)
       fit_aux <- .lm.fit(z, ln_res2)
       g0 <- fit_aux$coefficients / 2

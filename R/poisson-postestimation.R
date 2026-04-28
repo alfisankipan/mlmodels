@@ -16,10 +16,10 @@
 #' | `"mean"`      | Alias for `"response"`                   | - |
 #' | `"mu"`        | Alias for `"response"`                   | - |
 #' | `"fitted"`    | Alias for `"response"`                   | - |
-#' | `P(k)`        | P(Y = k)                                 | Exact probability, k integer ≥ 0 |
-#' | `P(,k)`       | P(Y ≤ k)                                 | Cumulative (lower tail) |
-#' | `P(k,)`       | P(Y ≥ k)                                 | Survival (upper tail) |
-#' | `P(a,b)`      | P(a ≤ Y ≤ b)                             | Interval probability, a ≤ b, a ≥ 0 |
+#' | `P(k)`        | P(Y = k)                                 | Exact probability, k integer >= 0 |
+#' | `P(,k)`       | P(Y <= k)                                 | Cumulative (lower tail) |
+#' | `P(k,)`       | P(Y >= k)                                 | Survival (upper tail) |
+#' | `P(a,b)`      | P(a <= Y <= b)                             | Interval probability, a <= b, a >= 0 |
 #'
 #' When `se.fit = TRUE`, standard errors are computed using the delta method
 #' for all supported types.
@@ -52,11 +52,11 @@ predict.ml_poisson <- function(object,
                                               c("response", "fitted", "mean", "mu", "link"))
   }
   
-  # ── Prepare predictors (using hardhat) ─────────────────────────────
+  # -- Prepare predictors (using hardhat) --------------------------------------
   predictors <- .prepare_prediction_data(object, newdata = newdata)
   X <- predictors$X
   
-  # ── Extract coefficients and compute linear predictors ─────────────
+  # -- Extract coefficients and compute linear predictors ----------------------
   beta <- coef(object)
   
   xb <- as.vector(X %*% beta)
@@ -103,7 +103,7 @@ predict.ml_poisson <- function(object,
                                  call = NULL))
   }
   
-  # ── Align in-sample predictions to original data length ────────────
+  # -- Align in-sample predictions to original data length ---------------------
   if (is.null(newdata)) {
     out <- .predict_align_estimates(object, out)
   }
@@ -122,7 +122,7 @@ predict.ml_poisson <- function(object,
   n_beta <- length(beta)
   if (parsed_type$base_type == "prob") {
     
-    # Derivative of the probability w.r.t. μ
+    # Derivative of the probability w.r.t. mu
     dP_dmu <- switch(parsed_type$prob_type,
                      "exact" = dpois(parsed_type$lower, mu) * (parsed_type$lower / mu - 1),
                      "leq"   = - dpois(parsed_type$upper, mu),
@@ -134,7 +134,6 @@ predict.ml_poisson <- function(object,
                                     call = NULL)
     )
     
-    # Chain rule: d(prob)/dβ = d(prob)/dμ * dμ/dβ = dP_dmu * mu * X
     g <- dP_dmu * mu * X
     
   } else {
@@ -156,7 +155,7 @@ predict.ml_poisson <- function(object,
                              seed = seed,
                              progress = progress)
   
-  # ── Check for unusable variance matrix ─────────────────────────────
+  # -- Check for unusable variance matrix --------------------------------------
   if (any(!is.finite(full_vcov)) || any(is.na(full_vcov))) {
     cli::cli_warn(
       c("Variance matrix is unusable (contains NAs or non-finite values).",
@@ -165,7 +164,7 @@ predict.ml_poisson <- function(object,
     )
     se_fit <- rep(NA_real_, length(out))
   } else {
-    # ── Delta-method standard errors ─────────────────────────────────
+    # -- Delta-method standard errors ------------------------------------------
     se_fit <- sqrt(rowSums(g * (g %*% full_vcov)))
   }
   
@@ -340,7 +339,7 @@ summary.ml_poisson <- function(object,
   
   # Basic information
   s$logLik <- as.numeric(object$maximum %||% NA_real_)
-  s$call           <- object$call                    # ← Now using root-level call
+  s$call           <- object$call                    # <- Now using root-level call
   s$formula        <- object$model$formula
   s$nobs           <- n
   s$df.residual    <- n - k_total
