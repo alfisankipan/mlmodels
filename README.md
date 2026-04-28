@@ -24,6 +24,8 @@ You can install the development version from GitHub:
 devtools::install_github("alfisankipan/mlmodels")
 ```
 
+(The package will soon be available on CRAN.)
+
 ## Documentation
 
 * [Getting Started](https://alfisankipan.github.io/mlmodels/articles/mlmodels-basics.html)
