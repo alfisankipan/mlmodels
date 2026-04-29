@@ -5,3 +5,4 @@
 ^\.positai$
 ^\.claude$
 ^docs$
+^_pkgdown\.yml$
