@@ -1150,6 +1150,53 @@
   return(res)
 }
 
+## TEST HELPERS ================================================================
+# -- Matching Datsets and/or Samples -------------------------------------------
+
+# Checks whether the samples used in two models are compatible.
+#
+# To help in tests (Vuong, Clarke...) that compare statistics at the observation
+# level between to estimated samples. We check whether the sample logical vectors
+# stored in the objects are identical, and abort if they aren't
+#
+# Arguments:
+#   * model_1:  An `mlmodel` object.
+#   * model_2:  An `mlmodel` object.
+#
+# Returns: TRUE invisibly if the test passes
+#' @keywords internal
+.compare_estimation_samples <- function(model_1, model_2) {
+  
+  if (!inherits(model_1, "mlmodel") || !inherits(model_2, "mlmodel")) {
+    cli::cli_abort("Both arguments must be objects of class 'mlmodel'.")
+  }
+  
+  sample_1 <- model_1$model$sample %||% rep(TRUE, nobs(model_1))
+  sample_2 <- model_2$model$sample %||% rep(TRUE, nobs(model_2))
+  
+  if (!identical(sample_1, sample_2)) {
+    cli::cli_abort(c(
+      "!" = "Models were not fitted on exactly the same observations in the same order.",
+      "i" = "The logical sample vectors differ.",
+      "i" = "This test (including bootstrap version) requires identical samples."
+    ))
+  }
+  
+  # Check weights
+  w1 <- model_1$model$weights %||% rep(1, nobs(model_1))
+  w2 <- model_2$model$weights %||% rep(1, nobs(model_2))
+  
+  if (!identical(w1, w2)) {
+    cli::cli_abort(c(
+      "!" = "Models were fitted using different weights.",
+      "i" = "The test requires identical weights across models."
+    ))
+  }
+  
+  invisible(TRUE)
+}
+
+
 ## VARIANCE HELPERS ============================================================
 # --- 1. Cluster info ----------------------------------------------------------
 # Internal helper to extract clustering information

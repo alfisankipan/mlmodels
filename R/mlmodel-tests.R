@@ -305,7 +305,7 @@ IMtest.mlmodel <- function(object,
           }, error = function(e) NULL)
         )
 
-        if (is.null(boot_obj) || !(boot_obj$code %in% c(1L, 2L, 8L))) {
+        if (is.null(boot_obj) || !(boot_obj$code %in% c(0L, 1L, 2L, 8L))) {
           boot_stats[r] <- NA_real_
           next
         }
@@ -390,7 +390,7 @@ IMtest.mlmodel <- function(object,
           }, error = function(e) NULL)
         )
         
-        if (is.null(boot_obj) || !(boot_obj$code %in% c(1L, 2L, 8L))) {
+        if (is.null(boot_obj) || !(boot_obj$code %in% c(0L, 1L, 2L, 8L))) {
           boot_stats[r] <- NA_real_
           next
         }
@@ -476,6 +476,12 @@ print.IMtest.mlmodel <- function(x, digits = 4, ...)
 #'
 #' @param object_1 A fitted model object inheriting from `"mlmodel"`.
 #' @param object_2 A fitted model object inheriting from `"mlmodel"`.
+#' @param boot Should bootstrapped p-values be calculated?
+#' @param repetitions Number of iterations for the bootstrap method. Defaults to
+#'                    999. Only relevant if `boot = TRUE`.
+#' @param seed Integer with a seed to use for the random sampling for the
+#'             bootstrapping. Only relevant if `boot = TRUE`. If none supplied
+#'             a random one will be generated.
 #' @param ... Further arguments passed to methods (currently not used).
 #'
 #' @details
@@ -550,17 +556,32 @@ vuongtest <- function(object_1, object_2, ...) UseMethod("vuongtest")
 
 #' @rdname vuongtest
 #' @export
-vuongtest.mlmodel <- function(object_1, object_2, ...)
+vuongtest.mlmodel <- function(object_1, object_2,
+                              boot = FALSE,
+                              repetitions = 999,
+                              seed = NULL,
+                              ...)
 {
   if(!inherits(object_1, "mlmodel") || !inherits(object_2, "mlmodel"))
     cli::cli_abort("Both `object_1` and `object_2` must inherit from `mlmodel`.")
   
-  # -- 1. Extract log-likelihoods and check same length ------------------------
-  ll_1 <- object_1$model$functions$loglikeObs(object_1)
-  ll_2 <- object_2$model$functions$loglikeObs(object_2)
+  # -- 1. Models need to be estimated with same observations and weights  ------
+  .compare_estimation_samples <- function(object_1, object_2)
   
-  if(length(ll_1) != length(ll_2))
-    cli::cli_abort("Different number of observations. `object_1`: {.val {length(ll_1)}} `object_2`: {.val {length(ll_2)}}")
+  # -- 2. Analytical Test ------------------------------------------------------
+  # Adjusting the weights so the test is valid.
+  testobj_1 <- object_1
+  testobj_2 <- object_2
+  
+  # Check weights
+  w1 <- testobj_1$model$weights %||% rep(1, nobs(testobj_1))
+  w2 <- testobj_2$model$weights %||% rep(1, nobs(testobj_2))
+  
+  testobj_1$model$weights <- w1 / sum(w1) * length(w1)
+  testobj_2$model$weights <- w2 / sum(w2) * length(w2)
+  
+  ll_1 <- object_1$model$functions$loglikeObs(testobj_1)
+  ll_2 <- object_2$model$functions$loglikeObs(testobj_2)
   
   # -- 2. Calculate difference vector ------------------------------------------
   diff <- ll_1 - ll_2 # If negative ll_2 has higher log-likelihood, if positive it's ll_1 (So later we can decide which one's better)
@@ -574,9 +595,119 @@ vuongtest.mlmodel <- function(object_1, object_2, ...)
   res <- list(
     teststat = v_stat,
     pval = p_val,
+    boot = NULL,
     models = c(object_1$model$description, object_2$model$description)
   )
   
+  # -- 5. Perform bootstrapping ------------------------------------------------
+  if(boot)
+  {
+    # Pull the data from one of the models (it should be the same for both)
+    if(!is.null(object_1$model$data) && is.data.frame(object_1$model$data))
+      original_data <- object_1$model$data
+    else if(!is.null(object_2$model$data) && is.data.frame(object_2$model$data))
+      original_data <- object_2$model$data
+    else tryCatch({
+      if (!is.null(object_1$call$d_name)) {
+        eval(object_1$call$d_name, envir = parent.frame(2))
+      } else if (!is.null(object_1$model$d_name) && object_1$model$d_name != "<unknown data>") {
+        get(object$model$d_name, envir = .GlobalEnv)
+      } else {
+        cli::cli_abort("Could not recover original data", call = NULL)
+      }
+    }, error = function(e) {
+      cli::cli_abort("Could not recover the original data for bootstrapping.", call = NULL)
+    })
+    
+    used_data <- original_data[object_1$model$sample, , drop = FALSE]
+    
+    # Check for seed and set it.
+    if (is.null(seed)) seed <- sample.int(1e6, 1)
+    set.seed(seed)
+    
+    w <- object_1$model$weights %||% rep(1, nrow(original_data))
+    w <- w[object_1$model$sample]
+    
+    n_used <- nrow(used_data)
+    
+    boot_stats <- numeric(repetitions)
+    n_success  <- 0
+    
+    # Now we're ready to iterate and do the estimations.
+    
+    for (r in seq_len(repetitions)) {
+      idx <- sample.int(n_used, n_used, replace = TRUE)
+      
+      d_boot <- used_data[idx, , drop = FALSE]
+      w_boot <- w[idx]
+      
+      # Scaling
+      w_boot <- w_boot / sum(w_boot) * length(w_boot)
+      
+      suppressMessages({
+        boot_obj_1 <- tryCatch({
+          update(
+            object_1,
+            data   = d_boot,
+            weights = w_boot
+          )
+        }, error = function(e) NULL)
+        
+        boot_obj_2 <- tryCatch({
+          update(
+            object_2,
+            data   = d_boot,
+            weights = w_boot
+          )
+        }, error = function(e) NULL)
+      })
+      
+      obj_1_valid <- !is.null(boot_obj_1) && (boot_obj_1$code %in% c(0L, 1L, 2L, 8L))
+      obj_2_valid <- !is.null(boot_obj_2) && (boot_obj_2$code %in% c(0L, 1L, 2L, 8L))
+      
+      if (!(obj_1_valid && obj_2_valid)) {
+        boot_stats[r] <- NA_real_
+        next
+      }
+      
+      S_r <- boot_obj$gradientObs
+      H_r <- boot_obj$model$functions$hessianObs(boot_obj)
+      
+      ID_r <- matrix(0, nrow = n, ncol = m)
+      for (i in seq_len(n)) {
+        start <- (i-1)*k + 1
+        end   <- i*k
+        si <- S_r[i, , drop = FALSE]
+        Hi <- H_r[start:end, , drop = FALSE]
+        ID_r[i, ] <- matrixcalc::vech(Hi + crossprod(si))
+      }
+      
+      Xr <- cbind(S_r, ID_r)
+      
+      reg_r <- lm(y ~ Xr - 1, singular.ok = TRUE)
+      boot_stats[r] <- sum(reg_r$fitted.values^2)
+      n_success <- n_success + 1
+    }
+    
+    res$pval$bootstrapped <- mean(boot_stats >= tstat, na.rm = TRUE)
+    res$repetitions <- list(total = repetitions, valid = n_success)
+    res$version$description <- "Chesher/Lancaster OPG + Model-based bootstrap"
+  }
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+  }
   # -- 5. Set Class and return
   class(res) <- "vuongtest.mlmodel"
   return(res)
