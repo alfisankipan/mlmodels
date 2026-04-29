@@ -9,4 +9,7 @@ articles:
   mlmodels-gamma-lognormal: mlmodels-gamma-lognormal.html
   mlmodels-predictions: mlmodels-predictions.html
   mlmodels-variance: mlmodels-variance.html
-last_built: 2026-04-28T16:10Z
+last_built: 2026-04-29T00:55Z
+urls:
+  reference: https://alfisankipan.github.io/mlmodels/reference
+  article: https://alfisankipan.github.io/mlmodels/articles

@@ -1,0 +1,64 @@
+url: https://alfisankipan.github.io/mlmodels/
+
+template:
+  bootstrap: 5
+
+development:
+  mode: auto
+
+navbar:
+  structure:
+    left:  [intro, reference, articles]
+    right: [github]
+  components:
+    github:
+      icon: fab fa-github fa-lg
+      href: https://github.com/alfisankipan/mlmodels
+
+reference:
+  - title: "Model Fitting"
+    desc: "Main model estimation functions"
+    contents:
+      - starts_with("ml_")
+
+  - title: "Post-Estimation"
+    desc: "Prediction, summaries, and marginal effects"
+    contents:
+      - predict.mlmodel
+      - summary.mlmodel
+      - coef.mlmodel
+      - vcov.mlmodel
+      - logLik.mlmodel
+      - fitted.mlmodel
+      - residuals.mlmodel
+      - confint.mlmodel
+      - update.mlmodel
+
+  - title: "Hypothesis Testing"
+    desc: "Model comparison and specification tests"
+    contents:
+      - waldtest
+      - lrtest
+      - vuongtest
+      - IMtest
+      - OVDtest
+      - GOFtest
+
+  - title: "Internal & Helper Functions"
+    desc: "Not usually called directly by users"
+    contents:
+      - starts_with(".")
+      - has_keyword("internal")
+
+articles:
+  - title: "Vignettes"
+    navbar: Vignettes
+    contents:
+      - mlmodels-basics
+      - mlmodels-countintro
+      - mlmodels-fractional
+      - mlmodels-gamma-lognormal
+      - mlmodels-predictions
+      - mlmodels-variance
+      - mlmodels-diagnostics
+

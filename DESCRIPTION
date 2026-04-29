@@ -36,5 +36,8 @@ Suggests:
     wooldridge
 VignetteBuilder: knitr
 Config/testthat/edition: 3
+Config/pkgdown/logo: man/figures/logo.png
+URL: https://alfisankipan.github.io/mlmodels/
+BugReports: https://github.com/alfisankipan/mlmodels/issues
 Depends: 
     R (>= 4.1.0)
