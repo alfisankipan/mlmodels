@@ -7,7 +7,14 @@
 \usage{
 vuongtest(object_1, object_2, ...)
 
-\method{vuongtest}{mlmodel}(object_1, object_2, ...)
+\method{vuongtest}{mlmodel}(
+  object_1,
+  object_2,
+  boot = FALSE,
+  repetitions = 999,
+  seed = NULL,
+  ...
+)
 }
 \arguments{
 \item{object_1}{A fitted model object inheriting from \code{"mlmodel"}.}
@@ -15,6 +22,15 @@ vuongtest(object_1, object_2, ...)
 \item{object_2}{A fitted model object inheriting from \code{"mlmodel"}.}
 
 \item{...}{Further arguments passed to methods (currently not used).}
+
+\item{boot}{Should bootstrapped p-values be calculated?}
+
+\item{repetitions}{Number of iterations for the bootstrap method. Defaults to
+999. Only relevant if \code{boot = TRUE}.}
+
+\item{seed}{Integer with a seed to use for the random sampling for the
+bootstrapping. Only relevant if \code{boot = TRUE}. If none supplied
+a random one will be generated.}
 }
 \value{
 An object of class \code{"vuongtest.mlmodel"} containing the test
@@ -69,8 +85,8 @@ fit_nb2 <- ml_negbin(docvis ~ private + medicaid + age + I(age^2) + educyr +
 # Poisson vs. NB1
 vuongtest(fit_poi, fit_nb1)
 
-# NB1 vs. NB2
-vuongtest(fit_nb1, fit_nb2)
+# NB1 vs. NB2 (bootstrapped, low repetitions for speed)
+vuongtest(fit_nb1, fit_nb2, boot = TRUE, repetitions = 50)
 
 # Binary models example
 data(smoke)

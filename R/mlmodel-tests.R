@@ -539,8 +539,8 @@ print.IMtest.mlmodel <- function(x, digits = 4, ...)
 #' # Poisson vs. NB1
 #' vuongtest(fit_poi, fit_nb1)
 #' 
-#' # NB1 vs. NB2
-#' vuongtest(fit_nb1, fit_nb2)
+#' # NB1 vs. NB2 (bootstrapped, low repetitions for speed)
+#' vuongtest(fit_nb1, fit_nb2, boot = TRUE, repetitions = 50)
 #' 
 #' # Binary models example
 #' data(smoke)
@@ -562,36 +562,35 @@ vuongtest.mlmodel <- function(object_1, object_2,
                               seed = NULL,
                               ...)
 {
-  if(!inherits(object_1, "mlmodel") || !inherits(object_2, "mlmodel"))
-    cli::cli_abort("Both `object_1` and `object_2` must inherit from `mlmodel`.")
+  if (!inherits(object_1, "mlmodel") || !inherits(object_2, "mlmodel"))
+    cli::cli_abort("Both `object_1` and `object_2` must inherit from 'mlmodel'.")
   
-  # -- 1. Models need to be estimated with same observations and weights  ------
-  .compare_estimation_samples <- function(object_1, object_2)
+  # -- 1. Check that models were estimated on compatible samples/weights -------
+  .compare_estimation_samples(object_1, object_2)
   
-  # -- 2. Analytical Test ------------------------------------------------------
-  # Adjusting the weights so the test is valid.
-  testobj_1 <- object_1
-  testobj_2 <- object_2
+  # -- 2. Analytical Vuong Test ------------------------------------------------
+  # Scale weights so test statistic is valid
+  w1 <- object_1$model$weights %||% rep(1, nobs(object_1))
+  w2 <- object_2$model$weights %||% rep(1, nobs(object_2))
   
-  # Check weights
-  w1 <- testobj_1$model$weights %||% rep(1, nobs(testobj_1))
-  w2 <- testobj_2$model$weights %||% rep(1, nobs(testobj_2))
+  w1_scaled <- w1 / sum(w1) * length(w1)
+  w2_scaled <- w2 / sum(w2) * length(w2)
   
-  testobj_1$model$weights <- w1 / sum(w1) * length(w1)
-  testobj_2$model$weights <- w2 / sum(w2) * length(w2)
+  # Temporary objects with scaled weights
+  temp1 <- object_1
+  temp2 <- object_2
+  temp1$model$weights <- w1_scaled
+  temp2$model$weights <- w2_scaled
   
-  ll_1 <- object_1$model$functions$loglikeObs(testobj_1)
-  ll_2 <- object_2$model$functions$loglikeObs(testobj_2)
+  ll1 <- object_1$model$functions$loglikeObs(temp1)
+  ll2 <- object_2$model$functions$loglikeObs(temp2)
   
-  # -- 2. Calculate difference vector ------------------------------------------
-  diff <- ll_1 - ll_2 # If negative ll_2 has higher log-likelihood, if positive it's ll_1 (So later we can decide which one's better)
+  diff <- ll1 - ll2
   n <- length(diff)
   
-  # -- 3. Do the test ----------------------------------------------------------
   v_stat <- (sqrt(n) * mean(diff)) / sd(diff)
   p_val <- 2 * pnorm(abs(v_stat), lower.tail = FALSE)
   
-  # -- 4. Create list ----------------------------------------------------------
   res <- list(
     teststat = v_stat,
     pval = p_val,
@@ -599,118 +598,59 @@ vuongtest.mlmodel <- function(object_1, object_2,
     models = c(object_1$model$description, object_2$model$description)
   )
   
-  # -- 5. Perform bootstrapping ------------------------------------------------
-  if(boot)
-  {
-    # Pull the data from one of the models (it should be the same for both)
-    if(!is.null(object_1$model$data) && is.data.frame(object_1$model$data))
-      original_data <- object_1$model$data
-    else if(!is.null(object_2$model$data) && is.data.frame(object_2$model$data))
-      original_data <- object_2$model$data
-    else tryCatch({
-      if (!is.null(object_1$call$d_name)) {
-        eval(object_1$call$d_name, envir = parent.frame(2))
-      } else if (!is.null(object_1$model$d_name) && object_1$model$d_name != "<unknown data>") {
-        get(object$model$d_name, envir = .GlobalEnv)
-      } else {
-        cli::cli_abort("Could not recover original data", call = NULL)
-      }
-    }, error = function(e) {
-      cli::cli_abort("Could not recover the original data for bootstrapping.", call = NULL)
-    })
-    
-    used_data <- original_data[object_1$model$sample, , drop = FALSE]
-    
-    # Check for seed and set it.
+  # --- 3. Bootstrap Version (if requested) -------------------------------
+  if (boot) {
     if (is.null(seed)) seed <- sample.int(1e6, 1)
     set.seed(seed)
     
-    w <- object_1$model$weights %||% rep(1, nrow(original_data))
-    w <- w[object_1$model$sample]
-    
-    n_used <- nrow(used_data)
+    data_orig <- object_1$model$data
+    sample_idx <- object_1$model$sample
+    n_used <- sum(sample_idx)
+    used_data <- data_orig[sample_idx, , drop = FALSE]
+    w_used <- (object_1$model$weights %||% rep(1, nrow(data_orig)))[sample_idx]
     
     boot_stats <- numeric(repetitions)
-    n_success  <- 0
-    
-    # Now we're ready to iterate and do the estimations.
+    n_success <- 0
     
     for (r in seq_len(repetitions)) {
       idx <- sample.int(n_used, n_used, replace = TRUE)
-      
       d_boot <- used_data[idx, , drop = FALSE]
-      w_boot <- w[idx]
+      w_boot <- w_used[idx]
       
-      # Scaling
+      # Scale weights for this bootstrap sample
       w_boot <- w_boot / sum(w_boot) * length(w_boot)
       
       suppressMessages({
-        boot_obj_1 <- tryCatch({
-          update(
-            object_1,
-            data   = d_boot,
-            weights = w_boot
-          )
-        }, error = function(e) NULL)
-        
-        boot_obj_2 <- tryCatch({
-          update(
-            object_2,
-            data   = d_boot,
-            weights = w_boot
-          )
-        }, error = function(e) NULL)
+        boot1 <- tryCatch(update(object_1, data = d_boot, weights = w_boot), error = function(e) NULL)
+        boot2 <- tryCatch(update(object_2, data = d_boot, weights = w_boot), error = function(e) NULL)
       })
       
-      obj_1_valid <- !is.null(boot_obj_1) && (boot_obj_1$code %in% c(0L, 1L, 2L, 8L))
-      obj_2_valid <- !is.null(boot_obj_2) && (boot_obj_2$code %in% c(0L, 1L, 2L, 8L))
-      
-      if (!(obj_1_valid && obj_2_valid)) {
+      if (is.null(boot1) || is.null(boot2) || 
+          !boot1$code %in% c(0L, 1L, 2L, 8L) || 
+          !boot2$code %in% c(0L, 1L, 2L, 8L)) {
         boot_stats[r] <- NA_real_
         next
       }
       
-      S_r <- boot_obj$gradientObs
-      H_r <- boot_obj$model$functions$hessianObs(boot_obj)
+      # Scaled log-likelihoods for this bootstrap sample
+      ll1b <- object_1$model$functions$loglikeObs(boot1)
+      ll2b <- object_2$model$functions$loglikeObs(boot2)
       
-      ID_r <- matrix(0, nrow = n, ncol = m)
-      for (i in seq_len(n)) {
-        start <- (i-1)*k + 1
-        end   <- i*k
-        si <- S_r[i, , drop = FALSE]
-        Hi <- H_r[start:end, , drop = FALSE]
-        ID_r[i, ] <- matrixcalc::vech(Hi + crossprod(si))
-      }
-      
-      Xr <- cbind(S_r, ID_r)
-      
-      reg_r <- lm(y ~ Xr - 1, singular.ok = TRUE)
-      boot_stats[r] <- sum(reg_r$fitted.values^2)
+      diffb <- ll1b - ll2b
+      boot_stats[r] <- (sqrt(n_used) * mean(diffb)) / sd(diffb)
       n_success <- n_success + 1
     }
     
-    res$pval$bootstrapped <- mean(boot_stats >= tstat, na.rm = TRUE)
-    res$repetitions <- list(total = repetitions, valid = n_success)
-    res$version$description <- "Chesher/Lancaster OPG + Model-based bootstrap"
+    boot_pval <- mean(boot_stats >= v_stat, na.rm = TRUE)
+    
+    res$boot <- list(
+      pval = boot_pval,
+      repetitions = list(total = repetitions, successful = n_success)
+    )
   }
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-  }
-  # -- 5. Set Class and return
+  
   class(res) <- "vuongtest.mlmodel"
-  return(res)
+  res
 }
 
 #' @export
@@ -724,17 +664,59 @@ print.vuongtest.mlmodel <- function(x, digits = 4, ...)
   cat("  Model 1:", x$models[1], "\n")
   cat("  Model 2:", x$models[2], "\n")
   cat("--------------------------------------------------\n")
-  cat(sprintf("  z-stat:  %.3f\n",
-              x$teststat))
-  cat(sprintf("  p-value: %.4f\n",
-              x$pval))
+  
+  cat("Analyitical Results:",
+      sprintf("  z-stat:  %.3f", x$teststat),
+      sprintf("  p-value: %.4f", x$pval),
+      sep = "\n")
+  if(! is.null(x$boot))
+  {
+    cat(sprintf("Bootstrap (%d/%d repetitions):",
+                x$boot$repetitions$successful,x$boot$repetitions$total),
+        sprintf("  p-value: %.4f", x$boot$pval),
+        sep = "\n")
+  }
+  
   cat("--------------------------------------------------\n")
   # Decision Logic
-  if(x$pval < 0.1) {
-    winner <- if(x$teststat < 0) x$models[2] else x$models[1]
-    cat(" ", winner, "seems to be preferred.\n")
+  if (!is.null(x$boot)) {
+    anal_sig <- x$pval < 0.10
+    boot_sig  <- x$boot$pval < 0.10
+    
+    if (anal_sig && boot_sig) {
+      # Strong agreement
+      winner <- if (x$teststat > 0) x$models[1] else x$models[2]
+      cat(" ", winner, "is preferred.\n")
+    } 
+    else if (!anal_sig && !boot_sig) {
+      # Strong agreement on no difference
+      cat("  Inconclusive test: neither model is clearly preferred.\n")
+    } 
+    else if (anal_sig && !boot_sig) {
+      # Most common interesting case
+      winner <- if (x$teststat > 0) x$models[1] else x$models[2]
+      cat(" ", winner, "appears better overall (analytical test),\n")
+      cat("  but the bootstrap p-value indicates this preference is highly sensitive\n")
+      cat("  to sample variation, and that choice is not robust to it.\n")
+    } 
+    else {
+      # Rare case: bootstrap sees difference, analytical does not
+      cat("  The bootstrap p-value contradicts the analytical test, suggesting that\n")
+      cat("  the analytical version may be losing power (possibly due to high variance\n")
+      cat("  or outliers in the likelihood ratios). The bootstrap result is likely\n")
+      cat("  more robust in this sample.\n")
+    }
   } else {
-    cat(" Inconclusive test: neither model is preferred.\n")
+    # Only analytical test available
+    if (x$pval < 0.05) {
+      winner <- if (x$teststat > 0) x$models[1] else x$models[2]
+      cat(" ", winner, "seems to be preferred.\n")
+    } else if (x$pval < 0.10) {
+      cat("  Weak evidence:", ifelse(x$teststat > 0, x$models[1], x$models[2]), 
+          "seems to be preferred.\n")
+    } else {
+      cat("  Inconclusive test: neither model is clearly preferred.\n")
+    }
   }
   
   invisible(x)
