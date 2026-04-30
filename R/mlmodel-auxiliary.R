@@ -23,7 +23,7 @@
   defaults[[name]]
 }
 
-## Format Coefficient Matrix ===================================================
+## FORMAT COEFFICENT MATRIX ===================================================
 # Internal helper: Smart formatting of coefficient matrices
 # Decides number of decimal places based on the magnitude of the values
 .format_coef_matrix <- function(coef_mat, 
@@ -52,7 +52,7 @@
   return(coef_mat)
 }
 
-## Is Invertible ===============================================================
+## IS INVERTIBLE ===============================================================
 # Internal function to detect if a matrix is invertible.
 # 
 # Argument: matrix - The matrix you want to check
@@ -68,9 +68,84 @@
   }, error = function(e) FALSE)
 }
 
-# POST-MOLD UTILITIES ==========================================================
 
-# Factor mapping ---------------------------------------------------------------
+## POST-ESTIMATION UTILITIES ===================================================
+# -- Weight Information --------------------------------------------------------
+# Pulls the weight information used in an object, and other information for the
+# summary functions.
+#'@keywords internal
+.generate_weight_info <- function(object)
+{
+  if(!inherits(object, "mlmodel"))
+    cli::cli_abort("`object` must be of class 'mlmodel'")
+  
+  weights <- object$model$weights %||% rep(1, nobs(object))
+  used_weights <- weights[object$model$sample]
+  
+  # If all weights are 1 (or very close), treat as unweighted
+  if (all(abs(used_weights - 1) < 1e-8)) {
+    return(list(is_weighted = FALSE))
+  }
+  
+  n_used <- length(used_weights)
+  sum_w  <- sum(used_weights, na.rm = TRUE)
+  
+  list(
+    is_weighted     = TRUE,
+    n_used          = n_used,
+    sum_weights     = sum_w,
+    mean_weight     = mean(used_weights, na.rm = TRUE),
+    sd_weight       = sd(used_weights, na.rm = TRUE),
+    min_weight      = min(used_weights, na.rm = TRUE),
+    max_weight      = max(used_weights, na.rm = TRUE),
+    scale_factor    = n_used / sum_w,            # multiplier to "unweight"
+    # Scaled versions for comparability
+    loglik_scaled   = logLik(object) * (n_used / sum_w),
+    aic_scaled      = AIC(object)    * (n_used / sum_w),
+    bic_scaled      = BIC(object)    * (n_used / sum_w)
+  )
+}
+
+# --- Fractional Response Alert (logit/probit) ---------------------------------
+# Checks if the estimation is of a fractional response outcome and the variance
+# used for inference is oim or opg, to thrown an alert.
+#' @keywords internal
+.fractional_response_inference_alert <- function(object, vcov)
+{
+  
+  if (!inherits(object, c("ml_logit", "ml_probit")) || isTRUE(object$model$is_binary)) {
+    return(invisible(TRUE))
+  }
+  
+  vcov_type <- attr(vcov, "vcov.type") %||% "user-supplied"
+  
+  # Checking for fractional response estimation, and variance
+  if (!object$model$is_binary) {
+    if (vcov_type %in% c("oim", "opg")) {
+      cli::cli_warn(
+        c("Outcome appears to be fractional (values strictly between 0 and 1).",
+          "i" = "Estimation is quasi-maximum likelihood (QMLE).",
+          "i" = "Variance type `'{vcov_type}'` is not appropriate in this case.",
+          "i" = "It is strongly recommended to use robust standard errors.",
+          "i" = "Consider setting `vcov.type = \"robust\"` or `vcov.type = \"boot\"`.")
+      )
+    } 
+    else if (vcov_type == "user-supplied") {
+      cli::cli_warn(
+        c("Outcome appears to be fractional (values strictly between 0 and 1).",
+          "i" = "Estimation is quasi-maximum likelihood (QMLE).",
+          "i" = "Could not determine the type of variance matrix used.",
+          "i" = "It is strongly recommended to use robust standard errors.",
+          "i" = "Consider using `vcov.type = \"robust\"` or `vcov.type = \"boot\"`.")
+      )
+    }
+  }
+  
+  invisible(TRUE)
+}
+
+## POST-MOLD UTILITIES =========================================================
+# -- Factor mapping ------------------------------------------------------------
 # Build factor mapping for a single equation
 #
 # Internal function. Creates a mapping of factor variables to their
@@ -879,43 +954,6 @@
   }
   
   data
-}
-
-## FRACTIONAL RESPONSE INFERENCE ===============================================
-# --- Logit/Probit check for fractional response
-#' @keywords internal
-.fractional_response_inference_alert <- function(object, vcov)
-{
-  
-  if (!inherits(object, c("ml_logit", "ml_probit")) || isTRUE(object$model$is_binary)) {
-    return(invisible(TRUE))
-  }
-  
-  vcov_type <- attr(vcov, "vcov.type") %||% "user-supplied"
-  
-  # Checking for fractional response estimation, and variance
-  if (!object$model$is_binary) {
-    if (vcov_type %in% c("oim", "opg")) {
-      cli::cli_warn(
-        c("Outcome appears to be fractional (values strictly between 0 and 1).",
-          "i" = "Estimation is quasi-maximum likelihood (QMLE).",
-          "i" = "Variance type `'{vcov_type}'` is not appropriate in this case.",
-          "i" = "It is strongly recommended to use robust standard errors.",
-          "i" = "Consider setting `vcov.type = \"robust\"` or `vcov.type = \"boot\"`.")
-      )
-    } 
-    else if (vcov_type == "user-supplied") {
-      cli::cli_warn(
-        c("Outcome appears to be fractional (values strictly between 0 and 1).",
-          "i" = "Estimation is quasi-maximum likelihood (QMLE).",
-          "i" = "Could not determine the type of variance matrix used.",
-          "i" = "It is strongly recommended to use robust standard errors.",
-          "i" = "Consider using `vcov.type = \"robust\"` or `vcov.type = \"boot\"`.")
-      )
-    }
-  }
-  
-  invisible(TRUE)
 }
 
 ## PREDICTION HELPERS ==========================================================

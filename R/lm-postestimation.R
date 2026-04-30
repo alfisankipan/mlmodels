@@ -462,18 +462,22 @@ summary.ml_lm <- function(object,
 
   # Stats if converged
   if (converged) {
+    # These are already in sample observations.
     y <- object$model$value$outcomes[[1]]
     yhat <- object$model$fitted.values
 
     s$r.squared      <- cor(y, yhat)^2
     s$adj.r.squared  <- 1 - (1 - s$r.squared) * (n - 1) / (n - k_mean)
 
+    # Unweighted Statistics
     ll <- s$logLik
     s$AIC            <- -2 * ll + 2 * k_total
     s$BIC            <- -2 * ll + log(n) * k_total
 
     s$sigma <- summary(object$model$sigma)
-
+    
+    # Weight Information (from helper)
+    s$weight_info <- .generate_weight_info(object)
 
     if(usable_vcov)
     {
