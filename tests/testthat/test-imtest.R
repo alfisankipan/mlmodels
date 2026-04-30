@@ -28,7 +28,7 @@ test_that("IMtest works with bootstrap methods", {
   data(mtcars)
   fit <- ml_lm(mpg ~ wt + hp, data = mtcars)
 
-  im_boot <- IMtest(fit, method = "boot_opg", R = 50)  # small R for speed
+  im_boot <- IMtest(fit, method = "boot_opg", repetitions = 5)  # small R for speed
 
   expect_s3_class(im_boot, "IMtest.mlmodel")
   expect_true(is.list(im_boot$pval))

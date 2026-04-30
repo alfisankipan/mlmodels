@@ -64,13 +64,13 @@ We see that both analytical versions of the test reject the null, and state that
 
 ```{r lin-imtest-boot}
 # Bootstrapped quadratic (low repetitions for speed)
-IMtest(fit_lm, method = "boot_quad", repetitions = 100)
+IMtest(fit_lm, method = "boot_quad", repetitions = 20, seed = 123)
 
 # Boot opg (low repetitions for speed)
-IMtest(fit_lm, method = "boot_opg", repetitions = 100)
+IMtest(fit_lm, method = "boot_opg", repetitions = 20, seed = 123)
 ```
 
- We do the bootstrapping with a low number of repetitions, for illustration purposes. For actual research you should consider 500 repetitions or more, depending on the size of your dataset.
+In these examples, we do the bootstrapping with a low number of repetitions, for faster CRAN processing. For actual research you should consider 500 repetitions or more, depending on the size of your dataset.
 
 Both bootstrapped <em>p</em>-values oppose the analytical test, and tell us that we cannot reject that the model is well specified. Which of the two should we believe? You, actually, should take this as an indication that there is some level of misspecification because both analytical versions rejected the null. From a practical point of view, however, the bootstrap <em>p</em>-values are telling you that you are probably good using the model for predictions. Finally, the contrast between analytic and bootstrapped <em>p</em>-values in both versions should not be ignored, and you should proceed **with robust inference** to be safe.
 
@@ -82,16 +82,16 @@ Let us fit a Gamma model with the same specification, since the Gamma model is s
 fit_gam <- ml_gamma(incthou ~ age + I(age^2) + huswage + educ + unem, 
              data = mroz)
 
-IMtest(fit_gam, method = "boot_quad", repetitions = 100)
+IMtest(fit_gam, method = "boot_quad", repetitions = 20, seed = 123)
 
-IMtest(fit_gam, method = "boot_opg", repetitions = 100)
+IMtest(fit_gam, method = "boot_opg", repetitions = 20, seed = 123)
 ```
 
 We did the bootstrapped versions of the tests, because they allow us to see the analytical result and the bootstrapped <em>p</em>-values. The <em>p</em>-values of the analytical versions of the test, illustrate clearly the weaknesses of each of the tests.
 
 The model is probably well specified, but a <em>p</em>-value of 0.9996 is very high, and it shows that the quadratic orthogonalized version may be losing power with this model. The opposite <em>p</em>-value is on the analytical Chesher/Lancaster version, showing that it may be strongly rejecting a perhaps valid model (the size problem).
 
-When we add the bootstrapped <em>p</em>-values, the picture becomes clearer. They both fail to reject that the model is well specified. But look at how much more reasonable the bootstrapped <em>p</em>-value for the quadratic orthogonalized model is with respect to its analytical counterpart (0.78 versus 0.9996).
+When we add the bootstrapped <em>p</em>-values, the picture becomes clearer. They both fail to reject that the model is well specified. But look at how much more reasonable the bootstrapped <em>p</em>-value for the quadratic orthogonalized model is with respect to its analytical counterpart (0.80 versus 0.9996).
 
 In this case you're probably safe to proceed with `oim` standard errors, but you may want to check the results with `robust` ones as well, to see if there are major differences in significance, just in case.
 
@@ -111,7 +111,7 @@ With maximum likelihood estimators, there are two usual ways to test across nest
 * **Likelihood-ratio** test -- You estimate the unrestricted and the restricted (nested) model, and do the test.
 * **Wald** test -- You only estimate the unrestricted model, and the tests are tests restrictions of the coefficients.
 
-As you can see, we present Wald test(s) in our estimation results, not likelihood-ratio test(s), of significance. The reason is that the **likelihood-ratio test is not robust** to the information matrix equality not holding, whereas the **Wald test is**, when it uses the variance that is robust to that equality not holding. Our `summary()` function uses either the type of variance you set in the `vcov.type` argument, which defaults to `oim`, or the variance matrix you pass through the `vcov` argument, to produce the standard errors of the coefficients and to do the Wald test(s). That way it produces consistent and robust tests, as long a you specify an asymptotically consistent type of variance for the model.
+As you can see, in our estimation results we present Wald test(s), not likelihood-ratio test(s), of significance. The reason is that the **likelihood-ratio test is not robust** to the information matrix equality not holding, whereas the **Wald test is**, when it uses the variance that is robust to that equality not holding. Our `summary()` function uses either the type of variance you set in the `vcov.type` argument, which defaults to `oim` when you don't set it, or the variance matrix you pass through the `vcov` argument, to produce the standard errors of the coefficients and to do the Wald test(s). That way it produces consistent and robust tests, as long a you specify an asymptotically consistent type of variance for the model.
 
 The limitation of the likelihood-ratio test is an indication that you should use the insights provided by the information matrix test to guide you in selecting what type of test to do with nested models.
 
@@ -163,7 +163,7 @@ waldtest(fit_gam_ur, coef_names = c("value::age", "value::educ"), rhs = .05)
 
 This last test allows us to illustrate the use of yet another argument that allows you to setup the restrictions to be tested: `rest_matrix`, the actual **matrix of restrictions**.
 
-This matrix becomes useful when you want to test linear combinations of the coefficients. To do that you have to setup a vector of the values multiplying each of the coefficients in each restriction. Let us illustrate. The last test makes us want to test if `value::age = value::educ`. This is equivalent to `value::age - value::educ = 0`. Even though you don't see them this is the same as `1 * value::age - 1 * value::educ = 0`, and we could extend this to include all other parameters (including `scale::lnnu`) adding them but pre-multiplied by zero. So that means that the coefficients for all other parameters are zero, for age it's 1 and for educ it's -1. Then all you have to do is form the row vector in matrix form with the coefficients for the parameters in place:
+This matrix becomes useful when you want to test linear combinations of the coefficients. To do that you have to setup a vector of the values multiplying each of the coefficients in each restriction. Let us illustrate. The last test makes us want to test if `value::age = value::educ`. This is equivalent to `value::age - value::educ = 0`. Even though you don't see them this is the same as `1 * value::age - 1 * value::educ = 0`, and we could extend this to include all other parameters (including `scale::lnnu`) adding them but pre-multiplied by zero. So that means that the coefficients for all other parameters are zero, for `age` it's 1 and for `educ` it's -1. Then all you have to do is form the row vector in matrix form with the coefficients for the parameters in place:
 
 ```{r waldtest-three}
 # One restriction, one row in the matrix with the vector.
@@ -181,6 +181,8 @@ waldtest(fit_gam_ur, rest_matrix = R, rhs = c(0, .05))
 ```
 
 We should notice that the Chi-squared statistic of the first of these two last tests, since there is only one restriction tested, is the squared of the <em>z</em> statistic you would get for that same test. The <em>p</em>-value is identical, since it's the same test.
+
+Notice, also, how the test statistic and <em>p</em>-value of the second test are both identical to those of the test that both those coefficients were equal to 0.05. That is because, the two tests are testing exactly the same.
 
 Now we illustrate how to replicate the Wald test of joint significance of the parameters in the value equation:
 
@@ -211,7 +213,7 @@ Since the analytical versions of the information test rejected that the linear m
 fit_ln <- ml_lm(log(incthou) ~ age + I(age^2) + huswage + educ + unem, 
              data = mroz)
 
-IMtest(fit_ln, method = "boot_quad", repetitions = 100)
+IMtest(fit_ln, method = "boot_quad", repetitions = 20, seed = 123)
 
 vuongtest(fit_gam, fit_ln)
 ```
