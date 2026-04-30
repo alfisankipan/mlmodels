@@ -291,8 +291,26 @@ print.summary.ml_lm <- function(x, digits = max(3L, getOption("digits") - 3L), .
     cat("WARNING: Model did NOT converge!\n")
     cat("Convergence code:", x$code %||% "???", "-", x$message %||% "", "\n\n")
   } else {
-    # Log-Likelihood + Joint tests (only when converged)
-    cat("Log-Likelihood:", format(x$logLik, nsmall = 2, digits = digits + 1), "\n\n")
+    # If weighted estimation, we report info about weights and two log-likelihoods.
+    if(x$weight_info$is_weighted)
+    {
+      cat(sprintf("Weighted Estimation (%d observations)", x$weight_info$n_used),
+          paste("   Sum of weights:", format(x$weight_info$sum_w, digits = digits),
+                "     Scaling factor:", format(x$weight_info$scale_factor, nsmall = 2, digits = digits)),
+          "\n   Distribution of weights:",
+          sep = "\n")
+      w_summary <- paste0("    ",
+                          capture.output(print(x$weight_info$weight_summary, digits = 2)))
+      
+      cat(w_summary, sep = "\n")
+      cat("\nLog-likeihood: ", format(x$logLik, nsmall = 2, digits = digits + 1),
+          " (", format(x$weight_info$loglik_scaled, nsmall = 2, digits = digits + 1),
+          " scaled)\n\n", sep = "")
+    }
+    else
+      cat("Log-Likelihood:", format(x$logLik, nsmall = 2, digits = digits + 1), "\n\n")
+    
+    # Wald Tests
     cat("Wald significance tests:\n")
     
     any_test_printed <- FALSE
@@ -359,10 +377,29 @@ print.summary.ml_lm <- function(x, digits = max(3L, getOption("digits") - 3L), .
     cat("Number of observations:", x$nobs, "\n")
     if (!is.null(x$df.residual))
       cat("Residual degrees of freedom:", x$df.residual, "\n")
-    cat("Multiple R-squared: ", format(x$r.squared, digits = digits),
-        " Adjusted R-squared: ", format(x$adj.r.squared, digits = digits), "\n", sep = "")
-    cat("AIC:", format(x$AIC, nsmall = 2, digits = digits + 1),
-        " BIC:", format(x$BIC, nsmall = 2, digits = digits + 1), "\n")
+    
+    cat("\nGoodness of Fit:\n")
+    cat("  R-squared - Multiple (Cor.Sq.):", format(x$r.squared, digits = digits),
+        "  Adjusted:", format(x$adj.r.squared, digits = digits), "\n")
+    cat("\n  Information Criteria:\n\n")
+    if(x$weight_info$is_weighted)
+    {
+      cat("     AIC: ", format(x$AIC, nsmall = 2, digits = digits + 1),
+          " (",
+          format(x$weight_info$aic_scaled, nsmall = 2, digits = digits + 1),
+          " scaled)",
+          "\n     BIC: ", format(x$BIC, nsmall = 2, digits = digits + 1),
+          " (",
+          format(x$weight_info$bic_scaled, nsmall = 2, digits = digits + 1),
+          " scaled)",
+          "\n",
+          sep = "")
+    }
+    else
+    {
+      cat("     AIC:", format(x$AIC, nsmall = 2, digits = digits + 1),
+          "\n     BIC:", format(x$BIC, nsmall = 2, digits = digits + 1), "\n")
+    }
     if(x$is_heteroskedastic)
     {
       cat("\nDistribution of Std. Deviation (sigma):",
@@ -373,7 +410,7 @@ print.summary.ml_lm <- function(x, digits = max(3L, getOption("digits") - 3L), .
     }
     else
     {
-      cat("Residual standard error (sigma):", format(x$sigma[1], digits = digits), "\n")
+      cat("\nResidual standard error (sigma):", format(x$sigma[1], digits = digits), "\n")
     }
   } else {
     cat("\nGoodness-of-fit statistics not available (model did not converge).\n")
@@ -511,7 +548,7 @@ summary.ml_lm <- function(object,
     }
 
   } else {
-    s$r.squared <- s$adj.r.squared <- s$AIC <- s$BIC <- s$sigma <- s$significance <- NULL
+    s$r.squared <- s$adj.r.squared <- s$AIC <- s$BIC <- s$sigma <- s$significance <- s$weight_info <- NULL
   }
   
   

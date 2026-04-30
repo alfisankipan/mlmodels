@@ -94,11 +94,8 @@
     is_weighted     = TRUE,
     n_used          = n_used,
     sum_weights     = sum_w,
-    mean_weight     = mean(used_weights, na.rm = TRUE),
-    sd_weight       = sd(used_weights, na.rm = TRUE),
-    min_weight      = min(used_weights, na.rm = TRUE),
-    max_weight      = max(used_weights, na.rm = TRUE),
     scale_factor    = n_used / sum_w,            # multiplier to "unweight"
+    weight_summary  = summary(used_weights),
     # Scaled versions for comparability
     loglik_scaled   = logLik(object) * (n_used / sum_w),
     aic_scaled      = AIC(object)    * (n_used / sum_w),
