@@ -339,14 +339,14 @@ summary.ml_gamma <- function(object,
     s$nuhat <- summary(object$model$nuhat)
     s$cv    <- summary(1 / sqrt(object$model$nuhat))
     
-    ll <- s$logLik
-    s$AIC            <- -2 * ll + 2 * k_total
-    s$BIC            <- -2 * ll + log(n) * k_total
+    s$AIC <- AIC(object, scaled = FALSE)
+    s$BIC <- BIC(object, scaled = FALSE)
     
     # Weight Information (from helper)
     s$weight_info <- .generate_weight_info(object)
     
     y_bar <- mean(y)
+    ll <- s$logLik
     ll0 <- object$model$ll0
     
     s$r.squared <- list(

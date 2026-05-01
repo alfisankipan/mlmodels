@@ -124,19 +124,23 @@
     return(list(is_weighted = FALSE))
   }
   
-  n_used <- length(used_weights)
-  sum_w  <- sum(used_weights, na.rm = TRUE)
+  # logLik(), AIC(), and BIC() now return the right statistics.
+  # logLik() also returns all the statistics we need except for the summary
+  # of the weights in its attributes.
+  ll_scaled <- logLik(object, scaled = TRUE)
+  aic_scaled <- AIC(object, scaled = TRUE)
+  bic_scaled <- BIC(object, scaled = TRUE)
   
   list(
     is_weighted     = TRUE,
-    n_used          = n_used,
-    sum_weights     = sum_w,
-    scale_factor    = n_used / sum_w,            # multiplier to "unweight"
+    n_used          = attr(ll_scaled, "nobs"),
+    sum_weights     = attr(ll_scaled, "nobs_effective"),
+    scale_factor    = attr(ll_scaled, "scale_factor"),
     weight_summary  = summary(used_weights),
     # Scaled versions for comparability
-    loglik_scaled   = logLik(object) * (n_used / sum_w),
-    aic_scaled      = AIC(object)    * (n_used / sum_w),
-    bic_scaled      = BIC(object)    * (n_used / sum_w)
+    loglik_scaled   = as.numeric(ll_scaled),
+    aic_scaled      = as.numeric(aic_scaled),
+    bic_scaled      = as.numeric(bic_scaled)
   )
 }
 
@@ -210,7 +214,7 @@
     stat <- stat_strings[i]
     pval <- format.pval(valid_tests[[i]]$pval, digits = 4, eps = 1e-8)
     
-    cat(sprintf("  %-*s : %-*s  Pr(>Chisq) = %s\n",
+    cat(sprintf("  %-*s - %-*s  Pr(>Chisq) = %s\n",
                 max_name_width, nm,
                 max_stat_width, stat,
                 pval))

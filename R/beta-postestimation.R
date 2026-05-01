@@ -364,9 +364,8 @@ summary.ml_beta <- function(object,
     yhat <- object$model$fitted.values
     s$phihat <- summary(object$model$phihat)
     
-    ll <- s$logLik
-    s$AIC            <- -2 * ll + 2 * k_total
-    s$BIC            <- -2 * ll + log(n) * k_total
+    s$AIC <- AIC(object, scaled = FALSE)
+    s$BIC <- BIC(object, scaled = FALSE)
     
     # Weight Information (from helper)
     s$weight_info <- .generate_weight_info(object)
