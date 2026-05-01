@@ -201,25 +201,11 @@ print.summary.ml_poisson <- function(x, digits = max(3L, getOption("digits") - 3
     cat("WARNING: Model did NOT converge!\n")
     cat("Convergence code:", x$code %||% "???", "-", x$message %||% "", "\n\n")
   } else {
-    # Log-Likelihood + Joint tests (only when converged)
-    cat("Log-Likelihood:", format(x$logLik, nsmall = 2, digits = digits + 1), "\n\n")
-    cat("Wald significance tests:\n")
+    # Use helper function to print the weight/loglikelihood part of the header
+    .print_weight_loglik(x, digits = digits)
     
-    any_test_printed <- FALSE
-    for (test in c("all", "mean", "scale")) {
-      w <- x$significance[[test]]
-      if (is.null(w) || isTRUE(w$singular) || !is.finite(w$pval)) {
-        next   # skip silently (happens in homoskedastic case or useless variance)
-      }
-      any_test_printed <- TRUE
-      p_str <- if (w$pval < 1e-8) "< 1e-8" else sprintf("%.4f", w$pval)
-      cat(sprintf(" %s: Chisq(%d) = %.3f, Pr(>Chisq) = %s\n",
-                  tools::toTitleCase(test), w$df, w$waldstat, p_str))
-    }
-    
-    if (!any_test_printed) {
-      cat(" Tests were not computable (singular or not finite variance).\n")
-    }
+    # Wald Tests
+    .print_wald_tests(x, digits = digits)
   }
   
   cat("\nVariance type:", x$var_description)
@@ -264,13 +250,14 @@ print.summary.ml_poisson <- function(x, digits = max(3L, getOption("digits") - 3
     cat("---\n")
     cat("Number of observations:", x$nobs, 
         " Deg. of freedom: ", x$df.residual, "\n", sep = "")
-    cat("Pseudo R-squared - Cor.Sq.: ",
-        format(x$r.squared$cor, digits = digits),
-        " McFadden: ", format(x$r.squared$mcfadden, digits = digits),
-        "\n",
-        sep = "")
-    cat("AIC:", format(x$AIC, nsmall = 2, digits = digits + 1),
-        " BIC:", format(x$BIC, nsmall = 2, digits = digits + 1), "\n")
+    
+    cat("\nGoodness of Fit:\n")
+    cat(sprintf("  Pseudo R-squared - Cor.Sq.: %.4f   McFadden: %.4f\n",
+                x$r.squared$cor, x$r.squared$mcfadden))
+    
+    # Call helper to print the AIC and BIC with or without scaling
+    .print_information_criteria(x, digits)
+    
     cat("\nCount Diagnostics:\n")
     cat("  Dispersion Ratio (Pearson):", format(x$ov, nsmall = 2, digits = digits + 1), "\n")
     cat("  Zeros - Observed:", x$zero$count, "Predicted:", round(x$zero$pred, 2), "\n")
@@ -381,6 +368,8 @@ summary.ml_poisson <- function(object,
       pred = sum(exp(-yhat))
     )
     
+    # Weight Information (from helper)
+    s$weight_info <- .generate_weight_info(object)
     
     if(usable_vcov)
     {
@@ -388,7 +377,7 @@ summary.ml_poisson <- function(object,
       idx_mean <- if (object$model$value$blueprint$intercept) 2:k_mean else 1:k_mean
       
       s$significance <- list(
-        all  = waldtest(object, indices = idx_mean, vcov = vcov_mat),
+        overall  = waldtest(object, indices = idx_mean, vcov = vcov_mat),
         mean = NULL,
         scale = NULL
       )
@@ -396,14 +385,14 @@ summary.ml_poisson <- function(object,
     else
     {
       s$significance <- list(
-        all  = NULL,
+        overall  = NULL,
         mean = NULL,
         scale = NULL
       )
     }
     
   } else {
-    s$r.squared <- s$AIC <- s$BIC <- s$ov <- s$zero <- s$significance <- NULL
+    s$r.squared <- s$AIC <- s$BIC <- s$ov <- s$zero <- s$significance <- s$weight_info <- NULL
   }
   
   

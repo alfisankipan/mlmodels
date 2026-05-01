@@ -446,14 +446,14 @@ summary.ml_probit <- function(object,
           idx_scale <- (k_mean + 1):k_total
           
           s$significance <- list(
-            all  = waldtest(object, indices = c(idx_mean, idx_scale), vcov = vcov_mat),
-            mean = waldtest(object, indices = idx_mean, vcov = vcov_mat),
+            overall  = waldtest(object, indices = c(idx_mean, idx_scale), vcov = vcov_mat),
+            value = waldtest(object, indices = idx_mean, vcov = vcov_mat),
             scale = waldtest(object, indices = idx_scale, vcov = vcov_mat)
           )
         } else {
           s$significance <- list(
-            all  = waldtest(object, indices = idx_mean, vcov = vcov_mat),
-            mean = NULL,
+            overall  = waldtest(object, indices = idx_mean, vcov = vcov_mat),
+            value = NULL,
             scale = NULL
           )
         }
@@ -463,8 +463,8 @@ summary.ml_probit <- function(object,
     else
     {
       s$significance <- list(
-        all  = NULL,
-        mean = NULL,
+        overall  = NULL,
+        value = NULL,
         scale = NULL
       )
     }

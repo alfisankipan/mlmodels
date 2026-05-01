@@ -167,6 +167,8 @@
     cat("     AIC:", format(x$AIC, nsmall = 2, digits = digits + 1),
         "\n     BIC:", format(x$BIC, nsmall = 2, digits = digits + 1), "\n")
   }
+  
+  invisible(TRUE)
 }
 
 # -- Print Wald Tests ----------------------------------------------------------
@@ -174,25 +176,47 @@
 #' @keywords internal
 .print_wald_tests <- function(x,  digits = max(3L, getOption("digits") - 3L))
 {
-  if(!inherits(x, "summary.mlmodel"))
+  if (!inherits(x, "summary.mlmodel"))
     cli::cli_abort("`x` must be of class 'summary.mlmodel'")
   
-  cat("Wald significance tests:\n")
-  any_test_printed <- FALSE
-  for (test in names(x$significance)) {
-    w <- x$significance[[test]]
-    if (is.null(w) || isTRUE(w$singular) || !is.finite(w$pval)) {
-      next   # skip silently (happens in homoskedastic case or useless variance)
-    }
-    any_test_printed <- TRUE
-    p_str <- if (w$pval < 1e-8) "< 1e-8" else sprintf("%.4f", w$pval)
-    cat(sprintf("  %s: Chisq(%d) = %.3f, Pr(>Chisq) = %s\n",
-                tools::toTitleCase(test), w$df, w$waldstat, p_str))
+  tests <- x$significance
+  if (is.null(tests) || length(tests) == 0) {
+    cat("Wald significance tests:\n  (none computed)\n")
+    return(invisible(TRUE))
   }
   
-  if (!any_test_printed) {
-    cat(" Tests were not computable (singular or not finite variance).\n")
+  cat("Wald significance tests:\n")
+  
+  # Filter valid tests
+  valid_tests <- tests[!sapply(tests, function(t) 
+    is.null(t) || isTRUE(t$singular) || !is.finite(t$pval))]
+  
+  if (length(valid_tests) == 0) {
+    cat("  Tests were not computable (singular or not finite variance).\n")
+    return(invisible(TRUE))
   }
+  
+  names <- names(valid_tests)
+  max_name_width <- max(nchar(names))
+  
+  # Build statistic strings for alignment
+  stat_strings <- sapply(valid_tests, function(w) {
+    sprintf("Chisq(%d) = %8.3f", w$df, w$waldstat)
+  })
+  max_stat_width <- max(nchar(stat_strings))
+  
+  for (i in seq_along(names)) {
+    nm   <- tools::toTitleCase(names[i])
+    stat <- stat_strings[i]
+    pval <- format.pval(valid_tests[[i]]$pval, digits = 4, eps = 1e-8)
+    
+    cat(sprintf("  %-*s : %-*s  Pr(>Chisq) = %s\n",
+                max_name_width, nm,
+                max_stat_width, stat,
+                pval))
+  }
+  
+  invisible(TRUE)
 }
 
 # -- Print Weight Info and Loglikelihood Header --------------------------------
