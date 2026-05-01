@@ -1,6 +1,6 @@
 Package: mlmodels
 Title: Maximum Likelihood Models and Tools for Estimation, Prediction, and Testing
-Version: 0.1.0
+Version: 0.1.1
 Authors@R: 
     person(given = "Alfonso",
            family = "Sanchez-Penalver",
