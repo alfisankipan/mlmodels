@@ -343,8 +343,14 @@ summary.ml_beta <- function(object,
   s$call           <- object$call                    # <- Now using root-level call
   s$formula        <- object$model$formula
   s$scale_formula  <- object$model$scale_formula
+  # Weight Information (from helper)
+  s$weight_info    <- .generate_weight_info(object)
   s$nobs           <- n
-  s$df.residual    <- n - k_mean
+  if(s$weight_info$is_weighted)
+    n_w <- s$weight_info$sum_weights
+  else
+    n_w <- n
+  s$df.residual    <- n_w - k_mean
   s$converged      <- converged
   s$is_heteroskedastic <- is_heteroskedastic
   
@@ -366,9 +372,6 @@ summary.ml_beta <- function(object,
     
     s$AIC <- AIC(object, scaled = FALSE)
     s$BIC <- BIC(object, scaled = FALSE)
-    
-    # Weight Information (from helper)
-    s$weight_info <- .generate_weight_info(object)
     
     y_bar <- mean(y)
     
@@ -407,7 +410,7 @@ summary.ml_beta <- function(object,
       )
     }
   } else {
-    s$r.squared <- s$AIC <- s$BIC <- s$phihat <- s$sigma <- s$significance <- s$weight_info <- NULL
+    s$r.squared <- s$AIC <- s$BIC <- s$phihat <- s$sigma <- s$significance <- NULL
   }
   
   if(correlation && converged && usable_vcov)

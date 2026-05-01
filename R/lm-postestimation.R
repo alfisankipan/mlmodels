@@ -435,8 +435,13 @@ summary.ml_lm <- function(object,
   s$call           <- object$call                    # <- Now using root-level call
   s$formula        <- object$model$formula
   s$scale_formula  <- object$model$scale_formula
+  s$weight_info    <- .generate_weight_info(object)
   s$nobs           <- n
-  s$df.residual    <- n - k_mean
+  if(s$weight_info$is_weighted)
+    n_w <- s$weight_info$sum_weights
+  else
+    n_w <- n
+  s$df.residual    <- n_w - k_mean
   s$converged      <- converged
   s$is_heteroskedastic <- is_heteroskedastic
 
@@ -457,17 +462,14 @@ summary.ml_lm <- function(object,
     yhat <- object$model$fitted.values
 
     s$r.squared      <- cor(y, yhat)^2
-    s$adj.r.squared  <- 1 - (1 - s$r.squared) * (n - 1) / (n - k_mean)
 
     # Unweighted Statistics
-    ll <- s$logLik
-    s$AIC            <- -2 * ll + 2 * k_total
-    s$BIC            <- -2 * ll + log(n) * k_total
+    s$AIC <- AIC(object, scaled = FALSE)
+    s$BIC <- BIC(object, scaled = FALSE)
+    
+    s$adj.r.squared  <- 1 - (1 - s$r.squared) * (n_w - 1) / (n_w - k_mean)
 
     s$sigma <- summary(object$model$sigma)
-    
-    # Weight Information (from helper)
-    s$weight_info <- .generate_weight_info(object)
 
     if(usable_vcov)
     {

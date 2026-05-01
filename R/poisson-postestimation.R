@@ -328,8 +328,13 @@ summary.ml_poisson <- function(object,
   s$logLik <- as.numeric(object$maximum %||% NA_real_)
   s$call           <- object$call                    # <- Now using root-level call
   s$formula        <- object$model$formula
+  s$weight_info    <- .generate_weight_info(object)
   s$nobs           <- n
-  s$df.residual    <- n - k_total
+  if(s$weight_info$is_weighted)
+    n_w <- s$weight_info$sum_weights
+  else
+    n_w <- n
+  s$df.residual    <- n_w - k_total
   s$converged      <- converged
   
   # Coefficient table
@@ -347,25 +352,28 @@ summary.ml_poisson <- function(object,
     y <- object$model$value$outcomes[[1]]
     yhat <- object$model$fitted.values
     
-    ll <- s$logLik
-    s$AIC            <- -2 * ll + 2 * k_total
-    s$BIC            <- -2 * ll + log(n) * k_total
+    s$AIC <- AIC(object, scaled = FALSE)
+    s$BIC <- BIC(object, scaled = FALSE)
+    
+    # Weights vector: real weights or 1s for unweighted case
+    w <- object$model$weights %||% rep(1, n)   # n = actual number of obs
     
     # overdispersion
-    s$ov <- sum((y - yhat)^2 / yhat) / (n - k_total)
+    s$ov <- sum(w * (y - yhat)^2 / yhat, na.rm = TRUE) / (n_w - k_total)
+    
+    s$zero <- list(
+      count = sum(w[y == 0], na.rm = TRUE),
+      pred = sum(w * exp(-yhat), na.rm = TRUE)
+    )
     
     # Null logLik
+    ll <- s$logLik
     y_bar <- mean(y)
-    ll0 <- sum(y * log(y_bar) - y_bar - lfactorial(y))
+    ll0 <- sum(w * (y * log(y_bar) - y_bar - lfactorial(y)), na.rm = TRUE)
     
     s$r.squared <- list(
       cor = cor(y, yhat)^2,
       mcfadden = 1 - ll / ll0
-    )
-    
-    s$zero <- list(
-      count = sum(y == 0),
-      pred = sum(exp(-yhat))
     )
     
     # Weight Information (from helper)

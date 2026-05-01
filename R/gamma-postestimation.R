@@ -313,11 +313,16 @@ summary.ml_gamma <- function(object,
   # Basic information
   s$model_type <- object$model$description
   s$logLik <- as.numeric(object$maximum %||% NA_real_)
-  s$call           <- object$call                    # <- Now using root-level call
+  s$call           <- object$call
   s$formula        <- object$model$formula
   s$scale_formula  <- object$model$scale_formula
+  s$weight_info    <- .generate_weight_info(object)
   s$nobs           <- n
-  s$df.residual    <- n - k_mean
+  if(s$weight_info$is_weighted)
+    n_w <- s$weight_info$sum_weights
+  else
+    n_w <- n
+  s$df.residual    <- n_w - k_mean
   s$converged      <- converged
   s$is_heteroskedastic <- is_heteroskedastic
   
@@ -341,9 +346,6 @@ summary.ml_gamma <- function(object,
     
     s$AIC <- AIC(object, scaled = FALSE)
     s$BIC <- BIC(object, scaled = FALSE)
-    
-    # Weight Information (from helper)
-    s$weight_info <- .generate_weight_info(object)
     
     y_bar <- mean(y)
     ll <- s$logLik

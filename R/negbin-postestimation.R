@@ -482,8 +482,14 @@ summary.ml_negbin <- function(object,
   s$call           <- object$call                    # <- Now using root-level call
   s$formula        <- object$model$formula
   s$scale_formula  <- object$model$scale_formula
+  # Weight Information (from helper)
+  s$weight_info    <- .generate_weight_info(object)
   s$nobs           <- n
-  s$df.residual    <- n - k_total
+  if(s$weight_info$is_weighted)
+    n_w <- s$weight_info$sum_weights
+  else
+    n_w <- n
+  s$df.residual    <- n_w - k_mean
   s$converged      <- converged
   s$is_heteroskedastic <- is_heteroskedastic
   s$dispersion     <- object$model$dispersion
@@ -504,16 +510,29 @@ summary.ml_negbin <- function(object,
     yhat <- object$model$fitted.values
     alphahat <- object$model$fitted.alpha
     
-    ll <- s$logLik
-    s$AIC            <- -2 * ll + 2 * k_total
-    s$BIC            <- -2 * ll + log(n) * k_total
+    s$AIC <- AIC(object, scaled = FALSE)
+    s$BIC <- BIC(object, scaled = FALSE)
     
     vnb <- if(object$model$dispersion == "NB2") yhat + alphahat * yhat^2 else yhat + alphahat * yhat
     
-    # overdispersion
-    s$ov <- sum((y - yhat)^2 / vnb) / (n - k_total)
+    # Weights vector: real weights or 1s for unweighted case
+    w <- object$model$weights %||% rep(1, n)   # n = actual number of obs
+    
+    # Overdispersion (weighted Pearson statistic)
+    s$ov <- sum(w * (y - yhat)^2 / vnb, na.rm = TRUE) / (n_w - k_total)
+    
+    pred_zero <- if(object$model$dispersion == "NB2")
+      sum(w * (1 + alphahat * yhat)^(-1 / alphahat), na.rm = TRUE)
+    else
+      sum(w * (1 / (1 + alphahat))^(yhat / alphahat), na.rm = TRUE)
+    
+    s$zero <- list(
+      count = sum(w[y == 0], na.rm = TRUE),
+      pred = pred_zero
+    )
     
     # Null logLik
+    ll <- s$logLik
     y_bar <- mean(y)
     ll0 <- object$model$ll0
     
@@ -522,20 +541,8 @@ summary.ml_negbin <- function(object,
       mcfadden = 1 - ll / ll0
     )
     
-    pred_zero <- if(object$model$dispersion == "NB2")
-      sum((1 + alphahat * yhat)^(-1 / alphahat))
-    else
-      sum((1 / (1 + alphahat))^(yhat / alphahat))
-    
-    s$zero <- list(
-      count = sum(y == 0),
-      pred = pred_zero
-    )
-    
     s$alpha <- summary(as.vector(alphahat))
     
-    # Weight Information (from helper)
-    s$weight_info <- .generate_weight_info(object)
     
     if(usable_vcov)
     {
@@ -569,7 +576,7 @@ summary.ml_negbin <- function(object,
     }
     
   } else {
-    s$r.squared <- s$alpha <- s$AIC <- s$BIC <- s$ov <- s$zero <- s$significance <- s$weight_info <- NULL
+    s$r.squared <- s$alpha <- s$AIC <- s$BIC <- s$ov <- s$zero <- s$significance <- NULL
   }
   
   

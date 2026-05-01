@@ -210,7 +210,10 @@
   xb <- as.vector(x %*% cbind(beta))
   zd <- as.vector(z %*% cbind(delta))
   
-  mu_alpha = exp(xb - zd)
+  
+  lin_diff <- xb - zd
+  lin_diff <- pmin(pmax(lin_diff, -30), 30)
+  mu_alpha = exp(lin_diff)
   p_disp <- plogis(zd)
   p_ndisp <- plogis(zd, lower.tail = FALSE)
   
@@ -228,11 +231,11 @@
 
 
   # Partial with respect to beta.
-  gb <- w * mu_alpha * (psi_mu_alpha_y - psi_mu_alpha - l_p_ndisp) * x
+  gb <- (w * mu_alpha * (psi_mu_alpha_y - psi_mu_alpha - l_p_ndisp)) * x
 
   # Partial with respect to delta.
-  gd <- w * (mu_alpha * ( psi_mu_alpha - psi_mu_alpha_y - p_disp
-                          + l_p_ndisp) + y * p_ndisp ) * z
+  gd <- (w * (mu_alpha * ( psi_mu_alpha - psi_mu_alpha_y - p_disp
+                          + l_p_ndisp) + y * p_ndisp )) * z
 
   ## HESSIAN
   psi_1_mu_alpha <- trigamma(mu_alpha)

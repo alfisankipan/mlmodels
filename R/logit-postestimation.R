@@ -384,9 +384,22 @@ summary.ml_logit <- function(object,
   s$call          <- object$call
   s$formula       <- object$model$formula
   s$scale_formula <- object$model$scale_formula
+  # Weight Information (from helper)
+  s$weight_info   <- .generate_weight_info(object)
   s$nobs          <- n
   s$n_success     <- n1
   s$n_failure     <- n0
+  # Effective (weighted) successes and failures
+  if (isTRUE(s$weight_info$is_weighted)) {
+    w <- object$model$weights
+    
+    s$n_eff_success <- sum(w * y, na.rm = TRUE)
+    s$n_eff_failure <- s$weight_info$sum_weights - s$n_eff_success
+  }
+  else {
+    s$n_eff_success <- n1
+    s$n_eff_failure <- n0
+  }
   s$converged     <- converged
   s$is_heteroskedastic <- is_heteroskedastic
   
@@ -411,15 +424,16 @@ summary.ml_logit <- function(object,
   if (converged) {
     # y was pulled at the beginning to calculate the number of successes and
     # failures.
-    
     yhat <- object$model$fitted.values
     
-    ll <- s$logLik
-    s$AIC            <- -2 * ll + 2 * k_total
-    s$BIC            <- -2 * ll + log(n) * k_total
+    s$AIC <- AIC(object, scaled = FALSE)
+    s$BIC <- BIC(object, scaled = FALSE)
     
     p_bar <- mean(y)
-    ll0   <- sum(y) * log(p_bar) + sum(1 - y) * log(1 - p_bar)
+    ll <- s$logLik
+    # Weighted ll0.
+    w <- object$model$weights %||% rep(1, n)   # n = actual number of obs
+    ll0   <- (w * sum(y) * log(p_bar) + sum(1 - y) * log(1 - p_bar))
     
     s$r.squared <- list(
       cor = cor(y, yhat)^2,
@@ -427,9 +441,6 @@ summary.ml_logit <- function(object,
     )
     
     s$sigma <- summary(object$model$sigma)
-    
-    # Weight Information (from helper)
-    s$weight_info <- .generate_weight_info(object)
     
     if(usable_vcov)
     {
@@ -465,7 +476,7 @@ summary.ml_logit <- function(object,
     }
     
   } else {
-    s$r.squared <- s$AIC <- s$BIC <- s$sigma <- s$significance <- s$weight_info <- NULL
+    s$r.squared <- s$AIC <- s$BIC <- s$sigma <- s$significance <- NULL
   }
   
   if(correlation && converged && usable_vcov)
