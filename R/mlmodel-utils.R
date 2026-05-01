@@ -951,11 +951,11 @@ vcov.mlmodel <- function(object,
                          progress = TRUE,
                          ...)
 {
-  # 1. Inheritance check - must be first
+  # 1. Inheritance check - must be first ---------------------------------------
   if (!inherits(object, "mlmodel"))
     cli::cli_abort("`object` must be a model of class 'mlmodel'.", call = NULL)
 
-  # 2. Validate and normalize type
+  # 2. Validate and normalize type ---------------------------------------------
   type <- rlang::arg_match(type, c("oim", "robust", "opg", "cluster", "boot", "jack", "jackknife"))
 
   if(type == "cluster" && is.null(cl_var))
@@ -968,14 +968,14 @@ vcov.mlmodel <- function(object,
   # jackknife is an alias for jack
   if (type %in% c("jack", "jackknife")) type <- "jack"
 
-  # 3. Early validation for cl_var
+  # 3. Early validation for cl_var ---------------------------------------------
   if (!is.null(cl_var) && !(type %in% c("robust", "boot", "jack")))
     cli::cli_abort(
       "`cl_var` can only be used when `type` is 'cluster', 'robust', 'boot', or 'jack'.",
       call = NULL
     )
 
-  # 4. Process clustering variable if provided
+  # 4. Process clustering variable if provided ---------------------------------
   if (!is.null(cl_var)) {
     if (is.character(cl_var)) {
       # Retrieve data (new primary path first, then old d_name fallback)
@@ -1019,7 +1019,7 @@ vcov.mlmodel <- function(object,
     }
   }
 
-  # -- 5. Now, we're ready to select the method.
+  # -- 5. Now, we're ready to select the method. -------------------------------
   if (type == "boot")
   {
     vcov_mat <- .vcov_boot(object,

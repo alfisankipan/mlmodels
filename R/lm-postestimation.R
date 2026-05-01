@@ -291,43 +291,11 @@ print.summary.ml_lm <- function(x, digits = max(3L, getOption("digits") - 3L), .
     cat("WARNING: Model did NOT converge!\n")
     cat("Convergence code:", x$code %||% "???", "-", x$message %||% "", "\n\n")
   } else {
-    # If weighted estimation, we report info about weights and two log-likelihoods.
-    if(x$weight_info$is_weighted)
-    {
-      cat(sprintf("Weighted Estimation (%d observations)", x$weight_info$n_used),
-          paste("   Sum of weights:", format(x$weight_info$sum_w, digits = digits),
-                "     Scaling factor:", format(x$weight_info$scale_factor, nsmall = 2, digits = digits)),
-          "\n   Distribution of weights:",
-          sep = "\n")
-      w_summary <- paste0("    ",
-                          capture.output(print(x$weight_info$weight_summary, digits = 2)))
-      
-      cat(w_summary, sep = "\n")
-      cat("\nLog-likeihood: ", format(x$logLik, nsmall = 2, digits = digits + 1),
-          " (", format(x$weight_info$loglik_scaled, nsmall = 2, digits = digits + 1),
-          " scaled)\n\n", sep = "")
-    }
-    else
-      cat("Log-Likelihood:", format(x$logLik, nsmall = 2, digits = digits + 1), "\n\n")
+    # Use helper function to print the weight/loglikelihood part of the header
+    .print_weight_loglik(x, digits = digits)
     
     # Wald Tests
-    cat("Wald significance tests:\n")
-    
-    any_test_printed <- FALSE
-    for (test in c("all", "mean", "scale")) {
-      w <- x$significance[[test]]
-      if (is.null(w) || isTRUE(w$singular) || !is.finite(w$pval)) {
-        next   # skip silently (happens in homoskedastic case or useless variance)
-      }
-      any_test_printed <- TRUE
-      p_str <- if (w$pval < 1e-8) "< 1e-8" else sprintf("%.4f", w$pval)
-      cat(sprintf(" %s: Chisq(%d) = %.3f, Pr(>Chisq) = %s\n",
-                  tools::toTitleCase(test), w$df, w$waldstat, p_str))
-    }
-    
-    if (!any_test_printed) {
-      cat(" Tests were not computable (singular or not finite variance).\n")
-    }
+    .print_wald_tests(x, digits = digits)
   }
   
   cat("\nVariance type:", x$var_description)
@@ -381,25 +349,10 @@ print.summary.ml_lm <- function(x, digits = max(3L, getOption("digits") - 3L), .
     cat("\nGoodness of Fit:\n")
     cat("  R-squared - Multiple (Cor.Sq.):", format(x$r.squared, digits = digits),
         "  Adjusted:", format(x$adj.r.squared, digits = digits), "\n")
-    cat("\n  Information Criteria:\n\n")
-    if(x$weight_info$is_weighted)
-    {
-      cat("     AIC: ", format(x$AIC, nsmall = 2, digits = digits + 1),
-          " (",
-          format(x$weight_info$aic_scaled, nsmall = 2, digits = digits + 1),
-          " scaled)",
-          "\n     BIC: ", format(x$BIC, nsmall = 2, digits = digits + 1),
-          " (",
-          format(x$weight_info$bic_scaled, nsmall = 2, digits = digits + 1),
-          " scaled)",
-          "\n",
-          sep = "")
-    }
-    else
-    {
-      cat("     AIC:", format(x$AIC, nsmall = 2, digits = digits + 1),
-          "\n     BIC:", format(x$BIC, nsmall = 2, digits = digits + 1), "\n")
-    }
+    
+    # Call helper to print the AIC and BIC with or without scaling
+    .print_information_criteria(x, digits)
+    
     if(x$is_heteroskedastic)
     {
       cat("\nDistribution of Std. Deviation (sigma):",
@@ -526,14 +479,14 @@ summary.ml_lm <- function(object,
         else (k_mean + 1):k_total
 
         s$significance <- list(
-          all  = waldtest(object, indices = c(idx_mean, idx_scale), vcov = vcov_mat),
-          mean = waldtest(object, indices = idx_mean, vcov = vcov_mat),
+          overall  = waldtest(object, indices = c(idx_mean, idx_scale), vcov = vcov_mat),
+          value = waldtest(object, indices = idx_mean, vcov = vcov_mat),
           scale = waldtest(object, indices = idx_scale, vcov = vcov_mat)
         )
       } else {
         s$significance <- list(
-          all  = waldtest(object, indices = idx_mean, vcov = vcov_mat),
-          mean = NULL,
+          overall  = waldtest(object, indices = idx_mean, vcov = vcov_mat),
+          value = NULL,
           scale = NULL
         )
       }
@@ -541,8 +494,8 @@ summary.ml_lm <- function(object,
     else
     {
       s$significance <- list(
-        all  = NULL,
-        mean = NULL,
+        overall  = NULL,
+        value = NULL,
         scale = NULL
       )
     }

@@ -202,25 +202,11 @@ print.summary.ml_beta <- function(x, digits = max(4L, getOption("digits") - 4L),
     cat("WARNING: Model did NOT converge!\n")
     cat("Convergence code:", x$code %||% "???", "-", x$message %||% "", "\n\n")
   } else {
-    # Log-Likelihood + Joint tests (only when converged)
-    cat("Log-Likelihood:", format(x$logLik, nsmall = 2, digits = digits + 1), "\n\n")
-    cat("Wald significance tests:\n")
+    # Use helper function to print the weight/loglikelihood part of the header
+    .print_weight_loglik(x, digits = digits)
     
-    any_test_printed <- FALSE
-    for (test in c("all", "mean", "scale")) {
-      w <- x$significance[[test]]
-      if (is.null(w) || isTRUE(w$singular) || !is.finite(w$pval)) {
-        next   # skip silently (happens in homoskedastic case or useless variance)
-      }
-      any_test_printed <- TRUE
-      p_str <- if (w$pval < 1e-8) "< 1e-8" else sprintf("%.4f", w$pval)
-      cat(sprintf(" %s: Chisq(%d) = %.3f, Pr(>Chisq) = %s\n",
-                  tools::toTitleCase(test), w$df, w$waldstat, p_str))
-    }
-    
-    if (!any_test_printed) {
-      cat(" Tests were not computable (singular or not finite variance).\n")
-    }
+    # Wald Tests
+    .print_wald_tests(x, digits = digits)
   }
   
   cat("\nVariance type:", x$var_description)
@@ -269,12 +255,13 @@ print.summary.ml_beta <- function(x, digits = max(4L, getOption("digits") - 4L),
     cat("---\n")
     cat("Number of observations:", x$nobs, 
         " Deg. of freedom: ", x$df.residual, "\n", sep = "")
-    cat("Pseudo R-squared - Cor.Sq.: ",
-        format(x$r.squared$cor, digits = digits),
-        "\n",
-        sep = "")
-    cat("AIC:", format(x$AIC, nsmall = 2, digits = digits + 1),
-        " BIC:", format(x$BIC, nsmall = 2, digits = digits + 1), "\n")
+    
+    cat("\nGoodness of Fit:\n")
+    cat(sprintf("  Pseudo R-Squared - Cor.Sq.: %.4f\n", x$r.squared$cor))
+    
+    # Call helper to print the AIC and BIC with or without scaling
+    .print_information_criteria(x, digits)
+    
     if(x$is_heteroskedastic)
     {
       cat("\nDistribution of Predicted Precision (phi):",
@@ -284,7 +271,7 @@ print.summary.ml_beta <- function(x, digits = max(4L, getOption("digits") - 4L),
       cat("\n")
     }
     else
-      cat(sprintf("Precision Param.: %.2f\n", x$phihat[1]))
+      cat(sprintf("\nPrecision Param.: %.2f\n", x$phihat[1]))
   } else {
     cat("\nGoodness-of-fit statistics not available (model did not converge).\n")
   }
@@ -381,6 +368,9 @@ summary.ml_beta <- function(object,
     s$AIC            <- -2 * ll + 2 * k_total
     s$BIC            <- -2 * ll + log(n) * k_total
     
+    # Weight Information (from helper)
+    s$weight_info <- .generate_weight_info(object)
+    
     y_bar <- mean(y)
     
     s$r.squared <- list(
@@ -397,14 +387,14 @@ summary.ml_beta <- function(object,
         else (k_mean + 1):k_total
         
         s$significance <- list(
-          all  = waldtest(object, indices = c(idx_mean, idx_scale), vcov = vcov_mat),
-          mean = waldtest(object, indices = idx_mean, vcov = vcov_mat),
+          overall  = waldtest(object, indices = c(idx_mean, idx_scale), vcov = vcov_mat),
+          value = waldtest(object, indices = idx_mean, vcov = vcov_mat),
           scale = waldtest(object, indices = idx_scale, vcov = vcov_mat)
         )
       } else {
         s$significance <- list(
-          all  = waldtest(object, indices = idx_mean, vcov = vcov_mat),
-          mean = NULL,
+          overall  = waldtest(object, indices = idx_mean, vcov = vcov_mat),
+          value = NULL,
           scale = NULL
         )
       }
@@ -412,13 +402,13 @@ summary.ml_beta <- function(object,
     else
     {
       s$significance <- list(
-        all  = NULL,
-        mean = NULL,
+        overall  = NULL,
+        value = NULL,
         scale = NULL
       )
     }
   } else {
-    s$r.squared <- s$AIC <- s$BIC <- s$sigma <- s$significance <- NULL
+    s$r.squared <- s$AIC <- s$BIC <- s$phihat <- s$sigma <- s$significance <- s$weight_info <- NULL
   }
   
   if(correlation && converged && usable_vcov)

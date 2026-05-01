@@ -68,41 +68,7 @@
   }, error = function(e) FALSE)
 }
 
-
 ## POST-ESTIMATION UTILITIES ===================================================
-# -- Weight Information --------------------------------------------------------
-# Pulls the weight information used in an object, and other information for the
-# summary functions.
-#'@keywords internal
-.generate_weight_info <- function(object)
-{
-  if(!inherits(object, "mlmodel"))
-    cli::cli_abort("`object` must be of class 'mlmodel'")
-  
-  weights <- object$model$weights %||% rep(1, nobs(object))
-  used_weights <- weights[object$model$sample]
-  
-  # If all weights are 1 (or very close), treat as unweighted
-  if (all(abs(used_weights - 1) < 1e-8)) {
-    return(list(is_weighted = FALSE))
-  }
-  
-  n_used <- length(used_weights)
-  sum_w  <- sum(used_weights, na.rm = TRUE)
-  
-  list(
-    is_weighted     = TRUE,
-    n_used          = n_used,
-    sum_weights     = sum_w,
-    scale_factor    = n_used / sum_w,            # multiplier to "unweight"
-    weight_summary  = summary(used_weights),
-    # Scaled versions for comparability
-    loglik_scaled   = logLik(object) * (n_used / sum_w),
-    aic_scaled      = AIC(object)    * (n_used / sum_w),
-    bic_scaled      = BIC(object)    * (n_used / sum_w)
-  )
-}
-
 # --- Fractional Response Alert (logit/probit) ---------------------------------
 # Checks if the estimation is of a fractional response outcome and the variance
 # used for inference is oim or opg, to thrown an alert.
@@ -137,6 +103,125 @@
       )
     }
   }
+  
+  invisible(TRUE)
+}
+
+# -- Generate Weight Information -----------------------------------------------
+# Pulls the weight information used in an object, and other information for the
+# summary functions.
+#'@keywords internal
+.generate_weight_info <- function(object)
+{
+  if(!inherits(object, "mlmodel"))
+    cli::cli_abort("`object` must be of class 'mlmodel'")
+  
+  # Weights are already reduced to used dimensions.
+  used_weights <- object$model$weights %||% rep(1, nobs(object))
+  
+  # If all weights are 1 (or very close), treat as unweighted
+  if (all(abs(used_weights - 1) < 1e-8)) {
+    return(list(is_weighted = FALSE))
+  }
+  
+  n_used <- length(used_weights)
+  sum_w  <- sum(used_weights, na.rm = TRUE)
+  
+  list(
+    is_weighted     = TRUE,
+    n_used          = n_used,
+    sum_weights     = sum_w,
+    scale_factor    = n_used / sum_w,            # multiplier to "unweight"
+    weight_summary  = summary(used_weights),
+    # Scaled versions for comparability
+    loglik_scaled   = logLik(object) * (n_used / sum_w),
+    aic_scaled      = AIC(object)    * (n_used / sum_w),
+    bic_scaled      = BIC(object)    * (n_used / sum_w)
+  )
+}
+
+# -- Print Information Criteria ------------------------------------------------
+# Prints the AIC and BIC for the print.summary functions, checking if estimation
+# was with weights, to diplay just the regular ones or both the weighted and scaled.
+.print_information_criteria <- function(x, digits = max(3L, getOption("digits") - 3L))
+{
+  if(!inherits(x, "summary.mlmodel"))
+    cli::cli_abort("`x` must be of class 'summary.mlmodel'")
+  
+  cat("\n  Information Criteria:\n")
+  if(x$weight_info$is_weighted)
+  {
+    cat("     AIC: ", format(x$AIC, nsmall = 2, digits = digits + 1),
+        " (",
+        format(x$weight_info$aic_scaled, nsmall = 2, digits = digits + 1),
+        " scaled)",
+        "\n     BIC: ", format(x$BIC, nsmall = 2, digits = digits + 1),
+        " (",
+        format(x$weight_info$bic_scaled, nsmall = 2, digits = digits + 1),
+        " scaled)",
+        "\n",
+        sep = "")
+  }
+  else
+  {
+    cat("     AIC:", format(x$AIC, nsmall = 2, digits = digits + 1),
+        "\n     BIC:", format(x$BIC, nsmall = 2, digits = digits + 1), "\n")
+  }
+}
+
+# -- Print Wald Tests ----------------------------------------------------------
+# Prints wald tests in the print.sumary header.
+#' @keywords internal
+.print_wald_tests <- function(x,  digits = max(3L, getOption("digits") - 3L))
+{
+  if(!inherits(x, "summary.mlmodel"))
+    cli::cli_abort("`x` must be of class 'summary.mlmodel'")
+  
+  cat("Wald significance tests:\n")
+  any_test_printed <- FALSE
+  for (test in names(x$significance)) {
+    w <- x$significance[[test]]
+    if (is.null(w) || isTRUE(w$singular) || !is.finite(w$pval)) {
+      next   # skip silently (happens in homoskedastic case or useless variance)
+    }
+    any_test_printed <- TRUE
+    p_str <- if (w$pval < 1e-8) "< 1e-8" else sprintf("%.4f", w$pval)
+    cat(sprintf("  %s: Chisq(%d) = %.3f, Pr(>Chisq) = %s\n",
+                tools::toTitleCase(test), w$df, w$waldstat, p_str))
+  }
+  
+  if (!any_test_printed) {
+    cat(" Tests were not computable (singular or not finite variance).\n")
+  }
+}
+
+# -- Print Weight Info and Loglikelihood Header --------------------------------
+# For print.summary functions, it prints the header part of the weight information
+# if weighted estimation, and the log-likelihood.
+#' @keywords internal
+.print_weight_loglik <- function(x, digits = max(3L, getOption("digits") - 3L))
+{
+  if(!inherits(x, "summary.mlmodel"))
+    cli::cli_abort("`x` must be of class 'summary.mlmodel'")
+  
+  # If weighted estimation, we report info about weights and two log-likelihoods.
+  if(x$weight_info$is_weighted)
+  {
+    cat(sprintf("Weighted Estimation (%d observations):", x$weight_info$n_used),
+        paste("  Sum of weights:", format(x$weight_info$sum_w, digits = digits),
+              "       Scaling factor:", format(x$weight_info$scale_factor, nsmall = 2, digits = digits)),
+        "\n  Distribution of weights:",
+        sep = "\n")
+    w_summary <- paste0("    ",
+                        capture.output(print(x$weight_info$weight_summary, digits = 2)))
+    
+    cat(w_summary, sep = "\n")
+    cat("\nLog-Likelihood: ", format(x$logLik, nsmall = 2, digits = digits + 1),
+        " (", format(x$weight_info$loglik_scaled, nsmall = 2, digits = digits + 1),
+        " scaled)\n\n", sep = "")
+  }
+  else
+    cat("Log-Likelihood:", format(x$logLik, nsmall = 2, digits = digits + 1), "\n\n")
   
   invisible(TRUE)
 }

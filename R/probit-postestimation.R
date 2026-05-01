@@ -246,25 +246,11 @@ print.summary.ml_probit <- function(x, digits = max(3L, getOption("digits") - 3L
     cat("WARNING: Model did NOT converge!\n")
     cat("Convergence code:", x$code %||% "???", "-", x$message %||% "", "\n\n")
   } else {
-    # Log-Likelihood + Joint tests (only when converged)
-    cat("Log-Likelihood:", format(x$logLik, nsmall = 2, digits = digits + 1), "\n\n")
-    cat("Wald significance tests:\n")
+    # Use helper function to print the weight/loglikelihood part of the header
+    .print_weight_loglik(x, digits = digits)
     
-    any_test_printed <- FALSE
-    for (test in c("all", "mean", "scale")) {
-      w <- x$significance[[test]]
-      if (is.null(w) || isTRUE(w$singular) || !is.finite(w$pval)) {
-        next   # skip silently (happens in homoskedastic case or useless variance)
-      }
-      any_test_printed <- TRUE
-      p_str <- if (w$pval < 1e-8) "< 1e-8" else sprintf("%.4f", w$pval)
-      cat(sprintf(" %s: Chisq(%d) = %.3f, Pr(>Chisq) = %s\n",
-                  tools::toTitleCase(test), w$df, w$waldstat, p_str))
-    }
-    
-    if (!any_test_printed) {
-      cat(" Tests were not computable (singular or not finite variance).\n")
-    }
+    # Wald Tests
+    .print_wald_tests(x, digits = digits)
   }
   
   cat("\nVariance type:", x$var_description)
@@ -319,13 +305,14 @@ print.summary.ml_probit <- function(x, digits = max(3L, getOption("digits") - 3L
     cat("---\n")
     cat("Number of observations:", x$nobs, 
         " (Successes: ", x$n_success, ", Failures: ", x$n_failure, ")\n", sep = "")
-    cat("Pseudo R-squared - Cor.Sq.: ",
-        format(x$r.squared$cor, digits = digits),
-        " McKelvey & Zavoina: ", format(x$r.squared$mczav, digits = digits),
-        "\n",
-        sep = "")
-    cat("AIC:", format(x$AIC, nsmall = 2, digits = digits + 1),
-        " BIC:", format(x$BIC, nsmall = 2, digits = digits + 1), "\n")
+    
+    cat("\nGoodness of Fit:\n")
+    cat(sprintf("  Pseudo R-squared - Cor.Sq.: %.4f   McFadden: %.4f\n",
+                x$r.squared$cor, x$r.squared$mcfadden))
+    
+    # Call helper to print the AIC and BIC with or without scaling
+    .print_information_criteria(x, digits)
+    
     if(x$is_heteroskedastic)
     {
       cat("\nDistribution of Std. Deviation (sigma):",
@@ -445,6 +432,9 @@ summary.ml_probit <- function(object,
     
     s$sigma <- summary(object$model$sigma)
     
+    # Weight Information (from helper)
+    s$weight_info <- .generate_weight_info(object)
+    
     if(usable_vcov)
     {
       # Joint significance tests (reuse vcov_mat)
@@ -480,7 +470,7 @@ summary.ml_probit <- function(object,
     }
     
   } else {
-    s$r.squared <- s$AIC <- s$BIC <- s$sigma <- s$significance <- NULL
+    s$r.squared <- s$AIC <- s$BIC <- s$sigma <- s$significance <- s$weight_info <- NULL
   }
   
   if(correlation && converged && usable_vcov)

@@ -607,7 +607,7 @@ vuongtest.mlmodel <- function(object_1, object_2,
     sample_idx <- object_1$model$sample
     n_used <- sum(sample_idx)
     used_data <- data_orig[sample_idx, , drop = FALSE]
-    w_used <- (object_1$model$weights %||% rep(1, nrow(data_orig)))[sample_idx]
+    w_used <- (object_1$model$weights %||% rep(1, nobs(object_1)))
     
     boot_stats <- numeric(repetitions)
     n_success <- 0
