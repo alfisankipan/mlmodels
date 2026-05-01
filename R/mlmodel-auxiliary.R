@@ -1296,7 +1296,6 @@
 
 ## TEST HELPERS ================================================================
 # -- Matching Datsets and/or Samples -------------------------------------------
-
 # Checks whether the samples used in two models are compatible.
 #
 # To help in tests (Vuong, Clarke...) that compare statistics at the observation
@@ -1338,6 +1337,48 @@
   }
   
   invisible(TRUE)
+}
+
+# -- Create restriction matrix from linear constraints -------------------------
+# Create restriction matrix R from linear constraints
+#' @keywords internal
+.make_restriction_matrix <- function(object, constraints)
+{
+  if (length(constraints) == 0)
+    cli::cli_abort("No constraints provided.")
+  
+  coef_names <- names(coef(object))
+  k <- length(coef_names)
+  
+  R <- matrix(0, nrow = length(constraints), ncol = k)
+  colnames(R) <- coef_names
+  
+  # Temporary environment with unit vectors
+  env <- new.env(parent = emptyenv())
+  ident <- diag(k)
+  for (i in seq_along(coef_names)) {
+    assign(coef_names[i], ident[i, ], envir = env)
+  }
+  
+  on.exit(rm(list = ls(env), envir = env), add = TRUE)
+  
+  for (i in seq_along(constraints)) {
+    tryCatch({
+      expr <- parse(text = constraints[i])[[1]]
+      row <- eval(expr, envir = env)
+      
+      if (!is.numeric(row) || length(row) != k) {
+        cli::cli_abort("Constraint {.val {constraints[i]}} did not evaluate to a numeric vector of length {k}.")
+      }
+      
+      R[i, ] <- row
+      
+    }, error = function(e) {
+      cli::cli_abort("Failed to parse constraint {.val {constraints[i]}}:\n{e$message}")
+    })
+  }
+  
+  R
 }
 
 
