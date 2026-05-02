@@ -235,11 +235,17 @@
   # If weighted estimation, we report info about weights and two log-likelihoods.
   if(x$weight_info$is_weighted)
   {
+    labels <- c("Sum of weights:", "Scaling Factor:")
+    width <- max(nchar(labels)) + 1
+    
     cat(sprintf("Weighted Estimation (%d observations):", x$weight_info$n_used),
-        paste("  Sum of weights:", format(x$weight_info$sum_w, digits = digits),
-              "       Scaling factor:", format(x$weight_info$scale_factor, nsmall = 2, digits = digits)),
+        sprintf("  %-*s %s", width, "Sum of Weights:",
+                format(x$weight_info$sum_w, digits = digits)),
+        sprintf("  %-*s %s", width, "Scaling Factor:",
+                format(x$weight_info$scale_factor, nsmall = 2, digits = digits)),
         "\n  Distribution of weights:",
         sep = "\n")
+    
     w_summary <- paste0("    ",
                         capture.output(print(x$weight_info$weight_summary, digits = 2)))
     

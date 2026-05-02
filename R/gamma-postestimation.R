@@ -220,6 +220,7 @@ print.summary.ml_gamma <- function(x, digits = max(4L, getOption("digits") - 4L)
   
   if (x$converged) {
     cat("---\n")
+    
     cat("Observations:\n")
     labels <- c("Res. Deg. of Freedom:", "Sample:")
     if(x$weight_info$is_weighted)

@@ -248,19 +248,49 @@ print.summary.ml_poisson <- function(x, digits = max(3L, getOption("digits") - 3
   
   if (x$converged) {
     cat("---\n")
-    cat("Number of observations:", x$nobs, 
-        " Deg. of freedom: ", x$df.residual, "\n", sep = "")
     
-    cat("\nGoodness of Fit:\n")
-    cat(sprintf("  Pseudo R-squared - Cor.Sq.: %.4f   McFadden: %.4f\n",
-                x$r.squared$cor, x$r.squared$mcfadden))
+    cat("Observations:\n")
+    labels <- c("Res. Deg. of Freedom:", "Sample:")
+    if(x$weight_info$is_weighted)
+    {
+      labels <- c(labels,
+                  "Effective (Sum Wts):")
+      width <- max(nchar(labels)) + 1
+      cat(sprintf("  %-*s %d", width, "Sample:", x$nobs),
+          sprintf("  %-*s %d", width, "Effective (Sum Wts):", x$weight_info$sum_weights),
+          sprintf("  %-*s %d", width, "Res. Deg. of Freedom:", x$df.residual),
+          sep = "\n")
+    }
+    else
+    {
+      width <- max(nchar(labels)) + 1
+      cat(sprintf("  %-*s %d", width, "Sample:", x$nobs),
+          sprintf("  %-*s %d", width, "Res. Deg. of Freedom:", x$df.residual),
+          sep = "\n")
+    }
+    
+    cat("\nGoodness of Fit:",
+        "  Pseudo R-Squared:", sep = "\n")
+    
+    labels <- c("Cor.Sq.:", "McFadden:")
+    width <- max(nchar(labels)) + 1
+    cat(sprintf("    %-*s %.4f", width, "Cor.Sq.:", x$r.squared$cor),
+        sprintf("    %-*s %.4f", width, "McFadden:", x$r.squared$mcfadden),
+        sep = "\n")
     
     # Call helper to print the AIC and BIC with or without scaling
     .print_information_criteria(x, digits)
     
     cat("\nCount Diagnostics:\n")
-    cat("  Dispersion Ratio (Pearson):", format(x$ov, nsmall = 2, digits = digits + 1), "\n")
-    cat("  Zeros - Observed:", x$zero$count, "Predicted:", round(x$zero$pred, 2), "\n")
+    labels <- c("Observed:",
+                "Predicted:")
+    
+    width <- max(nchar(labels)) + 1
+    cat(sprintf("  Dispersion Ratio (Pearson):  %.2f", x$ov),
+        "  Zeros:",
+        sprintf("    %-*s %d", width, "Observed:", x$zero$count),
+        sprintf("    %-*s %.2f", width, "Predicted:", x$zero$pred),
+        sep = "\n")
   } else {
     cat("\nGoodness-of-fit statistics not available (model did not converge).\n")
   }

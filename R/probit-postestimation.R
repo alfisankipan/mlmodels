@@ -323,10 +323,10 @@ print.summary.ml_probit <- function(x, digits = max(3L, getOption("digits") - 3L
     cat("\nGoodness of Fit:",
         "  Pseudo R-Squared:", sep = "\n")
     
-    labels <- c("Cor.Sq.:", "McFadden:")
+    labels <- c("Cor.Sq.:", "McKelvey & Zavoina:")
     width <- max(nchar(labels)) + 1
     cat(sprintf("    %-*s %.4f", width, "Cor.Sq.:", x$r.squared$cor),
-        sprintf("    %-*s %.4f", width, "McFadden:", x$r.squared$mcfadden),
+        sprintf("    %-*s %.4f", width, "McKelvey & Zavoina:", x$r.squared$mczav),
         sep = "\n")
     # Call helper to print the AIC and BIC with or without scaling
     .print_information_criteria(x, digits)
