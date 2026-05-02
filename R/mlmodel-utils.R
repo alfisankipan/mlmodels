@@ -1222,6 +1222,11 @@ vcov.mlmodel <- function(object,
 
   V <- chol2inv(chol(-H))
   G <- object$gradientObs
+  
+  w <- object$model$weights %||% rep(1, nobs(object))
+  
+  V <- sum(w) / length(w) * V
+  G <- G / w
 
   # Compute variance
   if (!is.null(cl_var)) {

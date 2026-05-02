@@ -75,9 +75,23 @@ lrtest.mlmodel <- function(object_1, object_2, ...)
                      "A likelihood ratio test is not meaningful in this case."),
                    call = NULL)
   }
-
-  ll1 <- as.numeric(logLik(object_1))
-  ll2 <- as.numeric(logLik(object_2))
+  
+  # -- 1. Check that models were estimated on compatible samples/weights -------
+  .compare_estimation_samples(object_1, object_2)
+  
+  ll1 <- as.numeric(logLik(object_1, scaled = TRUE))
+  ll2 <- as.numeric(logLik(object_2, scaled = TRUE))
+  
+  ll1_us <- as.numeric(logLik(object_1))
+  
+  # If they are NOT the same (difference > epsilon), it's a weighted model
+  if(abs(ll1 - ll1_us) > 1e-8) {
+    cli::cli_warn(c(
+      "!" = "Estimations were done using weights. Likelihood-ratio test may be inappropriate.",
+      "i" = "Using log-likelihoods scaled to the sample size (N = {.val {nobs(object_1)}}).",
+      "i" = "We strongly recommend using `waldtest()` instead with robust standard errors."
+    ))
+  }
 
   # Determine which is the restricted (smaller) model
   if (k1 < k2) {
@@ -239,7 +253,10 @@ IMtest.mlmodel <- function(object,
   if (is.null(object$model$functions$hessianObs))
     cli::cli_abort("No `hessianObs` function found in model$functions.", call = NULL)
 
-  S <- object$gradientObs
+  # Get weights for scaling inside the loop
+  weights <- object$model$weights %||% rep(1, nobs(object))
+  
+  S <- object$gradientObs / weights # Overall scaling for later use
   n <- nrow(S)
   k <- ncol(S)
   m <- k * (k + 1) / 2
@@ -253,7 +270,7 @@ IMtest.mlmodel <- function(object,
     start <- (i-1)*k + 1
     end   <- i*k
     si <- S[i, , drop = FALSE]
-    Hi <- H_per_obs[start:end, , drop = FALSE]
+    Hi <- H_per_obs[start:end, , drop = FALSE] / weights[i]
     ID[i, ] <- matrixcalc::vech(Hi + crossprod(si))
   }
 
@@ -310,7 +327,9 @@ IMtest.mlmodel <- function(object,
           next
         }
         
-        S_r <- boot_obj$gradientObs
+        w_r <- boot_obj$model$weights
+        
+        S_r <- boot_obj$gradientObs / w_r
         H_r <- boot_obj$model$functions$hessianObs(boot_obj)
 
         ID_r <- matrix(0, nrow = n, ncol = m)
@@ -318,7 +337,7 @@ IMtest.mlmodel <- function(object,
           start <- (i-1)*k + 1
           end   <- i*k
           si <- S_r[i, , drop = FALSE]
-          Hi <- H_r[start:end, , drop = FALSE]
+          Hi <- H_r[start:end, , drop = FALSE] / w_r[i]
           ID_r[i, ] <- matrixcalc::vech(Hi + crossprod(si))
         }
 
@@ -395,7 +414,9 @@ IMtest.mlmodel <- function(object,
           next
         }
         
-        S_r <- boot_obj$gradientObs
+        w_r <- boot_obj$model$weights
+        
+        S_r <- boot_obj$gradientObs / w_r
         H_r <- boot_obj$model$functions$hessianObs(boot_obj)
         
         ID_r <- matrix(0, nrow = n, ncol = m)
@@ -403,7 +424,7 @@ IMtest.mlmodel <- function(object,
           start <- (i-1)*k + 1
           end   <- i*k
           si <- S_r[i, , drop = FALSE]
-          Hi <- H_r[start:end, , drop = FALSE]
+          Hi <- H_r[start:end, , drop = FALSE] / w_r[i]
           ID_r[i, ] <- matrixcalc::vech(Hi + crossprod(si))
         }
         
