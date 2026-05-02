@@ -342,13 +342,51 @@ print.summary.ml_lm <- function(x, digits = max(3L, getOption("digits") - 3L), .
   
   if (x$converged) {
     cat("---\n")
-    cat("Number of observations:", x$nobs, "\n")
-    if (!is.null(x$df.residual))
-      cat("Residual degrees of freedom:", x$df.residual, "\n")
+    
+    cat("Observations:\n")
+    labels <- c("Res. Deg. of Freedom:", "Sample:")
+    if(x$weight_info$is_weighted)
+    {
+      labels <- c(labels,
+                  "Effective (Sum Wts):")
+      width <- max(nchar(labels)) + 1
+      cat(sprintf("  %-*s %d", width, "Sample:", x$nobs),
+          sprintf("  %-*s %d", width, "Effective (Sum Wts):", x$weight_info$sum_weights),
+          sprintf("  %-*s %d", width, "Res. Deg. of Freedom:", x$df.residual),
+          sep = "\n")
+    }
+    else
+    {
+      width <- max(nchar(labels)) + 1
+      cat(sprintf("  %-*s %d", width, "Sample:", x$nobs),
+          sprintf("  %-*s %d", width, "Res. Deg. of Freedom:", x$df.residual),
+          sep = "\n")
+    }
     
     cat("\nGoodness of Fit:\n")
-    cat("  R-squared - Multiple (Cor.Sq.):", format(x$r.squared, digits = digits),
-        "  Adjusted:", format(x$adj.r.squared, digits = digits), "\n")
+    cat("  R-squared:\n")
+    labels <- c("Multiple (Cor.Sq.):")
+    if(x$weight_info$is_weighted)
+    {
+      labels <- c(labels,
+                  "  Effective:",
+                  "  Scaled:")
+      width <- max(nchar(labels)) + 1
+      cat(sprintf("    %-*s %.4f", width, "Multiple (Cor.Sq.):", x$r.squared),
+          "    Adjusted:",
+          sprintf("    %-*s %.4f", width, "  Effective:", x$adj.r.squared$effective),
+          sprintf("    %-*s %.4f", width, "  Scaled:", x$adj.r.squared$sample),
+          sep = "\n")
+    }
+    else
+    {
+      labels <- c(labels,
+                  "Adjusted:")
+      width <- max(nchar(labels)) + 1
+      cat(sprintf("    %-*s %.4f", width, "Multiple (Cor.Sq.):", x$r.squared),
+          sprintf("    %-*s %.4f", width, "Adjusted:", x$adj.r.squared$sample),
+          sep = "\n")
+    }
     
     # Call helper to print the AIC and BIC with or without scaling
     .print_information_criteria(x, digits)
@@ -441,7 +479,7 @@ summary.ml_lm <- function(object,
     n_w <- s$weight_info$sum_weights
   else
     n_w <- n
-  s$df.residual    <- n_w - k_mean
+  s$df.residual    <- n_w - k_total
   s$converged      <- converged
   s$is_heteroskedastic <- is_heteroskedastic
 
@@ -467,7 +505,9 @@ summary.ml_lm <- function(object,
     s$AIC <- AIC(object, scaled = FALSE)
     s$BIC <- BIC(object, scaled = FALSE)
     
-    s$adj.r.squared  <- 1 - (1 - s$r.squared) * (n_w - 1) / (n_w - k_mean)
+    # These two should be identical if unweighted. We store both.
+    s$adj.r.squared$effective  <- 1 - (1 - s$r.squared) * (n_w - 1) / (n_w - k_total)
+    s$adj.r.squared$sample     <- 1 - (1 - s$r.squared) * (n - 1) / (n - k_total)
 
     s$sigma <- summary(object$model$sigma)
 

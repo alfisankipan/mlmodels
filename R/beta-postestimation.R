@@ -253,11 +253,31 @@ print.summary.ml_beta <- function(x, digits = max(4L, getOption("digits") - 4L),
   
   if (x$converged) {
     cat("---\n")
-    cat("Number of observations:", x$nobs, 
-        " Deg. of freedom: ", x$df.residual, "\n", sep = "")
     
-    cat("\nGoodness of Fit:\n")
-    cat(sprintf("  Pseudo R-Squared - Cor.Sq.: %.4f\n", x$r.squared$cor))
+    cat("Observations:\n")
+    labels <- c("Res. Deg. of Freedom:", "Sample:")
+    if(x$weight_info$is_weighted)
+    {
+      labels <- c(labels,
+                  "Effective (Sum Wts):")
+      width <- max(nchar(labels)) + 1
+      cat(sprintf("  %-*s %d", width, "Sample:", x$nobs),
+          sprintf("  %-*s %d", width, "Effective (Sum Wts):", x$weight_info$sum_weights),
+          sprintf("  %-*s %d", width, "Res. Deg. of Freedom:", x$df.residual),
+          sep = "\n")
+    }
+    else
+    {
+      width <- max(nchar(labels)) + 1
+      cat(sprintf("  %-*s %d", width, "Sample:", x$nobs),
+          sprintf("  %-*s %d", width, "Res. Deg. of Freedom:", x$df.residual),
+          sep = "\n")
+    }
+    
+    cat("\nGoodness of Fit:",
+        "  Pseudo R-squared:",
+        sprintf("    Cor.Sq.:  %.4f", x$r.squared$cor),
+        sep = "\n")
     
     # Call helper to print the AIC and BIC with or without scaling
     .print_information_criteria(x, digits)
@@ -350,7 +370,7 @@ summary.ml_beta <- function(object,
     n_w <- s$weight_info$sum_weights
   else
     n_w <- n
-  s$df.residual    <- n_w - k_mean
+  s$df.residual    <- n_w - k_total
   s$converged      <- converged
   s$is_heteroskedastic <- is_heteroskedastic
   

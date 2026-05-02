@@ -155,11 +155,11 @@
   cat("\n  Information Criteria:\n")
   if(x$weight_info$is_weighted)
   {
-    cat("     AIC: ", format(x$AIC, nsmall = 2, digits = digits + 1),
+    cat("    AIC:  ", format(x$AIC, nsmall = 2, digits = digits + 1),
         " (",
         format(x$weight_info$aic_scaled, nsmall = 2, digits = digits + 1),
         " scaled)",
-        "\n     BIC: ", format(x$BIC, nsmall = 2, digits = digits + 1),
+        "\n    BIC:  ", format(x$BIC, nsmall = 2, digits = digits + 1),
         " (",
         format(x$weight_info$bic_scaled, nsmall = 2, digits = digits + 1),
         " scaled)",

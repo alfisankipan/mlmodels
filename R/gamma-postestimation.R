@@ -220,12 +220,34 @@ print.summary.ml_gamma <- function(x, digits = max(4L, getOption("digits") - 4L)
   
   if (x$converged) {
     cat("---\n")
-    cat("Number of observations:", x$nobs, 
-        " Deg. of freedom: ", x$df.residual, "\n", sep = "")
+    cat("Observations:\n")
+    labels <- c("Res. Deg. of Freedom:", "Sample:")
+    if(x$weight_info$is_weighted)
+    {
+      labels <- c(labels,
+                  "Effective (Sum Wts):")
+      width <- max(nchar(labels)) + 1
+      cat(sprintf("  %-*s %d", width, "Sample:", x$nobs),
+          sprintf("  %-*s %d", width, "Effective (Sum Wts):", x$weight_info$sum_weights),
+          sprintf("  %-*s %d", width, "Res. Deg. of Freedom:", x$df.residual),
+          sep = "\n")
+    }
+    else
+    {
+      width <- max(nchar(labels)) + 1
+      cat(sprintf("  %-*s %d", width, "Sample:", x$nobs),
+          sprintf("  %-*s %d", width, "Res. Deg. of Freedom:", x$df.residual),
+          sep = "\n")
+    }
     
-    cat("\nGoodness of Fit:\n")
-    cat(sprintf("  Pseudo R-squared - Cor.Sq.: %.4f   McFadden: %.4f\n",
-                x$r.squared$cor, x$r.squared$mcfadden))
+    cat("\nGoodness of Fit:",
+        "  Pseudo R-Squared:", sep = "\n")
+    
+    labels <- c("Cor.Sq.:", "McFadden:")
+    width <- max(nchar(labels)) + 1
+    cat(sprintf("    %-*s %.4f", width, "Cor.Sq.:", x$r.squared$cor),
+        sprintf("    %-*s %.4f", width, "McFadden:", x$r.squared$mcfadden),
+        sep = "\n")
     
     # Call helper to print the AIC and BIC with or without scaling
     .print_information_criteria(x, digits)
@@ -243,7 +265,7 @@ print.summary.ml_gamma <- function(x, digits = max(4L, getOption("digits") - 4L)
       cat("\n")
     }
     else
-      cat(sprintf("Shape Param.: %.2f  - Coef.Var.: %.2f \n",
+      cat(sprintf("\nShape Param.: %.2f  - Coef.Var.: %.2f \n",
                   x$nuhat[1], x$cv[1]))
   } else {
     cat("\nGoodness-of-fit statistics not available (model did not converge).\n")
@@ -322,7 +344,7 @@ summary.ml_gamma <- function(object,
     n_w <- s$weight_info$sum_weights
   else
     n_w <- n
-  s$df.residual    <- n_w - k_mean
+  s$df.residual    <- n_w - k_total
   s$converged      <- converged
   s$is_heteroskedastic <- is_heteroskedastic
   

@@ -303,13 +303,31 @@ print.summary.ml_probit <- function(x, digits = max(3L, getOption("digits") - 3L
   
   if (x$converged) {
     cat("---\n")
-    cat("Number of observations:", x$nobs, 
-        " (Successes: ", x$n_success, ", Failures: ", x$n_failure, ")\n", sep = "")
     
-    cat("\nGoodness of Fit:\n")
-    cat(sprintf("  Pseudo R-squared - Cor.Sq.: %.4f   McFadden: %.4f\n",
-                x$r.squared$cor, x$r.squared$mcfadden))
+    sample_obs <- c(Total = x$nobs, Success = x$n_success, Failure = x$n_failure)
+    if(x$weight_info$is_weighted)
+    {
+      eff_obs <- c(Total = x$weight_info$sum_weights,
+                   Success = x$n_eff_success,
+                   Faiulre = x$n_eff_failure)
+      obs_mat <- rbind(Sample = sample_obs,
+                       `Effective  ` = eff_obs)
+    }
+    else
+      obs_mat <- matrix(sample_obs, nrow = 1, dimnames = list("Sample  ", names(sample_obs)))
     
+    cat("Observations:")
+    cap_obs <- capture.output(print(as.data.frame(obs_mat)))
+    cat("  ", cap_obs, sep = "\n  ")
+    
+    cat("\nGoodness of Fit:",
+        "  Pseudo R-Squared:", sep = "\n")
+    
+    labels <- c("Cor.Sq.:", "McFadden:")
+    width <- max(nchar(labels)) + 1
+    cat(sprintf("    %-*s %.4f", width, "Cor.Sq.:", x$r.squared$cor),
+        sprintf("    %-*s %.4f", width, "McFadden:", x$r.squared$mcfadden),
+        sep = "\n")
     # Call helper to print the AIC and BIC with or without scaling
     .print_information_criteria(x, digits)
     
