@@ -212,7 +212,7 @@
   
   
   lin_diff <- xb - zd
-  lin_diff <- pmin(pmax(lin_diff, -30), 30)
+  lin_diff <- pmin(pmax(lin_diff, -50), 50)
   mu_alpha = exp(lin_diff)
   p_disp <- plogis(zd)
   p_ndisp <- plogis(zd, lower.tail = FALSE)
@@ -681,11 +681,14 @@
       z_boot <- z[boot_idx, , drop = FALSE]
       w_boot <- w[boot_idx]
       
+      # Scaling for estimation to protect from large weights
+      w_b_scaled <- w_boot / sum(w_boot)
+      
       suppressMessages({
         updated <- .ml_negbin.fit(y = y_boot,
                                   x = x_boot,
                                   z = z_boot,
-                                  w = w_boot,
+                                  w = w_b_scaled,
                                   dispersion  = object$model$dispersion,
                                   constraints = object$model$constraints$maxLik,
                                   start       = object$model$start,
@@ -810,11 +813,14 @@
         w_jack <- w[-i]
       }
       
+      # Scaling for estimation to protect from large weights
+      w_j_scaled <- w_jack / sum(w_jack)
+      
       suppressMessages({
         updated <- .ml_negbin.fit(y = y_jack,
                                   x = x_jack,
                                   z = z_jack,
-                                  w = w_jack,
+                                  w = w_j_scaled,
                                   dispersion  = object$model$dispersion,
                                   constraints = object$model$constraints$maxLik,
                                   start       = object$model$start,

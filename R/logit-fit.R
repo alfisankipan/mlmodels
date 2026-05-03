@@ -281,16 +281,27 @@ ml_logit <- function(value,
     }
   }
 
-  # -- 10. Fitting the model with maxLik ----------------------
+  # -- 10. Fitting the model with maxLik ---------------------------------------
+  
+  # -- 10a. Scaling the weights to ease optimization ---------------------------
+  sc_factor <- sum(wts_clean)
+  w_scaled <- wts_clean / sc_factor
+  
+  #-- 10b. Calling the fit function with scaled weights ------------------------
   ml <- .ml_logit.fit(y = y,
                       x = x,
                       z = z,
-                      w = wts_clean,
+                      w = w_scaled,
                       constraints = parsed_constraints$maxLik,
                       start = start,
                       method = method,
                       control = control,
                       ...)
+  
+  # -- 10c. Scaling the log-likelihood, scores and hessian back ----------------
+  ml$hessian <- ml$hessian * sc_factor
+  ml$gradientObs <- ml$gradientObs * sc_factor
+  ml$maximum <- ml$maximum * sc_factor
 
   # -- 11. Forming the dataset name ------------------------------
   # Safely get a readable name for the dataset (for printing/storage)
@@ -473,6 +484,9 @@ new_ml_logit <- function(object, ...) {
     }
     start <- .initial_values.mlmodel(.ml_logit_ll, start_values,
                                        y = y, x = x, z = z, w = w)
+    if(isFALSE(attr(start, "feasible")))
+      cli::cli_abort("Couldn't find feasible initial values.",
+                     call = NULL)
   }
   
   # Final estimation

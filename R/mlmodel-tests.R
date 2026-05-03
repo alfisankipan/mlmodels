@@ -255,8 +255,9 @@ IMtest.mlmodel <- function(object,
 
   # Get weights for scaling inside the loop
   weights <- object$model$weights %||% rep(1, nobs(object))
+  sc_factor <- length(weights) / sum(weights, na.rm = TRUE)
   
-  S <- object$gradientObs / weights # Overall scaling for later use
+  S <- object$gradientObs * sc_factor # Overall scaling for later use
   n <- nrow(S)
   k <- ncol(S)
   m <- k * (k + 1) / 2
@@ -270,7 +271,7 @@ IMtest.mlmodel <- function(object,
     start <- (i-1)*k + 1
     end   <- i*k
     si <- S[i, , drop = FALSE]
-    Hi <- H_per_obs[start:end, , drop = FALSE] / weights[i]
+    Hi <- H_per_obs[start:end, , drop = FALSE] * sc_factor
     ID[i, ] <- matrixcalc::vech(Hi + crossprod(si))
   }
 
@@ -294,8 +295,6 @@ IMtest.mlmodel <- function(object,
       boot_stats <- numeric(repetitions)
       n_success  <- 0
 
-      w <- object$model$weights
-
       if (!is.null(object$model$data) && is.data.frame(object$model$data)) {
         orig_data <- object$model$data[object$model$sample, , drop = FALSE]
       } else if (!is.null(object$model$d_name) && object$model$d_name != "<unknown data>") {
@@ -317,7 +316,7 @@ IMtest.mlmodel <- function(object,
             update(
               object,
               data   = orig_data[idx, , drop = FALSE],
-              weights = w[idx]
+              weights = weights[idx]
             )
           }, error = function(e) NULL)
         )
@@ -328,8 +327,9 @@ IMtest.mlmodel <- function(object,
         }
         
         w_r <- boot_obj$model$weights
+        sc_r <- length(w_r) / sum(w_r, na.rm = TRUE)
         
-        S_r <- boot_obj$gradientObs / w_r
+        S_r <- boot_obj$gradientObs * sc_r
         H_r <- boot_obj$model$functions$hessianObs(boot_obj)
 
         ID_r <- matrix(0, nrow = n, ncol = m)
@@ -337,7 +337,7 @@ IMtest.mlmodel <- function(object,
           start <- (i-1)*k + 1
           end   <- i*k
           si <- S_r[i, , drop = FALSE]
-          Hi <- H_r[start:end, , drop = FALSE] / w_r[i]
+          Hi <- H_r[start:end, , drop = FALSE] * sc_r
           ID_r[i, ] <- matrixcalc::vech(Hi + crossprod(si))
         }
 
@@ -380,8 +380,6 @@ IMtest.mlmodel <- function(object,
       boot_stats <- numeric(repetitions)
       n_success  <- 0
       
-      w <- object$model$weights
-      
       if (!is.null(object$model$data) && is.data.frame(object$model$data)) {
         orig_data <- object$model$data[object$model$sample, , drop = FALSE]
       } else if (!is.null(object$model$d_name) && object$model$d_name != "<unknown data>") {
@@ -404,7 +402,7 @@ IMtest.mlmodel <- function(object,
             update(
               object,
               data   = orig_data[idx, , drop = FALSE],
-              weights = w[idx]
+              weights = weights[idx]
             )
           }, error = function(e) NULL)
         )
@@ -415,8 +413,9 @@ IMtest.mlmodel <- function(object,
         }
         
         w_r <- boot_obj$model$weights
+        sc_r <- length(w_r) / sum(w_r, na.rm = TRUE)
         
-        S_r <- boot_obj$gradientObs / w_r
+        S_r <- boot_obj$gradientObs * sc_r
         H_r <- boot_obj$model$functions$hessianObs(boot_obj)
         
         ID_r <- matrix(0, nrow = n, ncol = m)
@@ -424,7 +423,7 @@ IMtest.mlmodel <- function(object,
           start <- (i-1)*k + 1
           end   <- i*k
           si <- S_r[i, , drop = FALSE]
-          Hi <- H_r[start:end, , drop = FALSE] / w_r[i]
+          Hi <- H_r[start:end, , drop = FALSE] * sc_r
           ID_r[i, ] <- matrixcalc::vech(Hi + crossprod(si))
         }
         

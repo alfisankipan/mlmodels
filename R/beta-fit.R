@@ -321,15 +321,26 @@ ml_beta <- function(value,
   }
   
   # -- 9. Fitting the model with maxLik ----------------------
+  
+  # -- 9a. Scaling the weights to ease optimization ----------------------------
+  sc_factor <- sum(wts_clean)
+  w_scaled <- wts_clean / sc_factor
+  
+  #-- 9b. Calling the fit function with scaled weights -------------------------
   ml <- .ml_beta.fit(y = y,
                      x = x,
                      z = z,
-                     w = wts_clean,
+                     w = w_scaled,
                      constraints = parsed_constraints$maxLik,
                      start = start,
                      method = method,
                      control = control,
                      ...)
+  
+  # -- 9c. Scaling the log-likelihood, scores and hessian back -----------------
+  ml$hessian <- ml$hessian * sc_factor
+  ml$gradientObs <- ml$gradientObs * sc_factor
+  ml$maximum <- ml$maximum * sc_factor
   
   # -- 10. Forming the dataset name ------------------------------
   # Safely get a readable name for the dataset (for printing/storage)
@@ -405,17 +416,6 @@ ml_beta <- function(value,
   }
   
   # -- 12.c. The fitted values and residuals ------------------------
-  # Converged: compute fitted/residuals and ll0 from a constants only fit.
-  # z0 <- x0 <- matrix(1, nrow = length(y), ncol = 1)
-  # 
-  # colnames(x0) <- "(Intercept)"
-  # colnames(z0) <- "lnphi"
-  # 
-  # suppressMessages({
-  #   ml0 <- .ml_beta.fit(y = y, x = x0, z = z0, w = wts_clean)
-  # })
-  # model_list$ll0 <- ml0$maximum
-  
   coefs <- coef(ml)
   
   beta <- coefs[1:ncol(x)]
@@ -487,6 +487,9 @@ new_ml_beta <- function(object, ...) {
     
     start <- .initial_values.mlmodel(.ml_beta_ll, start,
                                      y = y, x = x, z = z, w = w)
+    if(isFALSE(attr(start, "feasible")))
+      cli::cli_abort("Couldn't find feasible initial values.",
+                     call = NULL)
   }
   maxLik::maxLik(.ml_beta_ll,
                  start = start,

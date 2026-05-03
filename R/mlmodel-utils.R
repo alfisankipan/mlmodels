@@ -1226,7 +1226,7 @@ vcov.mlmodel <- function(object,
   w <- object$model$weights %||% rep(1, nobs(object))
   
   V <- sum(w) / length(w) * V
-  G <- G / w
+  G <- G * length(w) / sum(w)
 
   # Compute variance
   if (!is.null(cl_var)) {
