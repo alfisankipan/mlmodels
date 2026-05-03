@@ -178,8 +178,8 @@
   zd <- as.vector(z %*% cbind(delta))
   
   # Clamping for stability
-  up_bound <- 700
-  lo_bound <- -100
+  up_bound <- 50
+  lo_bound <- -50
   
   zd_clamp <- pmax(pmin(zd, up_bound), lo_bound)
   
@@ -314,7 +314,7 @@
       # Scaling for estimation to protect from large weights
       w_b_scaled <- w_boot / sum(w_boot)
       
-      suppressMessages({
+      suppressWarnings({
         updated <- .ml_beta.fit(y = y_boot,
                                 x = x_boot,
                                 z = z_boot,

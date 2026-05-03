@@ -489,8 +489,6 @@ new_ml_beta <- function(object, ...) {
       phi_guess <- ybar * (1- ybar) / var(uhat)
       g0[1] <- max(1, min(phi_guess, 100))
     }
-    else
-      g0[1] <- 0.1
     
     # Apply scale:: prefix to all scale coefficients
     names(g0) <- paste0("scale::", colnames(z))
