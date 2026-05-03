@@ -472,13 +472,25 @@ new_ml_beta <- function(object, ...) {
   }
   else
   {
-    # Beta starting values using low-level .ml_logit.fit()
-    fit_beta <- .ml_logit.fit(y = y, x = x)
-    b0 <- fit_beta$estimate
+    # Beta starting mean values from log transformed ols
+    log_y <- qlogis(y)
+    fit_beta <- .lm.fit(y = log_y, x = x)
+    b0 <- fit_beta$coefficients
     names(b0) <- paste0("value::", colnames(x))
     
     # Initial values for nu
     g0 <- rep(0, ncol(z))
+    
+    if(all(z[,1] == 1))
+    {
+      yhat <- x%*%b0
+      uhat <- y - yhat
+      ybar <- mean(y, na.rm = TRUE)
+      phi_guess <- ybar * (1- ybar) / var(uhat)
+      g0[1] <- max(1, min(phi_guess, 100))
+    }
+    else
+      g0[1] <- 0.1
     
     # Apply scale:: prefix to all scale coefficients
     names(g0) <- paste0("scale::", colnames(z))

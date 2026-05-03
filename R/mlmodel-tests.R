@@ -817,7 +817,6 @@ waldtest <- function(object,
   UseMethod("waldtest")
 }
 
-
 #' @rdname waldtest
 #' @export
 waldtest.mlmodel <- function(object,
@@ -858,7 +857,7 @@ waldtest.mlmodel <- function(object,
                      seed        = seed,
                      progress    = progress)
 
-  # ── Check for unusable variance ────────────────────────────────
+  # -- Check for unusable variance ---------------------------------------------
   if (any(!is.finite(V)) || any(is.na(V))) {
     cli::cli_abort(
       c("Cannot perform Wald test: variance matrix is unusable.",

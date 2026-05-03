@@ -913,7 +913,7 @@
   # Make a working copy
   b1 <- b
   attr(b1, "feasible") <- FALSE
-
+  
   # Check feasibility
   if (any(!is.finite(ll))) {
     cli::cli_alert_info("Log-likelihood infeasible at initial values. Searching for feasible start...")
