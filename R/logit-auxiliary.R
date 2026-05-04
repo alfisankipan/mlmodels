@@ -146,7 +146,12 @@
     xb <- as.vector(x %*% cbind(b))
     
     # Weighted log-likelihood
+<<<<<<< HEAD
     ll <- w * (y * plogis(xb, log.p = TRUE) + (1 - y) * plogis(xb, log.p = TRUE, lower.tail = FALSE))
+=======
+    ll <- w * (y * plogis(xb, log.p = TRUE) + (1 - y) *
+                 plogis(xb, log.p = TRUE, lower.tail = FALSE))
+>>>>>>> main
   } else {
     # -- Heteroskedastic binary logit ------------------------------------------
     z    <- as.matrix(object$model$scale$predictors)
@@ -160,7 +165,12 @@
     xb <- as.vector(xz %*% cbind(beta))
     
     # Weighted log-likelihood
+<<<<<<< HEAD
     ll <- w * (y * plogis(xb, log.p = TRUE) + (1 - y) * plogis(xb, log.p = TRUE, lower.tail = FALSE))
+=======
+    ll <- w * (y * plogis(xb, log.p = TRUE) + (1 - y) *
+                 plogis(xb, log.p = TRUE, lower.tail = FALSE))
+>>>>>>> main
   }
   return(ll)
 }
@@ -176,7 +186,12 @@
     xb <- as.vector(x %*% cbind(b))
     
     # Weighted log-likelihood
+<<<<<<< HEAD
     ll <- w * (y * plogis(xb, log.p = TRUE) + (1 - y) * plogis(xb, log.p = TRUE, lower.tail = FALSE))
+=======
+    ll <- (y * plogis(xb, log.p = TRUE) + (1 - y) *
+             plogis(xb, log.p = TRUE, lower.tail = FALSE)) * w
+>>>>>>> main
     
     # Gradient
     g <- w * as.vector(y - plogis(xb)) * x
@@ -197,7 +212,12 @@
     xb <- as.vector(xz %*% cbind(beta))
     
     # Weighted log-likelihood
+<<<<<<< HEAD
     ll <- w * (y * plogis(xb, log.p = TRUE) + (1 - y) * plogis(xb, log.p = TRUE, lower.tail = FALSE))
+=======
+    ll <- (y * plogis(xb, log.p = TRUE) + (1 - y) *
+             plogis(xb, log.p = TRUE, lower.tail = FALSE)) * w
+>>>>>>> main
     
     # Gradient
     py <- plogis(xb)
