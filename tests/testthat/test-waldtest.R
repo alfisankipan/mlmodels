@@ -51,5 +51,5 @@ test_that("print.waldtest.mlmodel works without error", {
   w <- waldtest(fit, constraints = 2)
 
   expect_output(print(w), "Wald Test of Linear Restrictions")
-  expect_output(print(w), "Chisq")
+  expect_output(print(w), "z = ")
 })

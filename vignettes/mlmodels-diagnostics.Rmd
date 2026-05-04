@@ -185,33 +185,35 @@ have to pass a row with the constants that multiplies each coefficient in the re
 Since this is usually complex, we show a very convenient way to form the restriction matrix for all the tests we have performed so far. The idea is to form an identity matrix of the same dimensions as the number of parameters, and then use the position(s) of the coefficient(s) you want to use in each expression with the identity matrix to form the row in the restriction matrix.
 
 ```{r waldtest-three}
-# Form identity matrix
-I <- diag(length(coef(fit_gam_ur)))
+# Form identity matrix (1 row per coefficient)
+ident <- diag(length(coef(fit_gam_ur)))
 
 # Test nested models (coefficients in 7th and 8th pos.)
-R <- I[7:8, ]
+R <- ident[7:8, ]
 waldtest(fit_gam_ur, constraints = R)
 
 # age (2nd) = .05 and I(age^2) (3rd) = 0
-R <- I[2:3, ]
+R <- ident[2:3, ]
 waldtest(fit_gam_ur, constraints = R, rhs = c(.05, 0))
 
 # age (2nd) and educ (5th) both equal .05
-R <- I[c(2,5), ]
+R <- ident[c(2,5), ]
 waldtest(fit_gam_ur, constraints = R, rhs = .05)
 
 # age (2nd) - educ (5th) = 0
-R <- rbind(I[2, ] - I[5, ])
+R <- rbind(ident[2, ] - ident[5, ])
 waldtest(fit_gam_ur, constraints = R)
 
 # age (2nd) = 0.05 and age(2nd) - educ(5th) = 0
-R <- rbind(I[2, ],
-           I[2, ] - I[5, ])
+R <- rbind(ident[2, ],
+           ident[2, ] - ident[5, ])
 waldtest(fit_gam_ur, constraints = R, rhs = c(.05, 0))
 
 ```
 
-What we've just illustrated is how, approximately, the `waldtest()` function works internally when you pass either a vector of positions or a vector of expressions into `constraints`. We have tried our parser two be robust for any type of coefficient name you may have, but if it ever fails you and you get an error, you can always resort to using the identity matrix the way we have just shown to form the matrix of restrictions for the test you want, and it will work.
+What we've just illustrated is how the `waldtest()` function works internally. When you pass either a vector of coefficient positions or a vector of expressions  to the `constraints` argument, the function converts them into a restriction matrix `R`.
+
+We have made the parser as robust as possible to handle typical coefficient names (including interactions, `I()` terms, etc.). However, if you ever encounter a parsing error with a complex name, you can always fall back to manually constructing the restriction matrix using the identity matrix, as shown above. This approach will always work and gives you complete control.
 
 #### Significance of an Equation
 
