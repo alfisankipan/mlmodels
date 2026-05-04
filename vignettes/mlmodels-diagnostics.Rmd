@@ -134,24 +134,24 @@ In the results we see that the function determines which model is nested in whic
 
 ### Wald Test
 
-The `waldtest()` function gives you two arguments to perform this same test:
+The `waldtest()` function gives you the flexibility to use its `constraints` argument two different ways to perform the same test:
 
-* `coef_names` allows you to pass the vector with the names of the coefficients that you want to test.
-* `indices` allows you to pass the vector with the order indices of the coefficients that you want to test.
+* You can pass a vector of **strings** with the **names of the coefficients** you want to test.
+* You can pass a vector of **integers** with the **position of the coefficients** you want to test.
 
 Looking at the estimation results, we see that the names are `value::kidslt6` and `value::kidsge6`, and they are in 7<sup>th</sup> and 8<sup>th</sup> position, respectively, in the coefficients' vector.
 
 ```{r waldtest-one}
-# Using indices
+# Using positions
 waldtest(fit_gam_ur, constraints = 7:8)
 
-# Using coef_names
+# Using coefficient names
 waldtest(fit_gam_ur, constraints = c("value::kidslt6", "value::kidsge6"))
 ```
 
 We see that both methods return the same result, and that it is consistent with that of the likelihood-ratio test.
 
-The `waldtest()` function also has a `rhs` argument, that defaults to 0, which allows you to specify if you want to test that a coefficient equals something else than 0. If you set it to a single number, it will use that number as the right hand side of the equalities for all the coefficients you pass. If you want to have different right hand side values for different coefficients you pass a vector of the values, in the same order as the vector of coefficients you pass in either `indices` or `coef_names`.
+The `waldtest()` function also has a `rhs` argument, that defaults to 0, which allows you to specify if you want to test that a coefficient equals something else than 0. If you set it to a single number, it will use that number as the right hand side of the equalities for all the coefficients you pass. If you want to have different right hand side values for different coefficients you pass a vector of the values, in the same order as the you entered either the position or the name of the coefficients in your `constraints` vector.
 
 ```{r waldtest-two}
 # Testing that age equals .05 and I(age^2) equals 0
@@ -161,30 +161,61 @@ waldtest(fit_gam_ur, constraints = c("value::age", "value::I(age^2)"), rhs = c(.
 waldtest(fit_gam_ur, constraints = c("value::age", "value::educ"), rhs = .05)
 ```
 
-This last test allows us to illustrate the use of yet another argument that allows you to setup the restrictions to be tested: `rest_matrix`, the actual **matrix of restrictions**.
+This last test allows us to introduce another type of constraint you can use. Let us see how to test that coefficients on `age` and `educ` are equal to each other. Well, why not write it as a linear combination? What we want is `value::age = value::educ`, but `constraints` only accepts the left hand side of an equality, so we have to bring all the coefficient names to the left: `value::age - value::educ = 0`.
 
-This matrix becomes useful when you want to test linear combinations of the coefficients. To do that you have to setup a vector of the values multiplying each of the coefficients in each restriction. Let us illustrate. The last test makes us want to test if `value::age = value::educ`. This is equivalent to `value::age - value::educ = 0`. Even though you don't see them this is the same as `1 * value::age - 1 * value::educ = 0`, and we could extend this to include all other parameters (including `scale::lnnu`) adding them but pre-multiplied by zero. So that means that the coefficients for all other parameters are zero, for `age` it's 1 and for `educ` it's -1. Then all you have to do is form the row vector in matrix form with the coefficients for the parameters in place:
+```{r waldtest-twoprime}
+# String written linear combination (rhs = 0 by default)
+waldtest(fit_gam_ur, constraints = "value::age - value::educ")
 
-```{r waldtest-three}
-# One restriction, one row in the matrix with the vector.
-R <- rbind(c(0, 1, 0, 0, -1, 0, 0, 0, 0))
-
-# Do the test (rhs is 0, which is the default)
-waldtest(fit_gam_ur, constraints = R)
-
-# Test both that they're both equal and that age equals .05
-R <- rbind(R,                             # age - value (from before)
-           c(0, 1, 0, 0, 0, 0, 0, 0, 0))  # only age
-
-# Don't forget the rhs are different
-waldtest(fit_gam_ur, constraints = R, rhs = c(0, .05))
+# Test that both age equals .05 and the difference between age and educ is zero.
+waldtest(fit_gam_ur, constraints = c("value::age", "value::age - value::educ"),
+         rhs = c(.05, 0))
 ```
 
-We should notice that the Chi-squared statistic of the first of these two last tests, since there is only one restriction tested, is the squared of the <em>z</em> statistic you would get for that same test. The <em>p</em>-value is identical, since it's the same test.
+The first test shows a nice feature of the `waldtest()` function and its associated printing function. It identifies when there is only a single constraint being tested to report the appropriate `z` statistic. It is actually the absolute value of the `z` statistic, because the order you enter the coefficients in the difference expression in the test is unimportant.
 
-Notice, also, how the test statistic and <em>p</em>-value of the second test are both identical to those of the test that both those coefficients were equal to 0.05. That is because, the two tests are testing exactly the same.
+The second test illustrates two things. The first one, you can combine constraints on individual coefficients with constraints on linear combination of coefficients in the same vector. The second thing is that there can be different ways of testing different things. When we did the test that both `age` and `educ` were equal to 0.05, we were implicitly also testing that they were equal to each other, and equal to 0.05. You can see how that test and the second one here produce the same results, because they are the
+same test.
 
-Now we illustrate how to replicate the Wald test of joint significance of the parameters in the value equation:
+#### Using the Restriction Matrix Directly
+
+The `constraints` argument is flexible enough to also accept the restriction matrix with the coefficients of each linear restriction in its own row. The idea in forming the matrix is that for each restriction you
+have to pass a row with the constants that multiplies each coefficient in the restriction that corresponds for that row, in the order that the coefficients are in the estimation.
+
+Since this is usually complex, we show a very convenient way to form the restriction matrix for all the tests we have performed so far. The idea is to form an identity matrix of the same dimensions as the number of parameters, and then use the position(s) of the coefficient(s) you want to use in each expression with the identity matrix to form the row in the restriction matrix.
+
+```{r waldtest-three}
+# Form identity matrix
+I <- diag(length(coef(fit_gam_ur)))
+
+# Test nested models (coefficients in 7th and 8th pos.)
+R <- I[7:8, ]
+waldtest(fit_gam_ur, constraints = R)
+
+# age (2nd) = .05 and I(age^2) (3rd) = 0
+R <- I[2:3, ]
+waldtest(fit_gam_ur, constraints = R, rhs = c(.05, 0))
+
+# age (2nd) and educ (5th) both equal .05
+R <- I[c(2,5), ]
+waldtest(fit_gam_ur, constraints = R, rhs = .05)
+
+# age (2nd) - educ (5th) = 0
+R <- rbind(I[2, ] - I[5, ])
+waldtest(fit_gam_ur, constraints = R)
+
+# age (2nd) = 0.05 and age(2nd) - educ(5th) = 0
+R <- rbind(I[2, ],
+           I[2, ] - I[5, ])
+waldtest(fit_gam_ur, constraints = R, rhs = c(.05, 0))
+
+```
+
+What we've just illustrated is how, approximately, the `waldtest()` function works internally when you pass either a vector of positions or a vector of expressions into `constraints`. We have tried our parser two be robust for any type of coefficient name you may have, but if it ever fails you and you get an error, you can always resort to using the identity matrix the way we have just shown to form the matrix of restrictions for the test you want, and it will work.
+
+#### Significance of an Equation
+
+Now we illustrate how easy it is to replicate the Wald test of joint significance of the parameters in the value equation:
 
 ```{r waldtest-four}
 # Get the indices of the coefficients for the value equation and drop the intercept.
@@ -193,7 +224,7 @@ idx <- grep("value::", names(coef(fit_gam_ur)))[-1]
 waldtest(fit_gam_ur, constraints = idx)
 ```
 
-You can see that the Chi-squared and the <em>p</em>-value match those of the overall test of significance in the results of the model. The reason is that it is the same test, because the scale is constant.
+You can see that the Chi-squared and the <em>p</em>-value match those of the overall test of significance in the results of the model. The reason is that it is the same test, because the scale equation only has a constant term.
 
 This last example illustrates the convenience of having the prefixes in the names of the coefficient, so you can extract them by equation.
 
