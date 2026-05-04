@@ -182,11 +182,13 @@ The package also provides two resampling-based variance estimators:
 **Jackknife** works by systematically leaving out one observation at a time and re-fitting the model. The number of replications is therefore equal to the sample size.
 
 ```{r boot-jack}
-# Bootstrap with 500 repetitions
-v_boot <- vcov(fit, type = "boot", repetitions = 500, seed = 123)
+# Bootstrap with 20 repetitions
+v_boot <- vcov(fit, type = "boot", repetitions = 20)
 # Jackknife
 v_jack <- vcov(fit, type = "jack")
 ```
+
+In our examples we use 20 repetitions to speed up the illustration, and satisfy CRAN's time requirements. In practice, we recommend that you use at least 500 repetitions in your work.
 
 By default, `vcov()` shows a progress table, with green dots where the iterations' fits are successful, or red crosses where they're not, when `type` equals `boot` or `jack`/`jacknife`. You can stop `vcov()` from displaying it by setting `progress = FALSE`.
 
@@ -194,9 +196,9 @@ When you set `vcov.type` to either `"boot"` or `"jack"` in `summary()`, or other
 
 You can also estimate clustered versions of these variances:
 ```{r boot-jack-clust}
-# Bootstrap with 500 repetitions
+# Bootstrap with 20 repetitions
 v_boot_clust <- vcov(fit, type = "boot", cl_var = "educ",
-               repetitions = 500, seed = 123,
+               repetitions = 20,
                progress = FALSE)
 # Jackknife
 v_jack_clust <- vcov(fit, type = "jack", cl_var = "educ",
@@ -237,6 +239,8 @@ comp <- data.frame(
 )
 comp
 ```
+
+You can see that the errors are close across methods for each type. Bootstrapped are slightly different from the other two, due to the small number of iterations used. You should see them became closer to the other two if you increase the number of repetitions. Again, the low number of repetitions were used to speed up the illustration, and meet CRAN's requirements.
 
 The benefit of the resampling methods is that they make fewer parametric assumptions, which often leads to better finite-sample performance.
 

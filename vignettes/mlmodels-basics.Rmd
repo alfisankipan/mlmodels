@@ -62,7 +62,7 @@ After that, you are presented with the type of standard errors used for inferenc
 
 All our models add the prefixes `value::` and `scale::` to the names of the coefficients in the corresponding equation. The purpose is twofold:
 
-* It avoids naming the coefficients equally if you entered the same variable as a predictor in both equations.
+* It avoids naming conflicts if you entered the same variable as a predictor in both equations.
 
 * It points immediately to which equation the coefficient belongs to, giving you an easy way to select just the coefficients of a given equation, in case you'd like to separate them.
 
@@ -124,6 +124,8 @@ head(pred$fit)      # Fitted values / expected values
 head(pred$se.fit)   # Standard errors
 ```
 
+It returns a list with the prediction you requested in its `fit` element. If you set `se.fit = TRUE` it returns the standard errors of the predictions in its `se.fit` element, calculated via the **delta method, using analytical gradients**.
+
 ## Modeling Heteroskedasticity
 
 One of the most powerful features of `mlmodels` is the ability to explicitly model the scale parameter (variance/dispersion) alongside the mean. To do that we add the `scale` argument to the call, with a formula with just right hand side variables: the predictors for that equation.
@@ -139,10 +141,10 @@ summary(fit_het, vcov.type = "robust")
 
 Notice how the presentation follows the pattern we described for the homoskedastic case. The main differences are that now:
 
-* The joint significance tests include one for the parameters of the value equation, and another for the parameters of the scale equation, in addition to the overall one.
+* The joint significance tests include one for the parameters of the value (mean) equation, and another for the parameters of the scale equation, in addition to the overall one.
 * At the bottom we present summary statistics of the predicted standard deviation, instead of the single value.
 
-This allows you to immediately identify if there is heteroskedasticity present, and how much the standard deviation varies within the sample used in the estimation.
+This allows you to immediately identify if there is heteroskedasticity present, and how much the standard deviation, in this case, varies within the sample used in the estimation.
 
 The real benefit becomes clear when you make predictions:
 ```{r}
@@ -150,7 +152,7 @@ The real benefit becomes clear when you make predictions:
 ```
 Compare this to the homoskedastic model earlier, where we predicted that the variance was the same for every observation. Modeling the scale parameter allows the uncertainty to vary realistically across individuals.
 
-To get the partial effects on the standard deviation, you can use the functions from the `marginaleffects` package:
+To get the partial effects on the standard deviation, instead of the slopes on the log of the standard deviation, you can use the functions from the `marginaleffects` package:
 ```{r meffs-sigma}
 # AMEs for the standard deviation using robust standard errors
 avg_slopes(fit_het, variables = c("educ", "exper"), type = "sigma", vcov = "robust")
@@ -162,7 +164,7 @@ For a deeper look at predictions, see the [Predictions with `mlmodels`](mlmodels
 
 ## Controlling Intercepts
 
-All `mlmodels` estimating functions allow you to explicitly control whether an intercept is included in the `value` (mean) equation and/or the `scale` equation. This is done through the dedicated arguments `noint_value` and `noint_scale`. Trying to do it through the formulas in the `value` and/or `scale` arguments will throw an error and abort the estimation.
+All `mlmodels` estimating functions allow you to explicitly control whether an intercept is included in the `value` (mean) equation and/or the `scale` equation, when present. This is done through the dedicated arguments `noint_value` and `noint_scale`. Trying to do it through the formulas in the `value` and/or `scale` arguments will throw an error and abort the estimation.
 
 Let's see how:
 ```{r intercepts}
@@ -194,7 +196,9 @@ You can see how in the second estimation's results there is no intercept estimat
 * Always use the dedicated arguments:
     - `noint_value = TRUE` &rarr; removes intercept from the mean/value equation
     - `noint_scale = TRUE` &rarr; removes intercept from the scale equation (when present)
-* `ml_poisson()` only has noint_value (its proability doesn't have a scale parameter).
+* `ml_poisson()`, `ml_logit()`, and `ml_probit()` only have `noint_value`.
+
+The reason `ml_poisson()` doesn't have the `noint_scale` argument, is that you can't model a dispersion parameter in a poisson model. The reason for `ml_logit()` and `ml_probit()` don't have the `noint_scale` argument, is that in those models the overall scale is unidentified, so the sale equation is **always estimated without an intercept**.
 
 **Why this design?**
 
@@ -220,6 +224,8 @@ summary(fit_logit_het, vcov.type = "robust")
 
 Notice how the modeling of the homoskedastic and heteroskedastic models are identical in structure to the linear case. The same pattern works for `ml_probit()`, `ml_negbin()`, `ml_gamma()`, and `ml_beta()`.
 
+You can also see how what we said about logit and probit models' scale equations always being estimated without an intercept is true, since the scale equation doesn't have one.
+
 For a deeper discussion of the different models see the dedicated vignettes to the topics that involve them.
 
 ## Where to Go Next
@@ -241,13 +247,9 @@ Happy modeling!
 
 ## References
 
-Cameron, A. C., & Trivedi, P. K. (2022). *Microeconometrics Using Stata: Volumes I and II* (2nd ed.). Stata Press.
-
 Henningsen, A., & Toomet, O. (2011). 
 "maxLik: A package for maximum likelihood estimation in R." 
 *Computational Statistics*, 26(3), 443–458. 
 <https://doi.org/10.1007/s00180-010-0217-1>
 (Also available as the R package `maxLik` on CRAN: 
 <https://cran.r-project.org/package=maxLik>)
-
-Papke, L. E., & Wooldridge, J. M. (1996). "Econometric methods for fractional response variables with an application to 401(k) plan participation rates." *Journal of Applied Econometrics*, 11(6), 619--632. [https://doi.org/10.1002/(SICI)1099-1255(199611)11:6<619::AID-JAE418>3.0.CO;2-1](https://doi.org/10.1002/(SICI)1099-1255(199611)11:6%3C619::AID-JAE418%3E3.0.CO;2-1)

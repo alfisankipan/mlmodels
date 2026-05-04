@@ -239,13 +239,13 @@ Since `mlmodels` also uses the string `"boot"` as its option to get a bootstrapp
 ```{r bootstrap-pred}
 ## 1st approach (Bootstrapped variance)
 # pre-compute the variance on the linear model (low number of repetitions to make it fast)
-v_boot <- vcov(fit, type = "boot", repetitions = 200, seed = 123, progress = FALSE)
+v_boot <- vcov(fit, type = "boot", repetitions = 20, progress = FALSE)
 # use it with predictions()
 boot_delta <- predictions(fit, vcov = v_boot)
 
 ## 2nd approach (Bootstrapped prediction)
 boot_pred <- predictions(fit) |>
-  inferences(method = "boot", R = 200) # Inferences allows you to set the repetitions.
+  inferences(method = "boot", R = 20) # Inferences allows you to set the repetitions.
 
 # The estimate is the same in both methods
 comp <- data.frame(
@@ -260,7 +260,9 @@ comp <- data.frame(
 comp
 ```
 
-In this example the confidence intervals from both methods are very similar. In general, however, the full bootstrap approach (bootstrapping the predictions themselves) is more robust when the distributional assumptions of your model may not hold perfectly. This extra robustness comes at the cost of higher computational time compared to using a bootstrapped variance matrix with the delta method.
+In the example we have used 20 repetitions, to speed up the illustration, and its building to satisfy CRAN's requirements. But you should use at least 500 repetitions, in your actual work.
+
+We see that the confidence intervals from both methods are very similar. In general, the full bootstrap approach (bootstrapping the predictions themselves) is more robust when the distributional assumptions of your model may not hold perfectly. This extra robustness comes at the cost of higher computational time compared to using a bootstrapped variance matrix with the delta method.
 
 `marginaleffects` gives you the flexibility to choose whichever approach best suits your needs and computational budget.
 
