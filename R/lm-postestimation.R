@@ -521,13 +521,13 @@ summary.ml_lm <- function(object,
         else (k_mean + 1):k_total
 
         s$significance <- list(
-          overall  = waldtest(object, indices = c(idx_mean, idx_scale), vcov = vcov_mat),
-          value = waldtest(object, indices = idx_mean, vcov = vcov_mat),
-          scale = waldtest(object, indices = idx_scale, vcov = vcov_mat)
+          overall  = waldtest(object, constraints = c(idx_mean, idx_scale), vcov = vcov_mat),
+          value = waldtest(object, constraints = idx_mean, vcov = vcov_mat),
+          scale = waldtest(object, constraints = idx_scale, vcov = vcov_mat)
         )
       } else {
         s$significance <- list(
-          overall  = waldtest(object, indices = idx_mean, vcov = vcov_mat),
+          overall  = waldtest(object, constraints = idx_mean, vcov = vcov_mat),
           value = NULL,
           scale = NULL
         )

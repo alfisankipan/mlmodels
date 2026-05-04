@@ -81,11 +81,12 @@ freedom equal to the number of restrictions under the null hypothesis.
 
 Internally, the test always computes a chi-squared statistic. However, when
 there is only \strong{one restriction} (\code{df = 1}), the printed output shows the
-equivalent \strong{z-statistic} (\verb{z = \\sqrt\{\\text\{Chisq(1)\}\}}) instead.
+equivalent \strong{z-statistic} (\verb{|z| = \\sqrt\{\\text\{Chisq(1)\}\}}) instead.
 
 This is because a \eqn{\chi^2(1)} random variable is the square of a standard
-normal (\eqn{z}) random variable. Reporting the z-statistic in this case is
-conventional, but both distributions are equivalent in that case.
+normal (\eqn{z}) random variable. Reporting the absolute value of the
+z-statistic in this case is conventional, but both distributions are
+equivalent in that case.
 }
 \examples{
 

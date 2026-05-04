@@ -91,7 +91,7 @@ test_that("IMtest works on logit and probit", {
 
 test_that("Wald test works", {
   fit_logit <- ml_logit(val_for, data = smoke)
-  wt <- waldtest(fit_logit, indices = 2, vcov.type = "robust")
+  wt <- waldtest(fit_logit, constraints = 2, vcov.type = "robust")
   expect_s3_class(wt, "waldtest.mlmodel")
 })
 

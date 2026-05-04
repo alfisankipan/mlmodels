@@ -5,7 +5,7 @@ test_that("waldtest works with indices", {
   data(mtcars)
   fit <- ml_lm(mpg ~ wt + hp + qsec, data = mtcars)
 
-  w <- waldtest(fit, indices = c(2, 3))  # test wt and hp
+  w <- waldtest(fit, constraints = c(2, 3))  # test wt and hp
 
   expect_s3_class(w, "waldtest.mlmodel")
   expect_true(is.numeric(w$waldstat))
@@ -17,7 +17,7 @@ test_that("waldtest works with coef_names", {
   data(mtcars)
   fit <- ml_lm(mpg ~ wt + hp + qsec, data = mtcars)
 
-  w <- waldtest(fit, coef_names = c("value::wt", "value::hp"))
+  w <- waldtest(fit, constraints = c("value::wt", "value::hp"))
 
   expect_s3_class(w, "waldtest.mlmodel")
   expect_equal(w$df, 2)
@@ -29,7 +29,7 @@ test_that("waldtest works with rest_matrix", {
 
   # Test hypothesis: wt + hp = 0
   R <- matrix(c(0, 1, 1, 0, 0), nrow = 1, byrow = TRUE)  # β_wt + β_hp = 0
-  w <- waldtest(fit, rest_matrix = R, rhs = 0)
+  w <- waldtest(fit, constraints = R, rhs = 0)
 
   expect_s3_class(w, "waldtest.mlmodel")
   expect_equal(w$df, 1)
@@ -41,14 +41,14 @@ test_that("waldtest handles singular matrix gracefully", {
 
   # This may trigger singularity depending on data
   expect_silent({
-    w <- waldtest(fit, indices = 1:2, vcov.type = "oim")
+    w <- waldtest(fit, constraints = 1:2, vcov.type = "oim")
   })
 })
 
 test_that("print.waldtest.mlmodel works without error", {
   data(mtcars)
   fit <- ml_lm(mpg ~ wt + hp, data = mtcars)
-  w <- waldtest(fit, indices = 2)
+  w <- waldtest(fit, constraints = 2)
 
   expect_output(print(w), "Wald Test of Linear Restrictions")
   expect_output(print(w), "Chisq")

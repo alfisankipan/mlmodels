@@ -788,11 +788,12 @@ print.vuongtest.mlmodel <- function(x, digits = 4, ...)
 #'
 #' Internally, the test always computes a chi-squared statistic. However, when
 #' there is only **one restriction** (`df = 1`), the printed output shows the
-#' equivalent **z-statistic** (`z = \sqrt{\text{Chisq(1)}}`) instead. 
+#' equivalent **z-statistic** (`|z| = \sqrt{\text{Chisq(1)}}`) instead. 
 #' 
 #' This is because a \eqn{\chi^2(1)} random variable is the square of a standard
-#' normal (\eqn{z}) random variable. Reporting the z-statistic in this case is
-#' conventional, but both distributions are equivalent in that case.
+#' normal (\eqn{z}) random variable. Reporting the absolute value of the
+#' z-statistic in this case is conventional, but both distributions are
+#' equivalent in that case.
 #' 
 #' @return An object of class `"waldtest.mlmodel"`.
 #'

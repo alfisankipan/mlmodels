@@ -415,7 +415,7 @@ summary.ml_poisson <- function(object,
       idx_mean <- if (object$model$value$blueprint$intercept) 2:k_mean else 1:k_mean
       
       s$significance <- list(
-        overall  = waldtest(object, indices = idx_mean, vcov = vcov_mat),
+        overall  = waldtest(object, constraints = idx_mean, vcov = vcov_mat),
         mean = NULL,
         scale = NULL
       )

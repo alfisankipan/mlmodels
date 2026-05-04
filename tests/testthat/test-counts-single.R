@@ -82,7 +82,7 @@ test_that("IMtest and GOF tests work on count models", {
 
 test_that("Wald test works on count models", {
   fit_nb2 <- ml_negbin(formula, data = docvis)
-  wt <- waldtest(fit_nb2, indices = 2, vcov.type = "robust")
+  wt <- waldtest(fit_nb2, constraints = 2, vcov.type = "robust")
   expect_s3_class(wt, "waldtest.mlmodel")
 })
 

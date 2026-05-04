@@ -1360,10 +1360,12 @@
   R <- matrix(0, nrow = length(constraints), ncol = k)
   colnames(R) <- coef_names
   
-  # Safe names for the environment
+  # Safe names for environment
   safe_names <- gsub("::", "_", coef_names)
+  safe_names <- gsub("I\\(([^)]+)\\)", "\\1", safe_names)
+  safe_names <- gsub("[()^:]", "_", safe_names)
   
-  # Environment with base operators available
+  # Environment with base operators
   env <- new.env(parent = baseenv())
   
   ident <- diag(k)
@@ -1374,23 +1376,34 @@
   on.exit(rm(list = ls(env), envir = env), add = TRUE)
   
   for (i in seq_along(constraints)) {
-    original <- constraints[i]
-    safe_expr <- gsub("::", "_", original)
+    orig <- constraints[i]
+    safe_expr <- gsub("::", "_", orig)
+    safe_expr <- gsub("I\\(([^)]+)\\)", "\\1", safe_expr)
+    safe_expr <- gsub("[()^:]", "_", safe_expr)
     
     tryCatch({
       parsed <- parse(text = safe_expr)
       row <- eval(parsed, envir = env)
       
       if (!is.numeric(row) || length(row) != k) {
-        cli::cli_abort("Constraint {.val {original}} did not evaluate to a numeric vector of length {k}.")
+        cli::cli_abort("Constraint {.val {orig}} did not evaluate to a numeric vector of length {k}.")
+      }
+      
+      # NEW: Prevent non-linear terms (e.g. age * educ)
+      if (all(row == 0)) {
+        cli::cli_abort(c(
+          paste0("Constraint {.val ", orig, "} evaluates to a row of zeros."),
+          "i" = "This typically happens with non-linear expressions like `value::age * value::educ`.",
+          "i" = "Only linear combinations of coefficients are supported."
+        ))
       }
       
       R[i, ] <- row
       
     }, error = function(e) {
       cli::cli_abort(c(
-        paste0("Failed to parse constraint {.val ", original, "}."),
-        "i" = "Make sure coefficient names exist and are written correctly.",
+        paste0("Failed to parse constraint {.val ", orig, "}."),
+        "i" = "Supported formats: coefficient name or linear combination (e.g. `value::age + 2*value::educ`).",
         "x" = e$message
       ))
     })
@@ -1398,7 +1411,6 @@
   
   R
 }
-
 
 ## VARIANCE HELPERS ============================================================
 # --- 1. Cluster info ----------------------------------------------------------
