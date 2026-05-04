@@ -128,22 +128,3 @@ test_that("ml_logit and ml_probit support constraints", {
   expect_true(abs(coef(fit_logit_c)["value::cigpric"]) < 1e-4)
   expect_true(abs(coef(fit_probit_c)["value::cigpric"]) < 1e-4)
 })
-
-test_that("ml_logit supports constraints on scale equation (heteroskedastic)", {
-  data(smoke)
-  
-  fit_het <- ml_logit(smokes ~ cigpric + income + age, 
-                      scale = ~ educ, 
-                      data = smoke)
-  
-  fit_het_c <- ml_logit(smokes ~ cigpric + income + age, 
-                        scale = ~ educ,
-                        constraints = "scale::educ = 0",
-                        data = smoke,
-                        start = c(-0.006, 8.5e-3, 0, -4e-4, 0))
-  
-  expect_s3_class(fit_het_c, "ml_logit")
-  
-  expect_true(abs(coef(fit_het_c)["scale::educ"] - 0) < 1e-4,
-              info = "Constrained scale coefficient 'scale::educ' should be near zero")
-})

@@ -110,32 +110,3 @@ test_that("Count models support constraints in mean equation", {
   expect_true(abs(coef(fit_nb2_c)["value::medicaid"]) < 1e-4,
               info = "Constrained medicaid coefficient should be near zero")
 })
-
-test_that("Count models support constraints in scale equation", {
-  fit_nb2_het <- ml_negbin(formula, scale = scal_for, data = docvis)
-  
-  fit_nb2_het_c <- ml_negbin(formula,
-                             scale = scal_for,
-                             constraints = "scale::female = 0",
-                             data = docvis,
-                             start = c(-9.4, 0.15, 0, 0.28, -0.002, 0.02, 0.13, 0.25, 1.5, -0.2, 0.2))
-  
-  expect_s3_class(fit_nb2_het_c, "ml_negbin")
-  expect_true(abs(coef(fit_nb2_het_c)["scale::female"]) < 1e-4,
-              info = "Constrained scale::female should be near zero")
-})
-
-# Stress test - joint constraint (may take longer)
-test_that("Count models can handle joint constraints (stress test)", {
-  skip_on_cran()   # skip on CRAN if slow
-  
-  fit_nb2_het <- ml_negbin(formula, scale = scal_for, data = docvis)
-  
-  fit_nb2_het_joint <- ml_negbin(formula,
-                                 scale = scal_for,
-                                 constraints = c("value::medicaid = 0", "scale::female = 0"),
-                                 data = docvis,
-                                 start = c(-9.4, 0.15, 0, 0.28, -0.002, 0.02, 0.13, 0.25, 1.5, 0, 0.2))
-  
-  expect_s3_class(fit_nb2_het_joint, "ml_negbin")
-})

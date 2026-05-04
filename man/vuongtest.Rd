@@ -86,7 +86,7 @@ fit_nb2 <- ml_negbin(docvis ~ private + medicaid + age + I(age^2) + educyr +
 vuongtest(fit_poi, fit_nb1)
 
 # NB1 vs. NB2 (bootstrapped, low repetitions for speed)
-vuongtest(fit_nb1, fit_nb2, boot = TRUE, repetitions = 50)
+vuongtest(fit_nb1, fit_nb2, boot = TRUE, repetitions = 10)
 
 # Binary models example
 data(smoke)

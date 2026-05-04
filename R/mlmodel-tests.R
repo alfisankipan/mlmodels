@@ -560,7 +560,7 @@ print.IMtest.mlmodel <- function(x, digits = 4, ...)
 #' vuongtest(fit_poi, fit_nb1)
 #' 
 #' # NB1 vs. NB2 (bootstrapped, low repetitions for speed)
-#' vuongtest(fit_nb1, fit_nb2, boot = TRUE, repetitions = 50)
+#' vuongtest(fit_nb1, fit_nb2, boot = TRUE, repetitions = 10)
 #' 
 #' # Binary models example
 #' data(smoke)
