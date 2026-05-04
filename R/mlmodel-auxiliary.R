@@ -1354,37 +1354,45 @@
 #' @keywords internal
 .make_restriction_matrix <- function(object, constraints)
 {
-  if (length(constraints) == 0)
-    cli::cli_abort("No constraints provided.")
-  
   coef_names <- names(coef(object))
   k <- length(coef_names)
   
   R <- matrix(0, nrow = length(constraints), ncol = k)
   colnames(R) <- coef_names
   
-  # Temporary environment with unit vectors
-  env <- new.env(parent = emptyenv())
+  # Safe names for the environment
+  safe_names <- gsub("::", "_", coef_names)
+  
+  # Environment with base operators available
+  env <- new.env(parent = baseenv())
+  
   ident <- diag(k)
   for (i in seq_along(coef_names)) {
-    assign(coef_names[i], ident[i, ], envir = env)
+    assign(safe_names[i], ident[i, ], envir = env)
   }
   
   on.exit(rm(list = ls(env), envir = env), add = TRUE)
   
   for (i in seq_along(constraints)) {
+    original <- constraints[i]
+    safe_expr <- gsub("::", "_", original)
+    
     tryCatch({
-      expr <- parse(text = constraints[i])[[1]]
-      row <- eval(expr, envir = env)
+      parsed <- parse(text = safe_expr)
+      row <- eval(parsed, envir = env)
       
       if (!is.numeric(row) || length(row) != k) {
-        cli::cli_abort("Constraint {.val {constraints[i]}} did not evaluate to a numeric vector of length {k}.")
+        cli::cli_abort("Constraint {.val {original}} did not evaluate to a numeric vector of length {k}.")
       }
       
       R[i, ] <- row
       
     }, error = function(e) {
-      cli::cli_abort("Failed to parse constraint {.val {constraints[i]}}:\n{e$message}")
+      cli::cli_abort(c(
+        paste0("Failed to parse constraint {.val ", original, "}."),
+        "i" = "Make sure coefficient names exist and are written correctly.",
+        "x" = e$message
+      ))
     })
   }
   

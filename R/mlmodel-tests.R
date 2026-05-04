@@ -749,9 +749,14 @@ print.vuongtest.mlmodel <- function(x, digits = 4, ...)
 #' `mlmodel` object.
 #'
 #' @param object An object of class `"mlmodel"`.
-#' @param indices Integer vector. Positions of the coefficients to be tested.
-#' @param coef_names Character vector. Names of the coefficients to test.
-#' @param rest_matrix Numeric matrix. A q × k restriction matrix (advanced use).
+#' @param constraints Specification of the linear constraints to test. 
+#'   Can be one of the following:
+#'   * An **integer vector** with the positions (indices) of the coefficients 
+#'     to test (e.g. `2:5` or `c(1, 3, 7)`).
+#'   * A **character vector** with coefficient names or linear combinations 
+#'     on the left-hand side (e.g. `c("value::age", "value::educ + value::huswage")`).
+#'   * A **numeric matrix** containing the full restriction matrix `R` 
+#'     (advanced use).
 #' @param rhs Numeric vector. Value(s) the linear combination(s) should equal.
 #'   Default is 0.
 #' @param vcov Optional user-supplied variance-covariance matrix.
@@ -768,18 +773,27 @@ print.vuongtest.mlmodel <- function(x, digits = 4, ...)
 #'
 #' @details
 #' The Wald test evaluates linear restrictions of the form \eqn{R\beta = r}.
+#'
+#' The `constraints` argument specifies the left-hand side of the linear
+#' restrictions (without the equality sign). The right-hand side values are
+#' controlled separately with the `rhs` argument.
 #' 
-#' Three convenient interfaces are provided:
-#' 
-#' - `indices` or `coef_names`: Test individual coefficients (or groups of 
-#'   coefficients) against the value(s) in `rhs` (defaults to 0, which is 
-#'   useful for joint significance tests).
-#' - `rest_matrix` + `rhs`: Test general linear combinations of coefficients 
-#'   (advanced use).
+#' `rhs` can be:
+#' * A single number — all constraints are tested against this value (default is `0`).
+#' * A vector of the same length as the number of constraints — each constraint
+#'   is tested against its corresponding value.
 #'
 #' The test statistic follows a \eqn{\chi^2} distribution with degrees of 
 #' freedom equal to the number of restrictions under the null hypothesis.
 #'
+#' Internally, the test always computes a chi-squared statistic. However, when
+#' there is only **one restriction** (`df = 1`), the printed output shows the
+#' equivalent **z-statistic** (`z = \sqrt{\text{Chisq(1)}}`) instead. 
+#' 
+#' This is because a \eqn{\chi^2(1)} random variable is the square of a standard
+#' normal (\eqn{z}) random variable. Reporting the z-statistic in this case is
+#' conventional, but both distributions are equivalent in that case.
+#' 
 #' @return An object of class `"waldtest.mlmodel"`.
 #'
 #' @seealso [lrtest()], [IMtest()], [confint.mlmodel()]
@@ -792,21 +806,20 @@ print.vuongtest.mlmodel <- function(x, digits = 4, ...)
 #' fit <- ml_lm(incthou ~ age + I(age^2) + huswage + educ + unem, 
 #'              data = mroz)
 #' 
-#' # 1. Test single coefficients using indices (default OIM)
-#' waldtest(fit, indices = c(2, 5))
+#' # 1. Joint sginificance using positions (OIM variance)
+#' waldtest(fit, constraints = c(2, 5))
 #' 
-#' # 2. Test using coefficient names and robust standard errors
-#' waldtest(fit, coef_names = c("value::educ", "value::unem"), 
-#'          vcov.type = "robust")
+#' # 2. Different magnitudes for different coefficients using names (robust variance)
+#' waldtest(fit, constraints = c("value::educ", "value::unem"),
+#'          rhs = c(1,0), vcov.type = "robust")
 #'          
-#' # 3. Test explicit constraints
-#' waldtest(fit, coef_names = "value::educ", rhs = 1, vcov.type = "robust")
+#' # 3. Linear combination: educ + huswage = 3
+#' waldtest(fit, constraints = "value::educ + value::huswage", rhs = 3,
+#'          vcov.type = "robust")
 #' 
-#' # 4. Test a linear combination of two coefficients using a restriction matrix
-#' # H0: educ + huswage = 3
+#' # 4. Same test using the restriction matrix.
 #' R <- matrix(c(0, 0, 0, 1, 1, 0, 0), nrow = 1)
-#' waldtest(fit, rest_matrix = R, rhs = 3, vcov.type = "boot", 
-#'          repetitions = 100, seed = 123)
+#' waldtest(fit, constraints = R, rhs = 3, vcov.type = "robust")
 #' 
 #' @author Alfonso Sanchez-Penalver
 #'
@@ -820,11 +833,12 @@ waldtest <- function(object,
 #' @rdname waldtest
 #' @export
 waldtest.mlmodel <- function(object,
-                             indices = NULL,
-                             coef_names = NULL,
-                             rest_matrix = NULL,
+                             # indices = NULL,
+                             # coef_names = NULL,
+                             # rest_matrix = NULL,
+                             constraints = NULL,
                              rhs = 0,
-                             vcov = NULL,        # User-supplied variance matrix
+                             vcov = NULL,
                              vcov.type = "oim",
                              cl_var = NULL,
                              repetitions = 999,
@@ -835,15 +849,21 @@ waldtest.mlmodel <- function(object,
   if (!inherits(object, "mlmodel"))
     cli::cli_abort("`object` must be a model of class 'mlmodel'.",
                    call = NULL)
-
-  # Check that exactly one way of specifying restrictions is used
-  inputs <- sum(!is.null(indices), !is.null(coef_names), !is.null(rest_matrix))
-  if (inputs == 0)
-    cli::cli_abort("You must provide one of: `indices`, `coef_names`, or `rest_matrix`.",
+  if (is.null(constraints))
+    cli::cli_abort("`constraints` cannot be null.",
                    call = NULL)
-  if (inputs > 1)
-    cli::cli_abort("You can only specify one of `indices`, `coef_names`, or `rest_matrix`.",
-                   call = NULL)
+  
+  if (!(is.matrix(constraints) || is.numeric(constraints) || is.character(constraints))) {
+    cli::cli_abort(c(
+      "Invalid {.arg constraints} argument.",
+      "i" = "It must be one of:",
+      "*" = "Character vector (coefficient names or linear combinations);",
+      "*" = "Integer vector (indices of coefficients);",
+      "*" = "Matrix (full restriction matrix).",
+      " " = " ",
+      "x" = "You supplied an object of class {.cls {class(constraints)[1]}}."
+    ))
+  }
 
   b <- coef(object)
   k <- length(b)
@@ -875,31 +895,62 @@ waldtest.mlmodel <- function(object,
   .fractional_response_inference_alert(object, V)
   
   # Build restriction matrix R
-  if (!is.null(indices))
+  if (is.matrix(constraints))
   {
-    if (any(indices < 1 | indices > k))
-      cli::cli_abort("`indices` must be between 1 and {k}.",
-                     call = NULL)
-    R <- diag(k)[indices, , drop = FALSE]
-
+    # Restriction matrix.
+    if (ncol(constraints) != k) {
+      cli::cli_abort(c(
+        "Invalid restriction matrix.",
+        "x" = "It has {.val {ncol(constraints)}} columns.",
+        "i" = "It must have exactly {.val {k}} columns (one per parameter)."
+      ))
+    }
+    
+    if (nrow(constraints) > k - 1) {
+      cli::cli_abort(c(
+        "Too many restrictions.",
+        "x" = "You provided {.val {nrow(constraints)}} restrictions.",
+        "i" = "The maximum allowed is {.val {k-1}} (otherwise the restriction matrix is singular)."
+      ))
+    }
+    
+    R <- constraints
   }
-  else if (!is.null(coef_names))
+  else if (is.character(constraints))
   {
-    if (!all(coef_names %in% names(b)))
-      cli::cli_abort("Some coefficient names were not found.",
-                     call = NULL)
-    idx <- match(coef_names, names(b))
-    R <- diag(k)[idx, , drop = FALSE]
-
+    if (length(constraints) > k - 1) {
+      cli::cli_abort(c(
+        "Too many restrictions.",
+        "x" = "You provided {.val {nrow(constraints)}} restrictions.",
+        "i" = "The maximum allowed is {.val {k-1}} (otherwise the restriction matrix is singular)."
+      ))
+    }
+    
+    R <- .make_restriction_matrix(object, constraints)
   }
   else
-  {  # rest_matrix
-    if (ncol(rest_matrix) != k)
-      cli::cli_abort("`rest_matrix` must have {k} columns (one per parameter).",
-                     call = NULL)
-    if (nrow(rest_matrix) >= k)
-      cli::cli_abort("Number of restrictions cannot be greater than or equal to number of parameters.")
-    R <- rest_matrix
+  {
+    # Indices
+    if (!all(floor(constraints) == constraints)) {
+      cli::cli_abort("Coefficient indices must be integers.", call = NULL)
+    }
+    
+    if (any(constraints < 1 | constraints > k)) {
+      cli::cli_abort(c(
+        "Coefficient indices out of range.",
+        "i" = "They must be between {.val 1} and {.val {k}}."
+      ))
+    }
+    
+    if (length(constraints) > k - 1) {
+      cli::cli_abort(c(
+        "Too many restrictions.",
+        "x" = "You provided {.val {length(constraints)}} constraints.",
+        "i" = "The maximum allowed is {.val {k-1}}."
+      ))
+    }
+    
+    R <- diag(k)[constraints, , drop = FALSE]
   }
 
   # Handle rhs
@@ -1016,10 +1067,21 @@ print.waldtest.mlmodel <- function(x, digits = 3, ...)
     cat("Wald statistic could not be computed (singular matrix).\n")
     cat("See warning message for details.\n")
   } else {
-    p_str <- if (x$pval < 1e-8) "< 1e-8" else format.pval(x$pval, digits = 4)
-
-    cat(sprintf("Chisq(%d) = %.3f    Pr(>Chisq) = %s\n",
-                x$df, x$waldstat, p_str))
+    
+    chisq <- x$waldstat
+    df    <- x$df
+    pval  <- x$pval
+    
+    if(df == 1)
+    {
+      # Single restriction z-statistic
+      zstat <- sqrt(chisq)
+      cat(sprintf("z = %.3f    Pr(>|z|) = %s\n",
+                  zstat, format.pval(pval, digits = 4, eps = 1e-8)))
+    }
+    else
+      cat(sprintf("Chisq(%d) = %.3f    Pr(>Chisq) = %s\n",
+                  df, chisq, format.pval(pval, digits = 4, eps = 1e-8)))
   }
 
   cat("--------------------------------------------\n\n")

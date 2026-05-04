@@ -5,17 +5,24 @@
 \alias{BIC.summary.mlmodel}
 \title{Extract BIC from mlmodel objects}
 \usage{
-\method{BIC}{mlmodel}(object, ...)
+\method{BIC}{mlmodel}(object, scaled = FALSE, ...)
 
-\method{BIC}{summary.mlmodel}(object, ...)
+\method{BIC}{summary.mlmodel}(object, scaled = FALSE, ...)
 }
 \arguments{
 \item{object}{An object of class \code{"mlmodel"} or \code{"summary.mlmodel"}.}
 
+\item{scaled}{Logical that indicates whether you want the scaled (to sample
+size) BIC, or not (weighted). It defaults to FALSE. Only relevant if the
+estimation was weighted. In unweighted estimations the BIC is the same if
+`weighted' or not.}
+
 \item{...}{Further arguments passed to methods.}
 }
 \value{
-A numeric value with the BIC.
+A numeric value with the BIC. It has the logical attribute 'scaled',
+that will be \code{TRUE} if the estimation was weighted and \code{scaled = TRUE}. If
+estimation was unweighted or \code{scaled = FALSE}, the attribute will be \code{FALSE}.
 }
 \description{
 Extract BIC from mlmodel objects
