@@ -272,6 +272,8 @@ fitted.values.mlmodel <- fitted.mlmodel
 #' 
 #' @param x An `mlmodel` object
 #' @param ... Currently not implemented
+#' 
+#' @returns The formula of the value equation (object of class `formula`).
 #'
 #' @export
 formula.mlmodel <- function(x, ...) {
@@ -467,11 +469,14 @@ nobs.mlmodel <- function(object, ...) {
 #'
 #' @name null-default
 #' @usage x \%||\% y
-#' @export
-#' @importFrom rlang %||%
+#' 
+#' @returns 
+#' The value of `x` if it is not `NULL`, otherwise the value of `y`.
+#' 
 #' @examples
 #' NULL %||% "fallback"
 #' list(a = 1) %||% list(b = 2)
+#' @export
 `%||%` <- rlang::`%||%`
 
 ## PREDICT GENERIC =============================================================
@@ -688,6 +693,9 @@ se.mlmodel <- function(object,
 #' confusion when the same variable(s) appear(s) in both the value and scale
 #' equations.
 #' 
+#' @returns An object of class `summary.mlmodel` and any other class that extends
+#'    it.
+#' 
 #' @examples
 #' 
 #' data(mroz)
@@ -764,6 +772,9 @@ summary.mlmodel <- function(object,
 #' 
 #' We therefore strongly recommend using the native `vcov()` methods provided
 #' by **mlmodels** for bootstrap and jackknife variance-covariance matrices.
+#' 
+#' @returns And updated `mlmodel` object (or the class of the estimator that
+#'    extends it) with the modified formula/call and refitted parameters.
 #'
 #' @method update mlmodel
 #' @export

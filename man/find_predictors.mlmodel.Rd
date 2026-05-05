@@ -11,6 +11,9 @@
 
 \item{...}{Further arguments passed to methods}
 }
+\value{
+A character vector with the names of the predictor variables.
+}
 \description{
 Extract the predictors used in the model (for insight/marginaleffects compatibility)
 }

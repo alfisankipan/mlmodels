@@ -1,7 +1,10 @@
 #' @importFrom cli cli_abort cli_warn cli_alert_danger cli_alert_info cli_alert_success
 #' @importFrom hardhat mold forge default_formula_blueprint
 #' @importFrom maxLik maxLik
-#' @importFrom rlang arg_match enquo eval_tidy
+#' @importFrom rlang arg_match
+#' @importFrom rlang enquo
+#' @importFrom rlang eval_tidy
+#' @importFrom rlang %||%
 #' @importFrom tibble tibble
 #' @importFrom utils capture.output 
 #'

@@ -10,6 +10,9 @@ x \%||\% y
 \arguments{
 \item{x, y}{Any R objects.}
 }
+\value{
+The value of \code{x} if it is not \code{NULL}, otherwise the value of \code{y}.
+}
 \description{
 Provides a convenient infix operator for replacing \code{NULL} values.
 \verb{x \\\%||\\\% y} is equivalent to \code{if (is.null(x)) y else x}.

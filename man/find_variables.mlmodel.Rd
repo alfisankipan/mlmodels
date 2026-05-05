@@ -11,6 +11,9 @@ find_variables.mlmodel(x, ...)
 
 \item{...}{Further arguments passed to methods}
 }
+\value{
+A list with components \code{response} (character) and \code{conditional} (character vector).
+}
 \description{
 Extract the variables used in the model (for insight/marginaleffects compatibility)
 }

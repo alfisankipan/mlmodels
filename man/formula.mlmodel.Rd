@@ -11,6 +11,9 @@
 
 \item{...}{Currently not implemented}
 }
+\value{
+The formula of the value equation (object of class \code{formula}).
+}
 \description{
 Extract value formula from mlmodel objects
 }
