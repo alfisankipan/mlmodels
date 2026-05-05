@@ -138,6 +138,10 @@ bootstrapping or jackknifing? Default is \code{FALSE} (silent).}
 
 \item{...}{Further arguments passed to methods.}
 }
+\value{
+An object of class \code{summary.mlmodel} and any other class that extends
+it.
+}
 \description{
 Summary for mlmodel objects
 }

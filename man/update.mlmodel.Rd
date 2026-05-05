@@ -46,6 +46,10 @@ to resample (\code{sandwich} uses it for that).}
 and the new fitted model is returned. If \code{FALSE}, the updated call
 (as a language object) is returned without evaluation.}
 }
+\value{
+And updated \code{mlmodel} object (or the class of the estimator that
+extends it) with the modified formula/call and refitted parameters.
+}
 \description{
 Update an mlmodel Call
 }

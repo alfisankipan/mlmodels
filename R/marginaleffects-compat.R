@@ -73,7 +73,7 @@ set_coef.mlmodel <- function(model, coefs, ...)
 #'
 #' @param x An object of class `"mlmodel"`
 #' @param ... Further arguments (currently ignored)
-#' @return The original data frame used when fitting the model
+#' @returns The original data frame used when fitting the model
 #' @importFrom insight get_data
 #' @export
 get_data.mlmodel <- function(x, ...) {
@@ -96,6 +96,8 @@ get_data.mlmodel <- function(x, ...) {
 #'
 #' @param x An object of class `"mlmodel"`
 #' @param ... Further arguments passed to methods
+#' 
+#' @returns A character vector with the names of the predictor variables.
 #' 
 #' @importFrom insight find_predictors
 #' @export
@@ -135,6 +137,8 @@ find_predictors.mlmodel <- function(x, ...)
 #'
 #' @param x An object of class `"mlmodel"`
 #' @param ... Further arguments passed to methods
+#' 
+#' @returns A list with components `response` (character) and `conditional` (character vector).
 #' 
 #' @importFrom insight find_variables
 #' @export

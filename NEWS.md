@@ -1,3 +1,8 @@
+# mlmodels 0.1.2
+
+* Added return values in the documentation of exported functions that were missing them.
+* Added references to implemented methods in the description.
+
 # mlmodels 0.1.1
 
 * Fixed weighted log-likelihood calculation in `ml_logit()` (both homoskedastic and heteroskedastic versions). 
