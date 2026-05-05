@@ -211,9 +211,40 @@ waldtest(fit_gam_ur, constraints = R, rhs = c(.05, 0))
 
 ```
 
+If you prefer using the names of the coefficients instead of their positions, you can always assign the names of the coefficients to the rows of the identity matrix.
+
+```{r waldtest-threetwo}
+# Form identity matrix (1 row per coefficient)
+ident <- diag(length(coef(fit_gam_ur)))
+
+# Assign the row names
+rownames(ident) <- names(coef(fit_gam_ur))
+
+# Test nested models (kidslt6 and kidsge6)
+R <- ident[c("value::kidslt6", "value::kidsge6"), ]
+waldtest(fit_gam_ur, constraints = R)
+
+# age = .05 and I(age^2) = 0
+R <- ident[c("value::age", "value::I(age^2)"), ]
+waldtest(fit_gam_ur, constraints = R, rhs = c(.05, 0))
+
+# age and educ both equal .05
+R <- ident[c("value::age", "value::educ"), ]
+waldtest(fit_gam_ur, constraints = R, rhs = .05)
+
+# age - educ = 0
+R <- rbind(ident["value::age", ] - ident["value::educ", ])
+waldtest(fit_gam_ur, constraints = R)
+
+# age = 0.05 and age - educ = 0
+R <- rbind(ident["value::age", ],
+           ident["value::age", ] - ident["value::educ", ])
+waldtest(fit_gam_ur, constraints = R, rhs = c(.05, 0))
+```
+
 What we've just illustrated is how the `waldtest()` function works internally. When you pass either a vector of coefficient positions or a vector of expressions  to the `constraints` argument, the function converts them into a restriction matrix `R`.
 
-We have made the parser as robust as possible to handle typical coefficient names (including interactions, `I()` terms, etc.). However, if you ever encounter a parsing error with a complex name, you can always fall back to manually constructing the restriction matrix using the identity matrix, as shown above. This approach will always work and gives you complete control.
+We have made the parser as robust as possible to handle typical coefficient names (including interactions, `I()` terms, etc.). However, if you ever encounter a parsing error with a complex name, you can always fall back to manually constructing the restriction matrix using the identity matrix, as shown above. This approach will always work and gives you complete control. Whether you prefer working with the names or the positions of the coefficients, you can make it work.
 
 #### Significance of an Equation
 
@@ -230,7 +261,7 @@ You can see that the Chi-squared and the <em>p</em>-value match those of the ove
 
 This last example illustrates the convenience of having the prefixes in the names of the coefficient, so you can extract them by equation.
 
-Finally, we just show how to do the same test with robust standard errors, to illustrate that you can do the Wald test with any asymptotically correct variance for your models:
+Finally, we just show how to do the same test with robust standard errors, to illustrate that you can do the Wald test with any of the variance types that `vcov.mlmodel()` allows:
 ```{r waldtest-five}
 # robust (sandwich) variance
 waldtest(fit_gam_ur, constraints = idx, vcov.type = "robust")

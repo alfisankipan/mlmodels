@@ -1350,7 +1350,6 @@
 }
 
 # -- Create restriction matrix from linear constraints -------------------------
-# Create restriction matrix R from linear constraints
 #' @keywords internal
 .make_restriction_matrix <- function(object, constraints)
 {
@@ -1393,7 +1392,6 @@
       if (all(row == 0)) {
         cli::cli_abort(c(
           paste0("Constraint {.val ", orig, "} evaluates to a row of zeros."),
-          "i" = "This typically happens with non-linear expressions like `value::age * value::educ`.",
           "i" = "Only linear combinations of coefficients are supported."
         ))
       }
@@ -1403,8 +1401,7 @@
     }, error = function(e) {
       cli::cli_abort(c(
         paste0("Failed to parse constraint {.val ", orig, "}."),
-        "i" = "Supported formats: coefficient name or linear combination (e.g. `value::age + 2*value::educ`).",
-        "x" = e$message
+        "i" = "Make sure you are writing the name of the coefficiently exactly."
       ))
     })
   }
