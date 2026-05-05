@@ -2,6 +2,175 @@
 # mlmodels: Hypothesis testing functions (exported)
 # =============================================================================
 
+## CLARKE's TEST ---------------------------------------------------------------
+# -- Generic -------------------------------------------------------------------
+#' @export
+clarketest <- function(object_1, object_2, ...) UseMethod("clarketest")
+
+
+#' @rdname clarketest
+#' @export
+clarketest.mlmodel <- function(object_1, object_2,
+                               boot = FALSE,
+                               repetitions = 999,
+                               seed = NULL,
+                               ...)
+{
+  if (!inherits(object_1, "mlmodel") || !inherits(object_2, "mlmodel"))
+    cli::cli_abort("Both `object_1` and `object_2` must inherit from 'mlmodel'.")
+  
+  # -- 1. Check that models were estimated on compatible samples/weights -------
+  .compare_estimation_samples(object_1, object_2)
+  
+  # -- 3. Analytical Clarke Test ------------------------------------------------
+  # Scale weights so test statistic is valid
+  w1 <- object_1$model$weights %||% rep(1, nobs(object_1))
+  w2 <- object_2$model$weights %||% rep(1, nobs(object_2))
+  
+  w1_scaled <- w1 / sum(w1) * length(w1)
+  w2_scaled <- w2 / sum(w2) * length(w2)
+  
+  # Temporary objects with scaled weights
+  temp1 <- object_1
+  temp2 <- object_2
+  temp1$model$weights <- w1_scaled
+  temp2$model$weights <- w2_scaled
+  
+  # Penalty
+  k1 <- length(coef(object_1))
+  k2 <- length(coef(object_2))
+  n <- nobs(object_1) # Both have the same number of observations.
+  
+  # -- Raw per-observation log-likelihoods (scaled weights) -------------------
+  ll1_raw <- object_1$model$functions$loglikeObs(temp1)
+  ll2_raw <- object_2$model$functions$loglikeObs(temp2)
+  
+  # -- Initialize results structure -------------------------------------------
+  results <- list(
+    binomial   = setNames(vector("list", 3), c("none", "akaike", "schwarz")),
+    signedrank = setNames(vector("list", 3), c("none", "akaike", "schwarz"))
+  )
+  
+  penalties <- c("none", "akaike", "schwarz")
+  diff_list <- list(vector("list", 3), penalties)
+  
+  for(p in penalties)
+  {
+    pen1 <- switch(p,
+                   "none" = 0,
+                   "akaike" = k1 / n,
+                   "schwarz" = k1 * log(n) / (2 * n))
+    pen2 <- switch(p,
+                   "none" = 0,
+                   "akaike" = k2 / n,
+                   "schwarz" = k2 * log(n) / (2 * n))
+    
+    d <- (ll1_raw - pen1) - (ll2_raw - pen2)
+    diff_list[[p]] <- d
+    
+    # Remove exact zeros (standard in Clarke test)
+    d_nozero <- d[d != 0]
+    n_eff    <- length(d_nozero)
+    
+    # ====================== BINOMIAL / SIGN TEST ==========================
+    if (n_eff == 0) {
+      bin_stat <- NA_real_
+      bin_p    <- NA_real_
+    } else {
+      B <- sum(d_nozero > 0)
+      bin_test <- binom.test(B, n_eff, p = 0.5, alternative = "two.sided")
+      bin_stat <- B
+      bin_p    <- bin_test$p.value
+    }
+    
+    results$binomial[[p]] <- list(
+      teststat     = bin_stat,
+      p.value      = bin_p,
+      boot.p.value = NA_real_
+    )
+    
+    # ====================== SIGNED-RANK (WILCOXON) ========================
+    if (n_eff < 2) {
+      wilcox_stat <- NA_real_
+      wilcox_p    <- NA_real_
+    } else {
+      wilcox <- wilcox.test(d_nozero, 
+                            alternative = "two.sided",
+                            exact = (n_eff <= 50),
+                            correct = TRUE)
+      wilcox_stat <- wilcox$statistic
+      wilcox_p    <- wilcox$p.value
+    }
+    
+    results$signedrank[[p]] <- list(
+      teststat     = wilcox_stat,
+      p.value      = wilcox_p,
+      boot.p.value = NA_real_
+    )
+  }
+  
+  
+  # -- 4. Bootstrap Version (if requested) -------------------------------------
+  if (boot) {
+    if (is.null(seed)) seed <- sample.int(1e6, 1)
+    set.seed(seed)
+    
+    data_orig <- object_1$model$data
+    sample_idx <- object_1$model$sample
+    n_used <- sum(sample_idx)
+    used_data <- data_orig[sample_idx, , drop = FALSE]
+    w_used <- (object_1$model$weights %||% rep(1, nobs(object_1)))
+    
+    boot_stats <- numeric(repetitions)
+    n_success <- 0
+    
+    for (r in seq_len(repetitions)) {
+      idx <- sample.int(n_used, n_used, replace = TRUE)
+      d_boot <- used_data[idx, , drop = FALSE]
+      w_boot <- w_used[idx]
+      
+      # Scale weights for this bootstrap sample
+      w_boot <- w_boot / sum(w_boot) * length(w_boot)
+      
+      suppressMessages({
+        boot1 <- tryCatch(update(object_1, data = d_boot, weights = w_boot), error = function(e) NULL)
+        boot2 <- tryCatch(update(object_2, data = d_boot, weights = w_boot), error = function(e) NULL)
+      })
+      
+      if (is.null(boot1) || is.null(boot2) || 
+          !boot1$code %in% c(0L, 1L, 2L, 8L) || 
+          !boot2$code %in% c(0L, 1L, 2L, 8L)) {
+        boot_stats[r] <- NA_real_
+        next
+      }
+      
+      # Scaled log-likelihoods for this bootstrap sample
+      ll1b <- object_1$model$functions$loglikeObs(boot1)
+      ll2b <- object_2$model$functions$loglikeObs(boot2)
+      
+      diffb <- ll1b - ll2b
+      boot_stats[r] <- (sqrt(n_used) * mean(diffb)) / sd(diffb)
+      n_success <- n_success + 1
+    }
+    
+    boot_pval <- mean(boot_stats >= v_stat, na.rm = TRUE)
+    
+    res$boot <- list(
+      pval = boot_pval,
+      repetitions = list(total = repetitions, successful = n_success)
+    )
+  }
+  
+  class(res) <- "vuongtest.mlmodel"
+  res
+}
+
+
+
+
+
+
+
 ## LR TEST ---------------------------------------------------------------------
 #' Likelihood Ratio Test for Nested mlmodel Objects
 #'
