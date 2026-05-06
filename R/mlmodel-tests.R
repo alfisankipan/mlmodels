@@ -20,6 +20,7 @@
 #' * Analytical p-values and (if requested) bootstrap p-values.
 #' * Model information, number of observations, and bootstrap diagnostics.
 #' 
+#' @seealso [lrtest()], [waldtest()], [IMtest()] [vuongtest()]
 #' 
 #' @export
 clarketest <- function(object_1, object_2, ...) UseMethod("clarketest")
@@ -33,6 +34,51 @@ clarketest <- function(object_1, object_2, ...) UseMethod("clarketest")
 #'             bootstrapping. Only relevant if `boot = TRUE`. If none supplied
 #'             a random one will be generated.
 #' @param ... Further arguments passed to methods (currently not used).
+#'
+#' @examples
+#' 
+#' # Linear models example (lognormal vs gamma)
+#' data(mroz)
+#' mroz$incthou <- mroz$faminc / 1000
+#' 
+#' fit_lognormal <- ml_lm(log(incthou) ~ age + I(age^2) + huswage + educ + unem,
+#'                        data = mroz)
+#' 
+#' fit_gamma <- ml_gamma(incthou ~ age + I(age^2) + huswage + educ + unem,
+#'                       data = mroz)
+#' 
+#' 
+#' clarketest(fit_lognormal, fit_gamma)
+#' 
+#' # Count models example
+#' 
+#' fit_poi <- ml_poisson(docvis ~ private + medicaid + age + I(age^2) + educyr +
+#'                           actlim + totchr,
+#'                       data = docvis)
+#' 
+#' fit_nb1 <- ml_negbin(docvis ~ private + medicaid + age + I(age^2) + educyr +
+#'                           actlim + totchr,
+#'                       data = docvis,
+#'                       dispersion = "NB1")
+#' 
+#' fit_nb2 <- ml_negbin(docvis ~ private + medicaid + age + I(age^2) + educyr +
+#'                           actlim + totchr,
+#'                       data = docvis)
+#'                       
+#' # Poisson vs. NB1
+#' clarketest(fit_poi, fit_nb1)
+#' 
+#' # NB1 vs. NB2 (bootstrapped, low repetitions for speed)
+#' clarketest(fit_nb1, fit_nb2, boot = TRUE, repetitions = 10)
+#' 
+#' # Binary models example
+#' data(smoke)
+#' smoke$smokes <- smoke$cigs > 0
+#' 
+#' fit_logit <- ml_logit(smokes ~ cigpric + income + age, data = smoke)
+#' fit_probit <- ml_probit(smokes ~ cigpric + income + age, data = smoke)
+#' 
+#' clarketest(fit_logit, fit_probit)
 #' 
 #' @rdname clarketest
 #' @export
@@ -241,8 +287,10 @@ print.clarketest.mlmodel <- function(x, digits = 4, ...) {
       pval <- x$results[[v]][[p]]$p.value
       bootp <- x$results[[v]][[p]]$boot.p.value
       
+      tlab <- if(v == "binomial") "Binomial" else "Signed Rank"
+      
       cat(sprintf("%-12s %-10s %10.1f   %8.4f",
-                  tools::toTitleCase(v), tools::toTitleCase(p),
+                  tlab, tools::toTitleCase(p),
                   stat, pval))
       
       if (x$boot && !is.na(bootp)) {
@@ -297,28 +345,48 @@ print.clarketest.mlmodel <- function(x, digits = 4, ...) {
                 count$signedrank$analytical))
   }
   
-  # Overall verdict
-  cat("\nConclusion:\n")
-  if (count$signedrank$analytical >= 2) {
-    cat(sprintf("  Strong preference for %s (consistent across penalties)\n", winner))
-  } else if (count$signedrank$analytical == 1 || count$binomial$analytical >= 2) {
-    cat(sprintf("  Moderate preference for %s\n", winner))
+  # Total significant results across both variants
+  total_sig <- count$binomial$analytical + count$signedrank$analytical
+  
+  # How dominant is the signed-rank evidence?
+  wilc_share <- if (total_sig > 0) 
+    count$signedrank$analytical / total_sig 
+  else 0
+  
+  if (count$signedrank$analytical >= 2 || total_sig >= 4) {
+    strength <- "Strong"
+    basis    <- if (wilc_share > 0.6) "signed-rank test" else "both variants"
+  } else if (total_sig >= 3) {
+    strength <- "Moderate"
+    basis    <- if (wilc_share > 0.6) "signed-rank test" else "both variants"
+  } else if (total_sig > 1) {
+    strength <- "Weak"
+    basis    <- if (wilc_share > 0.5) "signed-rank test" else "sign test"
   } else {
-    cat("  Inconclusive: models perform very similarly\n")
+    strength <- "No"
+    basis    <- "either test"
   }
   
-  if(x$boot)
-  {
-    if (count$signedrank$boot == 0) {
-      cat("  Warning: Bootstrap results are not robust to sampling variation.\n")
-    }
-    else if (count$signedrank$boot <= 1) {
-      cat("  Note: Bootstrap support is weak (only 1 penalty significant).\n")
-    }
-    else
-      cat(" Bootstrap supports that results are robust to sample variation.\n")
-  }
+  # Overall verdict
+  cat("\nConclusion:",
+      sprintf("  %s analytical preference for %s, based on %s.", 
+              strength, winner, basis),
+      sep = "\n")
   
+  if (x$boot) {
+    b_sig_total   <- count$signedrank$boot + count$binomial$boot
+    b_sig_signed  <- count$signedrank$boot
+    
+    if (b_sig_signed == 0 && b_sig_total < 2) {
+      cat("  Warning: Bootstrap shows results are not robust to sampling variation.\n")
+    } else if (b_sig_signed <= 1) {
+      cat("  Note: Bootstrap support is very weak.\n")
+    } else if (b_sig_total <= 3) {
+      cat("  Note: Bootstrap support is weak.\n")
+    } else {
+      cat("  Bootstrap results are reasonably robust to sampling variation.\n")
+    }
+  }
   
   invisible(x)
 }
@@ -849,7 +917,7 @@ print.IMtest.mlmodel <- function(x, digits = 4, ...)
 #' Hypotheses.' *Econometrica*, 57(2), 307-333. 
 #' \doi{10.2307/1912557}
 #'
-#' @seealso [lrtest()], [waldtest()], [IMtest()]
+#' @seealso [lrtest()], [waldtest()], [IMtest()] [clarketest()]
 #'
 #' @examples
 #' 

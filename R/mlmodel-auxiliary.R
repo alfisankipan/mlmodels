@@ -1312,6 +1312,7 @@
   
   # Remove exact zeros (standard Clarke practice)
   d_nozero <- d[d != 0]
+  n <- length(d)
   n_eff    <- length(d_nozero)
   
   out <- list(
@@ -1326,9 +1327,9 @@
   )
   
   # ====================== BINOMIAL / SIGN TEST ==========================
-  if (n_eff > 0) {
-    B <- sum(d_nozero > 0)
-    bin_test <- binom.test(B, n_eff, p = 0.5, alternative = "two.sided")
+  if (n > 0) {
+    B <- sum(d > 0)
+    bin_test <- binom.test(B, n, p = 0.5, alternative = "two.sided")
     out$binomial$teststat <- B
     out$binomial$p.value  <- bin_test$p.value
   }

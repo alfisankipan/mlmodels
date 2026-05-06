@@ -46,3 +46,52 @@ maximum likelihood models. The test is based on the per-observation
 log-likelihood differences and is more robust to heavy tails than Vuong's
 test.
 }
+\examples{
+
+# Linear models example (lognormal vs gamma)
+data(mroz)
+mroz$incthou <- mroz$faminc / 1000
+
+fit_lognormal <- ml_lm(log(incthou) ~ age + I(age^2) + huswage + educ + unem,
+                       data = mroz)
+
+fit_gamma <- ml_gamma(incthou ~ age + I(age^2) + huswage + educ + unem,
+                      data = mroz)
+
+
+clarketest(fit_lognormal, fit_gamma)
+
+# Count models example
+
+fit_poi <- ml_poisson(docvis ~ private + medicaid + age + I(age^2) + educyr +
+                          actlim + totchr,
+                      data = docvis)
+
+fit_nb1 <- ml_negbin(docvis ~ private + medicaid + age + I(age^2) + educyr +
+                          actlim + totchr,
+                      data = docvis,
+                      dispersion = "NB1")
+
+fit_nb2 <- ml_negbin(docvis ~ private + medicaid + age + I(age^2) + educyr +
+                          actlim + totchr,
+                      data = docvis)
+                      
+# Poisson vs. NB1
+clarketest(fit_poi, fit_nb1)
+
+# NB1 vs. NB2 (bootstrapped, low repetitions for speed)
+clarketest(fit_nb1, fit_nb2, boot = TRUE, repetitions = 10)
+
+# Binary models example
+data(smoke)
+smoke$smokes <- smoke$cigs > 0
+
+fit_logit <- ml_logit(smokes ~ cigpric + income + age, data = smoke)
+fit_probit <- ml_probit(smokes ~ cigpric + income + age, data = smoke)
+
+clarketest(fit_logit, fit_probit)
+
+}
+\seealso{
+\code{\link[=lrtest]{lrtest()}}, \code{\link[=waldtest]{waldtest()}}, \code{\link[=IMtest]{IMtest()}} \code{\link[=vuongtest]{vuongtest()}}
+}

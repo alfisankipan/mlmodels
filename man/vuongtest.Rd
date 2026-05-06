@@ -104,5 +104,5 @@ Hypotheses.' \emph{Econometrica}, 57(2), 307-333.
 \doi{10.2307/1912557}
 }
 \seealso{
-\code{\link[=lrtest]{lrtest()}}, \code{\link[=waldtest]{waldtest()}}, \code{\link[=IMtest]{IMtest()}}
+\code{\link[=lrtest]{lrtest()}}, \code{\link[=waldtest]{waldtest()}}, \code{\link[=IMtest]{IMtest()}} \code{\link[=clarketest]{clarketest()}}
 }
