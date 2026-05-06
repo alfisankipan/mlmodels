@@ -7,6 +7,7 @@
 #'
 #' @importFrom stats AIC
 #' @importFrom stats BIC
+#' @importFrom stats binom.test
 #' @importFrom stats coef
 #' @importFrom stats complete.cases
 #' @importFrom stats cor
@@ -40,4 +41,5 @@
 #' @importFrom stats update.formula
 #' @importFrom stats var
 #' @importFrom stats vcov
+#' @importFrom stats wilcox.test
 NULL

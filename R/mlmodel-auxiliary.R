@@ -1305,6 +1305,47 @@
 }
 
 ## TEST HELPERS ================================================================
+# -- Clarke Stats --------------------------------------------------------------
+# Computes the test stat and p-value for a given difference vector for the Clarke
+# test.
+.clarke_stats <- function(d) {
+  
+  # Remove exact zeros (standard Clarke practice)
+  d_nozero <- d[d != 0]
+  n_eff    <- length(d_nozero)
+  
+  out <- list(
+    binomial = list(
+      teststat     = NA_real_,
+      p.value      = NA_real_
+    ),
+    signedrank = list(
+      teststat     = NA_real_,
+      p.value      = NA_real_
+    )
+  )
+  
+  # ====================== BINOMIAL / SIGN TEST ==========================
+  if (n_eff > 0) {
+    B <- sum(d_nozero > 0)
+    bin_test <- binom.test(B, n_eff, p = 0.5, alternative = "two.sided")
+    out$binomial$teststat <- B
+    out$binomial$p.value  <- bin_test$p.value
+  }
+  
+  # ====================== SIGNED-RANK (WILCOXON) ========================
+  if (n_eff >= 2) {
+    wilcox <- wilcox.test(d_nozero, 
+                          alternative = "two.sided",
+                          exact = (n_eff <= 50),
+                          correct = TRUE)
+    out$signedrank$teststat <- wilcox$statistic
+    out$signedrank$p.value  <- wilcox$p.value
+  }
+  
+  out
+}
+
 # -- Matching Datsets and/or Samples -------------------------------------------
 # Checks whether the samples used in two models are compatible.
 #

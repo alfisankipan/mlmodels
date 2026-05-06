@@ -4,10 +4,36 @@
 
 ## CLARKE's TEST ---------------------------------------------------------------
 # -- Generic -------------------------------------------------------------------
+#' Clarke test for non-nested model comparison
+#' 
+#' @description
+#' Performs a distribution-free (Clarke) test for comparing two non-nested
+#' maximum likelihood models. The test is based on the per-observation
+#' log-likelihood differences and is more robust to heavy tails than Vuong's
+#' test.
+#' 
+#' @returns
+#' An object of class `"clarketest"` containing:
+#' * `results`: A nested list with test statistics and p-values for both
+#'   variants (`binomial` and `signedrank`) and all three penalties
+#'   (`none`, `akaike`, `schwarz`).
+#' * Analytical p-values and (if requested) bootstrap p-values.
+#' * Model information, number of observations, and bootstrap diagnostics.
+#' 
+#' 
 #' @export
 clarketest <- function(object_1, object_2, ...) UseMethod("clarketest")
 
-
+# -- mlmodel -------------------------------------------------------------------
+#' @param object_1,object_2 Estimated objects of class 'mlmodel'
+#' @param boot Should bootstrapped p-values be calculated? Defaults to FALSE.
+#' @param repetitions Number of iterations for the bootstrap method. Defaults to
+#'                    999. Only relevant if `boot = TRUE`.
+#' @param seed Integer with a seed to use for the random sampling for the
+#'             bootstrapping. Only relevant if `boot = TRUE`. If none supplied
+#'             a random one will be generated.
+#' @param ... Further arguments passed to methods (currently not used).
+#' 
 #' @rdname clarketest
 #' @export
 clarketest.mlmodel <- function(object_1, object_2,
@@ -46,13 +72,13 @@ clarketest.mlmodel <- function(object_1, object_2,
   ll2_raw <- object_2$model$functions$loglikeObs(temp2)
   
   # -- Initialize results structure -------------------------------------------
+  penalties <- c("none", "akaike", "schwarz")
   results <- list(
-    binomial   = setNames(vector("list", 3), c("none", "akaike", "schwarz")),
-    signedrank = setNames(vector("list", 3), c("none", "akaike", "schwarz"))
+    binomial   = setNames(vector("list", 3), penalties),
+    signedrank = setNames(vector("list", 3), penalties)
   )
   
-  penalties <- c("none", "akaike", "schwarz")
-  diff_list <- list(vector("list", 3), penalties)
+  diff_list <- setNames(vector("list", 3), penalties)
   
   for(p in penalties)
   {
@@ -66,49 +92,14 @@ clarketest.mlmodel <- function(object_1, object_2,
                    "schwarz" = k2 * log(n) / (2 * n))
     
     d <- (ll1_raw - pen1) - (ll2_raw - pen2)
+    d <- as.numeric(d)
     diff_list[[p]] <- d
     
-    # Remove exact zeros (standard in Clarke test)
-    d_nozero <- d[d != 0]
-    n_eff    <- length(d_nozero)
+    stats <- .clarke_stats(d)
     
-    # ====================== BINOMIAL / SIGN TEST ==========================
-    if (n_eff == 0) {
-      bin_stat <- NA_real_
-      bin_p    <- NA_real_
-    } else {
-      B <- sum(d_nozero > 0)
-      bin_test <- binom.test(B, n_eff, p = 0.5, alternative = "two.sided")
-      bin_stat <- B
-      bin_p    <- bin_test$p.value
-    }
-    
-    results$binomial[[p]] <- list(
-      teststat     = bin_stat,
-      p.value      = bin_p,
-      boot.p.value = NA_real_
-    )
-    
-    # ====================== SIGNED-RANK (WILCOXON) ========================
-    if (n_eff < 2) {
-      wilcox_stat <- NA_real_
-      wilcox_p    <- NA_real_
-    } else {
-      wilcox <- wilcox.test(d_nozero, 
-                            alternative = "two.sided",
-                            exact = (n_eff <= 50),
-                            correct = TRUE)
-      wilcox_stat <- wilcox$statistic
-      wilcox_p    <- wilcox$p.value
-    }
-    
-    results$signedrank[[p]] <- list(
-      teststat     = wilcox_stat,
-      p.value      = wilcox_p,
-      boot.p.value = NA_real_
-    )
+    results$binomial[[p]] <- stats$binomial
+    results$signedrank[[p]] <- stats$signedrank
   }
-  
   
   # -- 4. Bootstrap Version (if requested) -------------------------------------
   if (boot) {
@@ -119,9 +110,20 @@ clarketest.mlmodel <- function(object_1, object_2,
     sample_idx <- object_1$model$sample
     n_used <- sum(sample_idx)
     used_data <- data_orig[sample_idx, , drop = FALSE]
-    w_used <- (object_1$model$weights %||% rep(1, nobs(object_1)))
+    w_used <- object_1$model$weights %||% rep(1, nobs(object_1))
     
-    boot_stats <- numeric(repetitions)
+    # penalties was defined before for the anlytical.
+    boot_stats <- list(
+      binomial   = setNames(vector("list", 3), penalties),
+      signedrank = setNames(vector("list", 3), penalties)
+    )
+    
+    for(p in penalties)
+    {
+      boot_stats$binomial[[p]] <- character(repetitions)
+      boot_stats$signedrank[[p]] <- character(repetitions)
+    }
+    
     n_success <- 0
     
     for (r in seq_len(repetitions)) {
@@ -140,7 +142,6 @@ clarketest.mlmodel <- function(object_1, object_2,
       if (is.null(boot1) || is.null(boot2) || 
           !boot1$code %in% c(0L, 1L, 2L, 8L) || 
           !boot2$code %in% c(0L, 1L, 2L, 8L)) {
-        boot_stats[r] <- NA_real_
         next
       }
       
@@ -149,23 +150,178 @@ clarketest.mlmodel <- function(object_1, object_2,
       ll2b <- object_2$model$functions$loglikeObs(boot2)
       
       diffb <- ll1b - ll2b
-      boot_stats[r] <- (sqrt(n_used) * mean(diffb)) / sd(diffb)
+      for (p in penalties) {
+        
+        pen1 <- switch(p,
+                       "none"    = 0,
+                       "akaike"  = k1 / n,
+                       "schwarz" = k1 * log(n) / (2 * n)
+        )
+        pen2 <- switch(p,
+                       "none"    = 0,
+                       "akaike"  = k2 / n,
+                       "schwarz" = k2 * log(n) / (2 * n)
+        )
+        
+        d_boot <- (ll1b - pen1) - (ll2b - pen2)
+        
+        stats_boot <- .clarke_stats(d_boot)
+        
+        boot_stats$binomial[[p]][r]   <- stats_boot$binomial$teststat
+        boot_stats$signedrank[[p]][r] <- stats_boot$signedrank$teststat
+      }
+    
       n_success <- n_success + 1
     }
     
-    boot_pval <- mean(boot_stats >= v_stat, na.rm = TRUE)
-    
-    res$boot <- list(
-      pval = boot_pval,
-      repetitions = list(total = repetitions, successful = n_success)
-    )
+    # ------------------- Compute bootstrap p-values -------------------------
+    for (p in penalties) {
+      # Binomial variant
+      obs_B <- results$binomial[[p]]$teststat
+      boot_B <- boot_stats$binomial[[p]]
+      results$binomial[[p]]$boot.p.value <- mean(boot_B >= obs_B, na.rm = TRUE)
+      
+      # Signed-rank variant
+      obs_W <- results$signedrank[[p]]$teststat
+      boot_W <- boot_stats$signedrank[[p]]
+      results$signedrank[[p]]$boot.p.value <- mean(boot_W >= obs_W, na.rm = TRUE)
+    }
   }
   
-  class(res) <- "vuongtest.mlmodel"
+  # -- Construct return object ------------------------------------------------
+  res <- list(
+    call        = match.call(),
+    n           = n,
+    k1          = k1,
+    k2          = k2,
+    models      = c(Model1 = object_1$model$description,
+                    Model2 = object_2$model$description),
+    results     = results,
+    # Extra info for bootstrap
+    boot        = boot,
+    repetitions = if (boot) repetitions else NULL,
+    n_success   = if (boot) n_success else NULL,
+    seed        = if (boot) seed else NULL,
+    diff        = diff_list
+  )
+  
+  class(res) <- "clarketest.mlmodel"
+  
   res
 }
 
-
+# -- Print mlmodel -------------------------------------------------------------
+#' @export
+print.clarketest.mlmodel <- function(x, digits = 4, ...) {
+  
+  cat("Clarke Test for Non-Nested Models\n")
+  cat(strrep("-", 60 + (x$boot * 15)), "\n")
+  
+  cat(sprintf("Model 1: %s\n", x$models["Model1"]))
+  cat(sprintf("Model 2: %s\n", x$models["Model2"]))
+  cat(strrep("-", 60 + (x$boot * 15)), "\n")
+  cat(sprintf("  Observations: %d    Parameters: %d vs %d\n", 
+              x$n, x$k1, x$k2))
+  
+  if (x$boot) {
+    cat(sprintf("  Bootstrap of %d repetitions (%d successful)\n", 
+                x$repetitions, x$n_success))
+  }
+  cat("\n")
+  
+  # Table organized by Variant -> Penalties
+  cat("Variant      Penalty      Statistic     p-value")
+  if (x$boot) cat("     boot p-value")
+  cat("\n")
+  cat(strrep("-", 60 + (x$boot * 15)), "\n")
+  
+  for (v in c("binomial", "signedrank")) {
+    for (p in c("none", "akaike", "schwarz")) {
+      stat <- x$results[[v]][[p]]$teststat
+      pval <- x$results[[v]][[p]]$p.value
+      bootp <- x$results[[v]][[p]]$boot.p.value
+      
+      cat(sprintf("%-12s %-10s %10.1f   %8.4f",
+                  tools::toTitleCase(v), tools::toTitleCase(p),
+                  stat, pval))
+      
+      if (x$boot && !is.na(bootp)) {
+        cat(sprintf("     %8.4f", bootp))
+      }
+      cat("\n")
+    }
+    if(v == "binomial") cat("\n")  # space between variants
+  }
+  cat("---\n\n")
+  
+  # --- Conclusion ---------------------------------------------------------
+  
+  count <- list(
+    binomial   = list(analytical = 0L, boot = 0L),
+    signedrank = list(analytical = 0L, boot = 0L)
+  )
+  
+  for (p in c("none", "akaike", "schwarz")) {
+    # Analytical
+    if (x$results$binomial[[p]]$p.value < 0.05)
+      count$binomial$analytical <- count$binomial$analytical + 1
+    if (x$results$signedrank[[p]]$p.value < 0.05)
+      count$signedrank$analytical <- count$signedrank$analytical + 1
+    
+    # Bootstrap
+    if (x$boot) {
+      if (x$results$binomial[[p]]$boot.p.value < 0.05)
+        count$binomial$boot <- count$binomial$boot + 1
+      if (x$results$signedrank[[p]]$boot.p.value < 0.05)
+        count$signedrank$boot <- count$signedrank$boot + 1
+    }
+  }
+  
+  cat("P-value Analysis:\n")
+  
+  B <- x$results$binomial$none$teststat
+  winner <- if (B > x$n / 2) x$models["Model1"] else if(B < x$n / 2) x$models["Model2"] else "None"
+  
+  if(x$boot)
+  {
+    cat(sprintf("  Sign test     :  %d/3 analytical and %d/3 bootstrapped significant\n", 
+                count$binomial$analytical, count$binomial$boot))
+    cat(sprintf("  Signed-rank   :  %d/3 analytical and %d/3 bootstrapped significant\n", 
+                count$signedrank$analytical, count$signedrank$boot))
+  }
+  else
+  {
+    cat(sprintf("  Sign test     : %d/3 tests significant\n", 
+                count$binomial$analytical))
+    cat(sprintf("  Signed-rank   : %d/3 tests significant\n", 
+                count$signedrank$analytical))
+  }
+  
+  # Overall verdict
+  cat("\nConclusion:\n")
+  if (count$signedrank$analytical >= 2) {
+    cat(sprintf("  Strong preference for %s (consistent across penalties)\n", winner))
+  } else if (count$signedrank$analytical == 1 || count$binomial$analytical >= 2) {
+    cat(sprintf("  Moderate preference for %s\n", winner))
+  } else {
+    cat("  Inconclusive: models perform very similarly\n")
+  }
+  
+  if(x$boot)
+  {
+    if (count$signedrank$boot == 0) {
+      cat("  Warning: Bootstrap results are not robust to sampling variation.\n")
+    }
+    else if (count$signedrank$boot <= 1) {
+      cat("  Note: Bootstrap support is weak (only 1 penalty significant).\n")
+    }
+    else
+      cat(" Bootstrap supports that results are robust to sample variation.\n")
+  }
+  
+  
+  invisible(x)
+}
 
 
 
