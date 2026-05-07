@@ -22,6 +22,19 @@
 #' 
 #' @seealso [lrtest()], [waldtest()], [IMtest()] [vuongtest()]
 #' 
+#' @references
+#' Clarke, K. A. (2007). A Simple Distribution-Free Test for Nonnested Model 
+#' Selection. *Political Analysis*, 15(3), 347–363. 
+#' \doi{10.1093/pan/mpm004}
+#'
+#' Clarke, K. A., & Signorino, C. S. (2010). Discriminating Methods: Tests for 
+#' Non-Nested Discrete Choice Models. *Political Studies*, 58(2), 368–388.
+#' \doi{10.1111/j.1467-9248.2009.00813.x}
+#'
+#' Sayyareh, A. (2014). Linear Signed Rank Test for Model Selection. 
+#' *Communications in Statistics - Theory and Methods*, 43(5), 1013–1025.
+#' \doi{10.1080/03610926.2012.717662}
+#' 
 #' @export
 clarketest <- function(object_1, object_2, ...) UseMethod("clarketest")
 
@@ -108,7 +121,7 @@ clarketest.mlmodel <- function(object_1, object_2,
   temp1$model$weights <- w1_scaled
   temp2$model$weights <- w2_scaled
   
-  # Penalty
+  # Penalty parameters
   k1 <- length(coef(object_1))
   k2 <- length(coef(object_2))
   n <- nobs(object_1) # Both have the same number of observations.
@@ -166,8 +179,8 @@ clarketest.mlmodel <- function(object_1, object_2,
     
     for(p in penalties)
     {
-      boot_stats$binomial[[p]] <- character(repetitions)
-      boot_stats$signedrank[[p]] <- character(repetitions)
+      boot_stats$binomial[[p]] <- numeric(repetitions)
+      boot_stats$signedrank[[p]] <- numeric(repetitions)
     }
     
     n_success <- 0
@@ -287,7 +300,7 @@ print.clarketest.mlmodel <- function(x, digits = 4, ...) {
       pval <- x$results[[v]][[p]]$p.value
       bootp <- x$results[[v]][[p]]$boot.p.value
       
-      tlab <- if(v == "binomial") "Binomial" else "Signed Rank"
+      tlab <- if(v == "binomial") "Binomial" else "Signed-rank"
       
       cat(sprintf("%-12s %-10s %10.1f   %8.4f",
                   tlab, tools::toTitleCase(p),
@@ -298,9 +311,16 @@ print.clarketest.mlmodel <- function(x, digits = 4, ...) {
       }
       cat("\n")
     }
-    if(v == "binomial") cat("\n")  # space between variants
+    if(v == "binomial")
+      cat("---",
+          sprintf("  Expected Binomial Stat.: %.2f\n", x$n/2),
+          sep = "\n")
   }
-  cat("---\n\n")
+  n_eff <- sum(x$diff$none != 0)
+  wilc_ref <- n_eff * (n_eff + 1) / 4
+  cat("---",
+      sprintf("  Signed-rank Ref. Stat.: %.1f\n", wilc_ref),
+      sep = "\n")
   
   # --- Conclusion ---------------------------------------------------------
   
@@ -332,14 +352,14 @@ print.clarketest.mlmodel <- function(x, digits = 4, ...) {
   
   if(x$boot)
   {
-    cat(sprintf("  Sign test     :  %d/3 analytical and %d/3 bootstrapped significant\n", 
+    cat(sprintf("  Binomial     :  %d/3 analytical and %d/3 bootstrapped significant\n", 
                 count$binomial$analytical, count$binomial$boot))
-    cat(sprintf("  Signed-rank   :  %d/3 analytical and %d/3 bootstrapped significant\n", 
+    cat(sprintf("  Signed-rank  :  %d/3 analytical and %d/3 bootstrapped significant\n", 
                 count$signedrank$analytical, count$signedrank$boot))
   }
   else
   {
-    cat(sprintf("  Sign test     : %d/3 tests significant\n", 
+    cat(sprintf("  Binomial      : %d/3 tests significant\n", 
                 count$binomial$analytical))
     cat(sprintf("  Signed-rank   : %d/3 tests significant\n", 
                 count$signedrank$analytical))
@@ -995,23 +1015,34 @@ vuongtest.mlmodel <- function(object_1, object_2,
   temp1$model$weights <- w1_scaled
   temp2$model$weights <- w2_scaled
   
-  ll1 <- object_1$model$functions$loglikeObs(temp1)
-  ll2 <- object_2$model$functions$loglikeObs(temp2)
+  # Penalty parameters
+  k1 <- length(coef(object_1))
+  k2 <- length(coef(object_2))
+  n <- nobs(object_1) # Both have the same number of observations.
   
-  diff <- ll1 - ll2
-  n <- length(diff)
+  # -- Raw per-observation log-likelihoods (scaled weights) -------------------
+  ll1_raw <- object_1$model$functions$loglikeObs(temp1)
+  ll2_raw <- object_2$model$functions$loglikeObs(temp2)
   
-  v_stat <- (sqrt(n) * mean(diff)) / sd(diff)
-  p_val <- 2 * pnorm(abs(v_stat), lower.tail = FALSE)
+  # -- Initialize results structure -------------------------------------------
+  penalties <- c("none", "akaike", "schwarz")
+  results <- setNames(vector("list", 3), penalties)
+  diff_list <- setNames(vector("list", 3), penalties)
   
-  res <- list(
-    teststat = v_stat,
-    pval = p_val,
-    boot = NULL,
-    models = c(object_1$model$description, object_2$model$description)
-  )
+  for(p in penalties)
+  {
+    pen <- switch(p,
+                  "none" = 0,
+                  "akaike" = (k1 - k2) / n,
+                  "schwarz" = (k1 - k2) * log(n) / (2 * n))
+    
+    d <- ll1_raw - ll2_raw - pen
+    d <- as.numeric(d)
+    diff_list[[p]] <- d
+    results[[p]] <- .vuong_stats(d)
+  }
   
-  # --- 3. Bootstrap Version (if requested) -------------------------------
+  # -- 4. Bootstrap Version (if requested) -------------------------------------
   if (boot) {
     if (is.null(seed)) seed <- sample.int(1e6, 1)
     set.seed(seed)
@@ -1020,9 +1051,16 @@ vuongtest.mlmodel <- function(object_1, object_2,
     sample_idx <- object_1$model$sample
     n_used <- sum(sample_idx)
     used_data <- data_orig[sample_idx, , drop = FALSE]
-    w_used <- (object_1$model$weights %||% rep(1, nobs(object_1)))
+    w_used <- object_1$model$weights %||% rep(1, nobs(object_1))
     
-    boot_stats <- numeric(repetitions)
+    # penalties was defined before for the anlytical.
+    boot_stats <- setNames(vector("list", 3), penalties)
+    
+    for(p in penalties)
+    {
+      boot_stats[[p]] <- numeric(repetitions)
+    }
+    
     n_success <- 0
     
     for (r in seq_len(repetitions)) {
@@ -1033,6 +1071,7 @@ vuongtest.mlmodel <- function(object_1, object_2,
       # Scale weights for this bootstrap sample
       w_boot <- w_boot / sum(w_boot) * length(w_boot)
       
+      # Estimation with scaled weights
       suppressMessages({
         boot1 <- tryCatch(update(object_1, data = d_boot, weights = w_boot), error = function(e) NULL)
         boot2 <- tryCatch(update(object_2, data = d_boot, weights = w_boot), error = function(e) NULL)
@@ -1041,7 +1080,6 @@ vuongtest.mlmodel <- function(object_1, object_2,
       if (is.null(boot1) || is.null(boot2) || 
           !boot1$code %in% c(0L, 1L, 2L, 8L) || 
           !boot2$code %in% c(0L, 1L, 2L, 8L)) {
-        boot_stats[r] <- NA_real_
         next
       }
       
@@ -1050,17 +1088,55 @@ vuongtest.mlmodel <- function(object_1, object_2,
       ll2b <- object_2$model$functions$loglikeObs(boot2)
       
       diffb <- ll1b - ll2b
-      boot_stats[r] <- (sqrt(n_used) * mean(diffb)) / sd(diffb)
+      for (p in penalties) {
+        pen <- switch(p,
+                      "none"    = 0,
+                      "akaike" = (k1 - k2) / n,
+                      "schwarz" = (k1 - k2) * log(n) / (2 * n)
+        )
+        
+        d_boot <- diffb - pen
+        d_boot <- as.numeric(d_boot)
+        
+        stats_boot <- .vuong_stats(d_boot)
+        boot_stats[[p]][r]   <- stats_boot$statistic
+      }
+      
       n_success <- n_success + 1
     }
     
-    boot_pval <- mean(boot_stats >= v_stat, na.rm = TRUE)
-    
-    res$boot <- list(
-      pval = boot_pval,
-      repetitions = list(total = repetitions, successful = n_success)
-    )
+    # ------------------- Compute bootstrap p-values -------------------------
+    for (p in penalties) {
+      obs <- results[[p]]$statistic
+      boot_vals <- boot_stats[[p]]
+      
+      # p-value computed on the relevant tail
+      if (is.na(obs) || length(boot_vals) == 0) {
+        results[[p]]$boot.p.value <- NA_real_
+      } else if (obs >= 0) {
+        results[[p]]$boot.p.value <- mean(boot_vals >= obs, na.rm = TRUE)
+      } else {
+        results[[p]]$boot.p.value <- mean(boot_vals <= obs, na.rm = TRUE)
+      }
+    }
   }
+  
+  # -- Construct return object ------------------------------------------------
+  res <- list(
+    call        = match.call(),
+    n           = n,
+    k1          = k1,
+    k2          = k2,
+    models      = c(Model1 = object_1$model$description,
+                    Model2 = object_2$model$description),
+    results     = results,
+    # Extra info for bootstrap
+    boot        = boot,
+    repetitions = if (boot) repetitions else NULL,
+    n_success   = if (boot) n_success else NULL,
+    seed        = if (boot) seed else NULL,
+    diff        = diff_list
+  )
   
   class(res) <- "vuongtest.mlmodel"
   res
@@ -1073,62 +1149,70 @@ print.vuongtest.mlmodel <- function(x, digits = 4, ...)
     cli::cli_abort("`x` needs to be an object of class `vuongtest.mlmodel`")
   
   cat("\nVuong's (1989) Test\n")
-  cat("--------------------------------------------------\n")
-  cat("  Model 1:", x$models[1], "\n")
-  cat("  Model 2:", x$models[2], "\n")
-  cat("--------------------------------------------------\n")
+  cat(strrep("-", 55 + (x$boot * 10)), "\n")
   
-  cat("Analyitical Results:",
-      sprintf("  z-stat:  %.3f", x$teststat),
-      sprintf("  p-value: %.4f", x$pval),
-      sep = "\n")
-  if(! is.null(x$boot))
-  {
-    cat(sprintf("Bootstrap (%d/%d repetitions):",
-                x$boot$repetitions$successful,x$boot$repetitions$total),
-        sprintf("  p-value: %.4f", x$boot$pval),
-        sep = "\n")
+  cat(sprintf("Model 1: %s\n", x$models["Model1"]))
+  cat(sprintf("Model 2: %s\n", x$models["Model2"]))
+  cat(strrep("-", 55 + (x$boot * 10)), "\n")
+  cat(sprintf("  Observations: %d    Parameters: %d vs %d\n", 
+              x$n, x$k1, x$k2))
+  
+  if (x$boot) {
+    cat(sprintf("  Bootstrap of %d repetitions (%d successful)\n", 
+                x$repetitions, x$n_success))
+  }
+  cat("\n")
+  
+  cat("Penalty      Statistic     p-value")
+  if (x$boot) cat("     boot p-value")
+  cat("\n")
+  cat(strrep("-", 55 + (x$boot * 10)), "\n")
+  
+  count_strong <- 0
+  count_mod <- 0
+  count_weak <- 0
+  count_boot <- 0
+  
+  for (p in c("none", "akaike", "schwarz")) {
+    stat <- x$results[[p]]$statistic
+    pval <- x$results[[p]]$p.value
+    bootp <- x$results[[p]]$boot.p.value
+    
+    if(pval < 0.01) count_strong <- count_strong + 1
+    else if (pval < 0.05) count_mod <- count_mod + 1
+    else if (pval < 0.1) count_weak <- count_weak + 1
+    
+    cat(sprintf("%-11s %10.2f   %8.4f",
+                tools::toTitleCase(p),
+                stat, pval))
+    if (x$boot && !is.na(bootp)) {
+      cat(sprintf("     %8.4f", bootp))
+      if (bootp < 0.05) count_boot <- count_boot + 1
+    }
+    cat("\n")
+  }
+  cat(strrep("-", 55 + (x$boot * 10)), "\n")
+  
+  winner <- if(x$results[[1]]$statistic > 0)
+    x$models[1] else x$models[2]
+  
+  if (count_strong >= 2 || (count_strong + count_mod) == 3) {
+    cat(sprintf("  Strong analytical preference for %s.\n", winner))
+  } else if (count_strong + count_mod >= 2 || count_weak == 3) {
+    cat(sprintf("  Moderate analytical preference for %s.\n", winner))
+  } else if (count_strong + count_mod + count_weak >= 2) {
+    cat(sprintf("  Weak analytical preference for %s.\n", winner))
+  } else {
+    cat("  No clear analytical preference between the models.\n")
   }
   
-  cat("--------------------------------------------------\n")
-  # Decision Logic
-  if (!is.null(x$boot)) {
-    anal_sig <- x$pval < 0.10
-    boot_sig  <- x$boot$pval < 0.10
-    
-    if (anal_sig && boot_sig) {
-      # Strong agreement
-      winner <- if (x$teststat > 0) x$models[1] else x$models[2]
-      cat(" ", winner, "is preferred.\n")
-    } 
-    else if (!anal_sig && !boot_sig) {
-      # Strong agreement on no difference
-      cat("  Inconclusive test: neither model is clearly preferred.\n")
-    } 
-    else if (anal_sig && !boot_sig) {
-      # Most common interesting case
-      winner <- if (x$teststat > 0) x$models[1] else x$models[2]
-      cat(" ", winner, "appears better overall (analytical test),\n")
-      cat("  but the bootstrap p-value indicates this preference is highly sensitive\n")
-      cat("  to sample variation, and that choice is not robust to it.\n")
-    } 
-    else {
-      # Rare case: bootstrap sees difference, analytical does not
-      cat("  The bootstrap p-value contradicts the analytical test, suggesting that\n")
-      cat("  the analytical version may be losing power (possibly due to high variance\n")
-      cat("  or outliers in the likelihood ratios). The bootstrap result is likely\n")
-      cat("  more robust in this sample.\n")
-    }
-  } else {
-    # Only analytical test available
-    if (x$pval < 0.05) {
-      winner <- if (x$teststat > 0) x$models[1] else x$models[2]
-      cat(" ", winner, "seems to be preferred.\n")
-    } else if (x$pval < 0.10) {
-      cat("  Weak evidence:", ifelse(x$teststat > 0, x$models[1], x$models[2]), 
-          "seems to be preferred.\n")
+  if (x$boot) {
+    if (count_boot >= 2) {
+      cat("  Bootstrap results support the analytical conclusion.\n")
+    } else if (count_boot == 1) {
+      cat("  Note: Bootstrap support is weak.\n")
     } else {
-      cat("  Inconclusive test: neither model is clearly preferred.\n")
+      cat("  Warning: Bootstrap shows results are not robust to sampling variation.\n")
     }
   }
   

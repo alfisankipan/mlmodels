@@ -92,6 +92,19 @@ fit_probit <- ml_probit(smokes ~ cigpric + income + age, data = smoke)
 clarketest(fit_logit, fit_probit)
 
 }
+\references{
+Clarke, K. A. (2007). A Simple Distribution-Free Test for Nonnested Model
+Selection. \emph{Political Analysis}, 15(3), 347–363.
+\doi{10.1093/pan/mpm004}
+
+Clarke, K. A., & Signorino, C. S. (2010). Discriminating Methods: Tests for
+Non-Nested Discrete Choice Models. \emph{Political Studies}, 58(2), 368–388.
+\doi{10.1111/j.1467-9248.2009.00813.x}
+
+Sayyareh, A. (2014). Linear Signed Rank Test for Model Selection.
+\emph{Communications in Statistics - Theory and Methods}, 43(5), 1013–1025.
+\doi{10.1080/03610926.2012.717662}
+}
 \seealso{
 \code{\link[=lrtest]{lrtest()}}, \code{\link[=waldtest]{waldtest()}}, \code{\link[=IMtest]{IMtest()}} \code{\link[=vuongtest]{vuongtest()}}
 }
