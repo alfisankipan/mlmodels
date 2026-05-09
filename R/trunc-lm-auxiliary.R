@@ -47,6 +47,7 @@
   s_bb <- w* as.vector(wlam + lam^2 - 1)
   s_bd <- w * as.vector(((a^2 - 1) * phi_a - (g^2 - 1) * phi_g) / (Phi_a - Phi_g) +
                       lam * wlam - 2 * z_y)
+  
   s_dd <- w * as.vector(wlam^2 - 2 * z_y^2 - (a * phi_a * (1 - a^2) - g * phi_g *
                                             (1 - g^2)) / (Phi_a - Phi_g))
   
