@@ -21,8 +21,6 @@ We are currently working on:
 - Implementing bootstrapping in Vuong's and Clarke's test.
 - Improvements to estimation, and displaying statistics with weighted models.
 
----
-
 ## Installation
 
 ```r
