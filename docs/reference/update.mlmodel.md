@@ -66,6 +66,11 @@ update(
   new fitted model is returned. If `FALSE`, the updated call (as a
   language object) is returned without evaluation.
 
+## Value
+
+And updated `mlmodel` object (or the class of the estimator that extends
+it) with the modified formula/call and refitted parameters.
+
 ## Details
 
 This method re-evaluates the original model call after modifying

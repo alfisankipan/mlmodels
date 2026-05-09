@@ -95,33 +95,33 @@ bootsrapped *p*-values.
 ``` r
 
 # Bootstrapped quadratic (low repetitions for speed)
-IMtest(fit_lm, method = "boot_quad", repetitions = 100)
+IMtest(fit_lm, method = "boot_quad", repetitions = 20, seed = 123)
 #> Information Matrix Test
 #>  Method: Orthogonalized Quadratic Form + Model-based bootstrap 
 #>  Model:  Homoskedastic Linear Model 
 #> --------------------------------------------
-#>  Repetitions: Total 100 Successful 100 
+#>  Repetitions: Total 20 Successful 20 
 #>  Chisq(28) = 122.732
 #>  P(>Chisq): Analytical   = 0.0000 
-#>             Bootstrapped = 0.8100
+#>             Bootstrapped = 0.6000
 #> --------------------------------------------
 
 # Boot opg (low repetitions for speed)
-IMtest(fit_lm, method = "boot_opg", repetitions = 100)
+IMtest(fit_lm, method = "boot_opg", repetitions = 20, seed = 123)
 #> Information Matrix Test
 #>  Method: Chesher/Lancaster OPG + Model-based bootstrap 
 #>  Model:  Homoskedastic Linear Model 
 #> --------------------------------------------
-#>  Repetitions: Total 100 Successful 100 
+#>  Repetitions: Total 20 Successful 20 
 #>  Chisq(28) = 298.563
 #>  P(>Chisq): Analytical   = 0.0000 
-#>             Bootstrapped = 0.9600
+#>             Bootstrapped = 0.9000
 #> --------------------------------------------
 ```
 
-We do the bootstrapping with a low number of repetitions, for
-illustration purposes. For actual research you should consider 500
-repetitions or more, depending on the size of your dataset.
+In these examples, we do the bootstrapping with a low number of
+repetitions, for faster CRAN processing. For actual research you should
+consider 500 repetitions or more, depending on the size of your dataset.
 
 Both bootstrapped *p*-values oppose the analytical test, and tell us
 that we cannot reject that the model is well specified. Which of the two
@@ -144,26 +144,26 @@ it.
 fit_gam <- ml_gamma(incthou ~ age + I(age^2) + huswage + educ + unem, 
              data = mroz)
 
-IMtest(fit_gam, method = "boot_quad", repetitions = 100)
+IMtest(fit_gam, method = "boot_quad", repetitions = 20, seed = 123)
 #> Information Matrix Test
 #>  Method: Orthogonalized Quadratic Form + Model-based bootstrap 
 #>  Model:  Homoskedastic Gamma Model 
 #> --------------------------------------------
-#>  Repetitions: Total 100 Successful 100 
+#>  Repetitions: Total 20 Successful 20 
 #>  Chisq(28) = 9.481
 #>  P(>Chisq): Analytical   = 0.9996 
-#>             Bootstrapped = 0.7800
+#>             Bootstrapped = 0.8000
 #> --------------------------------------------
 
-IMtest(fit_gam, method = "boot_opg", repetitions = 100)
+IMtest(fit_gam, method = "boot_opg", repetitions = 20, seed = 123)
 #> Information Matrix Test
 #>  Method: Chesher/Lancaster OPG + Model-based bootstrap 
 #>  Model:  Homoskedastic Gamma Model 
 #> --------------------------------------------
-#>  Repetitions: Total 100 Successful 100 
+#>  Repetitions: Total 20 Successful 20 
 #>  Chisq(28) = 81.513
 #>  P(>Chisq): Analytical   = 0.0000 
-#>             Bootstrapped = 0.9800
+#>             Bootstrapped = 0.9500
 #> --------------------------------------------
 ```
 
@@ -181,7 +181,7 @@ rejecting a perhaps valid model (the size problem).
 When we add the bootstrapped *p*-values, the picture becomes clearer.
 They both fail to reject that the model is well specified. But look at
 how much more reasonable the bootstrapped *p*-value for the quadratic
-orthogonalized model is with respect to its analytical counterpart (0.78
+orthogonalized model is with respect to its analytical counterpart (0.80
 versus 0.9996).
 
 In this case you’re probably safe to proceed with `oim` standard errors,
@@ -278,17 +278,18 @@ across nested models:
 - **Wald** test – You only estimate the unrestricted model, and the
   tests are tests restrictions of the coefficients.
 
-As you can see, we present Wald test(s) in our estimation results, not
+As you can see, in our estimation results we present Wald test(s), not
 likelihood-ratio test(s), of significance. The reason is that the
 **likelihood-ratio test is not robust** to the information matrix
 equality not holding, whereas the **Wald test is**, when it uses the
 variance that is robust to that equality not holding. Our
 [`summary()`](https://rdrr.io/r/base/summary.html) function uses either
 the type of variance you set in the `vcov.type` argument, which defaults
-to `oim`, or the variance matrix you pass through the `vcov` argument,
-to produce the standard errors of the coefficients and to do the Wald
-test(s). That way it produces consistent and robust tests, as long a you
-specify an asymptotically consistent type of variance for the model.
+to `oim` when you don’t set it, or the variance matrix you pass through
+the `vcov` argument, to produce the standard errors of the coefficients
+and to do the Wald test(s). That way it produces consistent and robust
+tests, as long a you specify an asymptotically consistent type of
+variance for the model.
 
 The limitation of the likelihood-ratio test is an indication that you
 should use the insights provided by the information matrix test to guide
@@ -458,8 +459,8 @@ illustrate. The last test makes us want to test if
 the same as `1 * value::age - 1 * value::educ = 0`, and we could extend
 this to include all other parameters (including `scale::lnnu`) adding
 them but pre-multiplied by zero. So that means that the coefficients for
-all other parameters are zero, for age it’s 1 and for educ it’s -1. Then
-all you have to do is form the row vector in matrix form with the
+all other parameters are zero, for `age` it’s 1 and for `educ` it’s -1.
+Then all you have to do is form the row vector in matrix form with the
 coefficients for the parameters in place:
 
 ``` r
@@ -501,6 +502,11 @@ We should notice that the Chi-squared statistic of the first of these
 two last tests, since there is only one restriction tested, is the
 squared of the *z* statistic you would get for that same test. The
 *p*-value is identical, since it’s the same test.
+
+Notice, also, how the test statistic and *p*-value of the second test
+are both identical to those of the test that both those coefficients
+were equal to 0.05. That is because, the two tests are testing exactly
+the same.
 
 Now we illustrate how to replicate the Wald test of joint significance
 of the parameters in the value equation:
@@ -580,15 +586,15 @@ value function as that of the linear model.
 fit_ln <- ml_lm(log(incthou) ~ age + I(age^2) + huswage + educ + unem, 
              data = mroz)
 
-IMtest(fit_ln, method = "boot_quad", repetitions = 100)
+IMtest(fit_ln, method = "boot_quad", repetitions = 20, seed = 123)
 #> Information Matrix Test
 #>  Method: Orthogonalized Quadratic Form + Model-based bootstrap 
 #>  Model:  Homoskedastic Lognormal Model 
 #> --------------------------------------------
-#>  Repetitions: Total 100 Successful 97 
+#>  Repetitions: Total 20 Successful 20 
 #>  Chisq(28) = 26.141
 #>  P(>Chisq): Analytical   = 0.5653 
-#>             Bootstrapped = 0.6907
+#>             Bootstrapped = 0.7500
 #> --------------------------------------------
 
 vuongtest(fit_gam, fit_ln)

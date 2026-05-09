@@ -25,7 +25,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">mlmodels</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.1.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.1.2</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -494,21 +494,12 @@ coefficient estimates.</p>
 observation at a time and re-fitting the model. The number of
 replications is therefore equal to the sample size.</p>
 <div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Bootstrap with 500 repetitions</span></span>
-<span><span class="va">v_boot</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/vcov.html" class="external-link">vcov</a></span><span class="op">(</span><span class="va">fit</span>, type <span class="op">=</span> <span class="st">"boot"</span>, repetitions <span class="op">=</span> <span class="fl">500</span>, seed <span class="op">=</span> <span class="fl">123</span><span class="op">)</span></span>
-<span><span class="co">#&gt; <span style="color: #00BBBB;">ℹ</span> Bootstrap with <span style="color: #0000BB;">500</span> repetitions.</span></span>
+<code class="sourceCode R"><span><span class="co"># Bootstrap with 20 repetitions</span></span>
+<span><span class="va">v_boot</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/vcov.html" class="external-link">vcov</a></span><span class="op">(</span><span class="va">fit</span>, type <span class="op">=</span> <span class="st">"boot"</span>, repetitions <span class="op">=</span> <span class="fl">20</span><span class="op">)</span></span>
+<span><span class="co">#&gt; <span style="color: #00BBBB;">ℹ</span> Bootstrap with <span style="color: #0000BB;">20</span> repetitions.</span></span>
 <span><span class="co">#&gt; <span style="color: #0000BB;"> 0        10        20        30        40        50</span></span></span>
 <span><span class="co">#&gt; <span style="color: #0000BB;">====================================================</span></span></span>
-<span><span class="co"><span style="color: #0000BB;">#&gt; </span> <span style="color: #00BB00;">..................................................</span></span></span>
-<span><span class="co">#&gt;  <span style="color: #00BB00;">..................................................</span></span></span>
-<span><span class="co">#&gt;  <span style="color: #00BB00;">..................................................</span></span></span>
-<span><span class="co">#&gt;  <span style="color: #00BB00;">..................................................</span></span></span>
-<span><span class="co">#&gt;  <span style="color: #00BB00;">..................................................</span></span></span>
-<span><span class="co">#&gt;  <span style="color: #00BB00;">..................................................</span></span></span>
-<span><span class="co">#&gt;  <span style="color: #00BB00;">..................................................</span></span></span>
-<span><span class="co">#&gt;  <span style="color: #00BB00;">..................................................</span></span></span>
-<span><span class="co">#&gt;  <span style="color: #00BB00;">..................................................</span></span></span>
-<span><span class="co">#&gt;  <span style="color: #00BB00;">..................................................</span></span></span>
+<span><span class="co"><span style="color: #0000BB;">#&gt; </span> <span style="color: #00BB00;">....................</span></span></span>
 <span><span class="co">#&gt; <span style="color: #0000BB;">====================================================</span></span></span>
 <span><span class="co"><span style="color: #0000BB;">#&gt; </span></span></span>
 <span><span class="co">#&gt; Bootstrapping finished - 100% of replications converged.</span></span>
@@ -536,6 +527,9 @@ replications is therefore equal to the sample size.</p>
 <span><span class="co">#&gt; <span style="color: #0000BB;">====================================================</span></span></span>
 <span><span class="co"><span style="color: #0000BB;">#&gt; </span></span></span>
 <span><span class="co">#&gt; Jackknife finished - <span style="color: #0000BB;">100</span>% of replications converged.</span></span></code></pre></div>
+<p>In our examples we use 20 repetitions to speed up the illustration,
+and satisfy CRAN’s time requirements. In practice, we recommend that you
+use at least 500 repetitions in your work.</p>
 <p>By default, <code><a href="https://rdrr.io/r/stats/vcov.html" class="external-link">vcov()</a></code> shows a progress table, with green
 dots where the iterations’ fits are successful, or red crosses where
 they’re not, when <code>type</code> equals <code>boot</code> or
@@ -548,9 +542,9 @@ also have a <code>vcov.type</code> argument, the progress display is not
 shown by default (<code>progress = FALSE</code> by default).</p>
 <p>You can also estimate clustered versions of these variances:</p>
 <div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Bootstrap with 500 repetitions</span></span>
+<code class="sourceCode R"><span><span class="co"># Bootstrap with 20 repetitions</span></span>
 <span><span class="va">v_boot_clust</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/vcov.html" class="external-link">vcov</a></span><span class="op">(</span><span class="va">fit</span>, type <span class="op">=</span> <span class="st">"boot"</span>, cl_var <span class="op">=</span> <span class="st">"educ"</span>,</span>
-<span>               repetitions <span class="op">=</span> <span class="fl">500</span>, seed <span class="op">=</span> <span class="fl">123</span>,</span>
+<span>               repetitions <span class="op">=</span> <span class="fl">20</span>,</span>
 <span>               progress <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span>
 <span><span class="co"># Jackknife</span></span>
 <span><span class="va">v_jack_clust</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/vcov.html" class="external-link">vcov</a></span><span class="op">(</span><span class="va">fit</span>, type <span class="op">=</span> <span class="st">"jack"</span>, cl_var <span class="op">=</span> <span class="st">"educ"</span>,</span>
@@ -591,14 +585,14 @@ cluster-robust estimator.</li>
 <span>  jack <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">sqrt</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/diag.html" class="external-link">diag</a></span><span class="op">(</span><span class="va">v_jack</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="op">)</span></span>
 <span><span class="va">comp</span></span>
-<span><span class="co">#&gt;                         robust       boot        jack</span></span>
-<span><span class="co">#&gt; value::(Intercept) 8.411271366 8.31747787 8.507232115</span></span>
-<span><span class="co">#&gt; value::age         0.382284787 0.38167461 0.386935880</span></span>
-<span><span class="co">#&gt; value::I(age^2)    0.004391868 0.00440611 0.004446869</span></span>
-<span><span class="co">#&gt; value::huswage     0.135952916 0.13824719 0.144060112</span></span>
-<span><span class="co">#&gt; value::educ        0.165176906 0.16856717 0.167837527</span></span>
-<span><span class="co">#&gt; value::unem        0.098676875 0.10157004 0.100966601</span></span>
-<span><span class="co">#&gt; scale::lnsigma     0.055550631 0.05434783 0.057408605</span></span>
+<span><span class="co">#&gt;                         robust        boot        jack</span></span>
+<span><span class="co">#&gt; value::(Intercept) 8.411271366 8.140912907 8.507232115</span></span>
+<span><span class="co">#&gt; value::age         0.382284787 0.373292533 0.386935880</span></span>
+<span><span class="co">#&gt; value::I(age^2)    0.004391868 0.004283798 0.004446869</span></span>
+<span><span class="co">#&gt; value::huswage     0.135952916 0.151854996 0.144060112</span></span>
+<span><span class="co">#&gt; value::educ        0.165176906 0.150693988 0.167837527</span></span>
+<span><span class="co">#&gt; value::unem        0.098676875 0.127527916 0.100966601</span></span>
+<span><span class="co">#&gt; scale::lnsigma     0.055550631 0.036434474 0.057408605</span></span>
 <span></span>
 <span><span class="co"># Clustered comparison</span></span>
 <span><span class="va">comp</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
@@ -608,13 +602,19 @@ cluster-robust estimator.</li>
 <span><span class="op">)</span></span>
 <span><span class="va">comp</span></span>
 <span><span class="co">#&gt;                        robust        boot        jack</span></span>
-<span><span class="co">#&gt; value::(Intercept) 6.29528438 8.683355306 6.310413395</span></span>
-<span><span class="co">#&gt; value::age         0.30086228 0.410357979 0.297872890</span></span>
-<span><span class="co">#&gt; value::I(age^2)    0.00329108 0.004470342 0.003268108</span></span>
-<span><span class="co">#&gt; value::huswage     0.08840541 0.110632230 0.093001512</span></span>
-<span><span class="co">#&gt; value::educ        0.17701278 0.181024534 0.212512715</span></span>
-<span><span class="co">#&gt; value::unem        0.06580827 0.088824945 0.065578436</span></span>
-<span><span class="co">#&gt; scale::lnsigma     0.11119600 0.112927477 0.154391247</span></span></code></pre></div>
+<span><span class="co">#&gt; value::(Intercept) 6.29528438 6.948097815 6.310413395</span></span>
+<span><span class="co">#&gt; value::age         0.30086228 0.352915040 0.297872890</span></span>
+<span><span class="co">#&gt; value::I(age^2)    0.00329108 0.004037649 0.003268108</span></span>
+<span><span class="co">#&gt; value::huswage     0.08840541 0.129289683 0.093001512</span></span>
+<span><span class="co">#&gt; value::educ        0.17701278 0.195205138 0.212512715</span></span>
+<span><span class="co">#&gt; value::unem        0.06580827 0.093576772 0.065578436</span></span>
+<span><span class="co">#&gt; scale::lnsigma     0.11119600 0.105278324 0.154391247</span></span></code></pre></div>
+<p>You can see that the errors are close across methods for each type.
+Bootstrapped are slightly different from the other two, due to the small
+number of iterations used. You should see them became closer to the
+other two if you increase the number of repetitions. Again, the low
+number of repetitions were used to speed up the illustration, and meet
+CRAN’s requirements.</p>
 <p>The benefit of the resampling methods is that they make fewer
 parametric assumptions, which often leads to better finite-sample
 performance.</p>

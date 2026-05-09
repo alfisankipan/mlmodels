@@ -124,8 +124,8 @@ of the standard deviation, in this case.
 All our models add the prefixes `value::` and `scale::` to the names of
 the coefficients in the corresponding equation. The purpose is twofold:
 
-- It avoids naming the coefficients equally if you entered the same
-  variable as a predictor in both equations.
+- It avoids naming conflicts if you entered the same variable as a
+  predictor in both equations.
 
 - It points immediately to which equation the coefficient belongs to,
   giving you an easy way to select just the coefficients of a given
@@ -179,6 +179,11 @@ head(pred$fit)      # Fitted values / expected values
 head(pred$se.fit)   # Standard errors
 #> [1] 0.5987687 0.7375031 0.5413427 0.5557155 0.7622242 0.5022675
 ```
+
+It returns a list with the prediction you requested in its `fit`
+element. If you set `se.fit = TRUE` it returns the standard errors of
+the predictions in its `se.fit` element, calculated via the **delta
+method, using analytical gradients**.
 
 ## Modeling Heteroskedasticity
 
@@ -242,14 +247,14 @@ Notice how the presentation follows the pattern we described for the
 homoskedastic case. The main differences are that now:
 
 - The joint significance tests include one for the parameters of the
-  value equation, and another for the parameters of the scale equation,
-  in addition to the overall one.
+  value (mean) equation, and another for the parameters of the scale
+  equation, in addition to the overall one.
 - At the bottom we present summary statistics of the predicted standard
   deviation, instead of the single value.
 
 This allows you to immediately identify if there is heteroskedasticity
-present, and how much the standard deviation varies within the sample
-used in the estimation.
+present, and how much the standard deviation, in this case, varies
+within the sample used in the estimation.
 
 The real benefit becomes clear when you make predictions:
 
@@ -264,8 +269,9 @@ the variance was the same for every observation. Modeling the scale
 parameter allows the uncertainty to vary realistically across
 individuals.
 
-To get the partial effects on the standard deviation, you can use the
-functions from the `marginaleffects` package:
+To get the partial effects on the standard deviation, instead of the
+slopes on the log of the standard deviation, you can use the functions
+from the `marginaleffects` package:
 
 ``` r
 
@@ -293,10 +299,10 @@ vignette.
 
 All `mlmodels` estimating functions allow you to explicitly control
 whether an intercept is included in the `value` (mean) equation and/or
-the `scale` equation. This is done through the dedicated arguments
-`noint_value` and `noint_scale`. Trying to do it through the formulas in
-the `value` and/or `scale` arguments will throw an error and abort the
-estimation.
+the `scale` equation, when present. This is done through the dedicated
+arguments `noint_value` and `noint_scale`. Trying to do it through the
+formulas in the `value` and/or `scale` arguments will throw an error and
+abort the estimation.
 
 Let’s see how:
 
@@ -392,8 +398,22 @@ estimate for the value equation, which is what we wanted.
     equation
   - `noint_scale = TRUE` → removes intercept from the scale equation
     (when present)
-- [`ml_poisson()`](https://alfisankipan.github.io/mlmodels/reference/ml_poisson.md)
-  only has noint_value (its proability doesn’t have a scale parameter).
+- [`ml_poisson()`](https://alfisankipan.github.io/mlmodels/reference/ml_poisson.md),
+  [`ml_logit()`](https://alfisankipan.github.io/mlmodels/reference/ml_logit.md),
+  and
+  [`ml_probit()`](https://alfisankipan.github.io/mlmodels/reference/ml_probit.md)
+  only have `noint_value`.
+
+The reason
+[`ml_poisson()`](https://alfisankipan.github.io/mlmodels/reference/ml_poisson.md)
+doesn’t have the `noint_scale` argument, is that you can’t model a
+dispersion parameter in a poisson model. The reason for
+[`ml_logit()`](https://alfisankipan.github.io/mlmodels/reference/ml_logit.md)
+and
+[`ml_probit()`](https://alfisankipan.github.io/mlmodels/reference/ml_probit.md)
+don’t have the `noint_scale` argument, is that in those models the
+overall scale is unidentified, so the sale equation is **always
+estimated without an intercept**.
 
 **Why this design?**
 
@@ -501,6 +521,10 @@ for
 and
 [`ml_beta()`](https://alfisankipan.github.io/mlmodels/reference/ml_beta.md).
 
+You can also see how what we said about logit and probit models’ scale
+equations always being estimated without an intercept is true, since the
+scale equation doesn’t have one.
+
 For a deeper discussion of the different models see the dedicated
 vignettes to the topics that involve them.
 
@@ -559,15 +583,7 @@ Happy modeling!
 
 ## References
 
-Cameron, A. C., & Trivedi, P. K. (2022). *Microeconometrics Using Stata:
-Volumes I and II* (2nd ed.). Stata Press.
-
 Henningsen, A., & Toomet, O. (2011). “maxLik: A package for maximum
 likelihood estimation in R.” *Computational Statistics*, 26(3), 443–458.
 <https://doi.org/10.1007/s00180-010-0217-1> (Also available as the R
 package `maxLik` on CRAN: <https://cran.r-project.org/package=maxLik>)
-
-Papke, L. E., & Wooldridge, J. M. (1996). “Econometric methods for
-fractional response variables with an application to 401(k) plan
-participation rates.” *Journal of Applied Econometrics*, 11(6), 619–632.
-<https://doi.org/10.1002/(SICI)1099-1255(199611)11:6%3C619::AID-JAE418%3E3.0.CO;2-1>

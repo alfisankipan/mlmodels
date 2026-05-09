@@ -438,21 +438,12 @@ equal to the sample size.
 
 ``` r
 
-# Bootstrap with 500 repetitions
-v_boot <- vcov(fit, type = "boot", repetitions = 500, seed = 123)
-#> ℹ Bootstrap with 500 repetitions.
+# Bootstrap with 20 repetitions
+v_boot <- vcov(fit, type = "boot", repetitions = 20)
+#> ℹ Bootstrap with 20 repetitions.
 #>  0        10        20        30        40        50
 #> ====================================================
-#>  ..................................................
-#>  ..................................................
-#>  ..................................................
-#>  ..................................................
-#>  ..................................................
-#>  ..................................................
-#>  ..................................................
-#>  ..................................................
-#>  ..................................................
-#>  ..................................................
+#>  ....................
 #> ====================================================
 #> 
 #> Bootstrapping finished - 100% of replications converged.
@@ -482,6 +473,10 @@ v_jack <- vcov(fit, type = "jack")
 #> Jackknife finished - 100% of replications converged.
 ```
 
+In our examples we use 20 repetitions to speed up the illustration, and
+satisfy CRAN’s time requirements. In practice, we recommend that you use
+at least 500 repetitions in your work.
+
 By default, [`vcov()`](https://rdrr.io/r/stats/vcov.html) shows a
 progress table, with green dots where the iterations’ fits are
 successful, or red crosses where they’re not, when `type` equals `boot`
@@ -498,9 +493,9 @@ You can also estimate clustered versions of these variances:
 
 ``` r
 
-# Bootstrap with 500 repetitions
+# Bootstrap with 20 repetitions
 v_boot_clust <- vcov(fit, type = "boot", cl_var = "educ",
-               repetitions = 500, seed = 123,
+               repetitions = 20,
                progress = FALSE)
 # Jackknife
 v_jack_clust <- vcov(fit, type = "jack", cl_var = "educ",
@@ -541,14 +536,14 @@ comp<- data.frame(
   jack = sqrt(diag(v_jack))
 )
 comp
-#>                         robust       boot        jack
-#> value::(Intercept) 8.411271366 8.31747787 8.507232115
-#> value::age         0.382284787 0.38167461 0.386935880
-#> value::I(age^2)    0.004391868 0.00440611 0.004446869
-#> value::huswage     0.135952916 0.13824719 0.144060112
-#> value::educ        0.165176906 0.16856717 0.167837527
-#> value::unem        0.098676875 0.10157004 0.100966601
-#> scale::lnsigma     0.055550631 0.05434783 0.057408605
+#>                         robust        boot        jack
+#> value::(Intercept) 8.411271366 8.140912907 8.507232115
+#> value::age         0.382284787 0.373292533 0.386935880
+#> value::I(age^2)    0.004391868 0.004283798 0.004446869
+#> value::huswage     0.135952916 0.151854996 0.144060112
+#> value::educ        0.165176906 0.150693988 0.167837527
+#> value::unem        0.098676875 0.127527916 0.100966601
+#> scale::lnsigma     0.055550631 0.036434474 0.057408605
 
 # Clustered comparison
 comp <- data.frame(
@@ -558,14 +553,21 @@ comp <- data.frame(
 )
 comp
 #>                        robust        boot        jack
-#> value::(Intercept) 6.29528438 8.683355306 6.310413395
-#> value::age         0.30086228 0.410357979 0.297872890
-#> value::I(age^2)    0.00329108 0.004470342 0.003268108
-#> value::huswage     0.08840541 0.110632230 0.093001512
-#> value::educ        0.17701278 0.181024534 0.212512715
-#> value::unem        0.06580827 0.088824945 0.065578436
-#> scale::lnsigma     0.11119600 0.112927477 0.154391247
+#> value::(Intercept) 6.29528438 6.948097815 6.310413395
+#> value::age         0.30086228 0.352915040 0.297872890
+#> value::I(age^2)    0.00329108 0.004037649 0.003268108
+#> value::huswage     0.08840541 0.129289683 0.093001512
+#> value::educ        0.17701278 0.195205138 0.212512715
+#> value::unem        0.06580827 0.093576772 0.065578436
+#> scale::lnsigma     0.11119600 0.105278324 0.154391247
 ```
+
+You can see that the errors are close across methods for each type.
+Bootstrapped are slightly different from the other two, due to the small
+number of iterations used. You should see them became closer to the
+other two if you increase the number of repetitions. Again, the low
+number of repetitions were used to speed up the illustration, and meet
+CRAN’s requirements.
 
 The benefit of the resampling methods is that they make fewer parametric
 assumptions, which often leads to better finite-sample performance.

@@ -18,3 +18,7 @@ formula(x, ...)
 - ...:
 
   Currently not implemented
+
+## Value
+
+The formula of the value equation (object of class `formula`).

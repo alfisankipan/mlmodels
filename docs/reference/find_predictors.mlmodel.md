@@ -19,3 +19,7 @@ find_predictors(x, ...)
 - ...:
 
   Further arguments passed to methods
+
+## Value
+
+A character vector with the names of the predictor variables.

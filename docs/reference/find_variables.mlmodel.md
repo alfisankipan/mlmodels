@@ -18,3 +18,8 @@ find_variables.mlmodel(x, ...)
 - ...:
 
   Further arguments passed to methods
+
+## Value
+
+A list with components `response` (character) and `conditional`
+(character vector).

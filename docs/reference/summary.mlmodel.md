@@ -159,6 +159,11 @@ summary(
 
   Further arguments passed to methods.
 
+## Value
+
+An object of class `summary.mlmodel` and any other class that extends
+it.
+
 ## Details
 
 Coefficient names in the fitted object use the prefixes `value::` and

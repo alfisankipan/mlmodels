@@ -15,6 +15,10 @@ x %||% y
 
   Any R objects.
 
+## Value
+
+The value of `x` if it is not `NULL`, otherwise the value of `y`.
+
 ## Examples
 
 ``` r

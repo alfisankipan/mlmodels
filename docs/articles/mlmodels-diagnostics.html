@@ -25,7 +25,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">mlmodels</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.1.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.1.2</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -165,31 +165,32 @@ what the tests are capturing. Let us check what happens when we add the
 bootsrapped <em>p</em>-values.</p>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Bootstrapped quadratic (low repetitions for speed)</span></span>
-<span><span class="fu"><a href="../reference/IMtest.html">IMtest</a></span><span class="op">(</span><span class="va">fit_lm</span>, method <span class="op">=</span> <span class="st">"boot_quad"</span>, repetitions <span class="op">=</span> <span class="fl">100</span><span class="op">)</span></span>
+<span><span class="fu"><a href="../reference/IMtest.html">IMtest</a></span><span class="op">(</span><span class="va">fit_lm</span>, method <span class="op">=</span> <span class="st">"boot_quad"</span>, repetitions <span class="op">=</span> <span class="fl">20</span>, seed <span class="op">=</span> <span class="fl">123</span><span class="op">)</span></span>
 <span><span class="co">#&gt; Information Matrix Test</span></span>
 <span><span class="co">#&gt;  Method: Orthogonalized Quadratic Form + Model-based bootstrap </span></span>
 <span><span class="co">#&gt;  Model:  Homoskedastic Linear Model </span></span>
 <span><span class="co">#&gt; --------------------------------------------</span></span>
-<span><span class="co">#&gt;  Repetitions: Total 100 Successful 100 </span></span>
+<span><span class="co">#&gt;  Repetitions: Total 20 Successful 20 </span></span>
 <span><span class="co">#&gt;  Chisq(28) = 122.732</span></span>
 <span><span class="co">#&gt;  P(&gt;Chisq): Analytical   = 0.0000 </span></span>
-<span><span class="co">#&gt;             Bootstrapped = 0.8100</span></span>
+<span><span class="co">#&gt;             Bootstrapped = 0.6000</span></span>
 <span><span class="co">#&gt; --------------------------------------------</span></span>
 <span></span>
 <span><span class="co"># Boot opg (low repetitions for speed)</span></span>
-<span><span class="fu"><a href="../reference/IMtest.html">IMtest</a></span><span class="op">(</span><span class="va">fit_lm</span>, method <span class="op">=</span> <span class="st">"boot_opg"</span>, repetitions <span class="op">=</span> <span class="fl">100</span><span class="op">)</span></span>
+<span><span class="fu"><a href="../reference/IMtest.html">IMtest</a></span><span class="op">(</span><span class="va">fit_lm</span>, method <span class="op">=</span> <span class="st">"boot_opg"</span>, repetitions <span class="op">=</span> <span class="fl">20</span>, seed <span class="op">=</span> <span class="fl">123</span><span class="op">)</span></span>
 <span><span class="co">#&gt; Information Matrix Test</span></span>
 <span><span class="co">#&gt;  Method: Chesher/Lancaster OPG + Model-based bootstrap </span></span>
 <span><span class="co">#&gt;  Model:  Homoskedastic Linear Model </span></span>
 <span><span class="co">#&gt; --------------------------------------------</span></span>
-<span><span class="co">#&gt;  Repetitions: Total 100 Successful 100 </span></span>
+<span><span class="co">#&gt;  Repetitions: Total 20 Successful 20 </span></span>
 <span><span class="co">#&gt;  Chisq(28) = 298.563</span></span>
 <span><span class="co">#&gt;  P(&gt;Chisq): Analytical   = 0.0000 </span></span>
-<span><span class="co">#&gt;             Bootstrapped = 0.9600</span></span>
+<span><span class="co">#&gt;             Bootstrapped = 0.9000</span></span>
 <span><span class="co">#&gt; --------------------------------------------</span></span></code></pre></div>
-<p>We do the bootstrapping with a low number of repetitions, for
-illustration purposes. For actual research you should consider 500
-repetitions or more, depending on the size of your dataset.</p>
+<p>In these examples, we do the bootstrapping with a low number of
+repetitions, for faster CRAN processing. For actual research you should
+consider 500 repetitions or more, depending on the size of your
+dataset.</p>
 <p>Both bootstrapped <em>p</em>-values oppose the analytical test, and
 tell us that we cannot reject that the model is well specified. Which of
 the two should we believe? You, actually, should take this as an
@@ -211,26 +212,26 @@ it.</p>
 <code class="sourceCode R"><span><span class="va">fit_gam</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/ml_gamma.html">ml_gamma</a></span><span class="op">(</span><span class="va">incthou</span> <span class="op">~</span> <span class="va">age</span> <span class="op">+</span> <span class="fu"><a href="https://rdrr.io/r/base/AsIs.html" class="external-link">I</a></span><span class="op">(</span><span class="va">age</span><span class="op">^</span><span class="fl">2</span><span class="op">)</span> <span class="op">+</span> <span class="va">huswage</span> <span class="op">+</span> <span class="va">educ</span> <span class="op">+</span> <span class="va">unem</span>, </span>
 <span>             data <span class="op">=</span> <span class="va">mroz</span><span class="op">)</span></span>
 <span></span>
-<span><span class="fu"><a href="../reference/IMtest.html">IMtest</a></span><span class="op">(</span><span class="va">fit_gam</span>, method <span class="op">=</span> <span class="st">"boot_quad"</span>, repetitions <span class="op">=</span> <span class="fl">100</span><span class="op">)</span></span>
+<span><span class="fu"><a href="../reference/IMtest.html">IMtest</a></span><span class="op">(</span><span class="va">fit_gam</span>, method <span class="op">=</span> <span class="st">"boot_quad"</span>, repetitions <span class="op">=</span> <span class="fl">20</span>, seed <span class="op">=</span> <span class="fl">123</span><span class="op">)</span></span>
 <span><span class="co">#&gt; Information Matrix Test</span></span>
 <span><span class="co">#&gt;  Method: Orthogonalized Quadratic Form + Model-based bootstrap </span></span>
 <span><span class="co">#&gt;  Model:  Homoskedastic Gamma Model </span></span>
 <span><span class="co">#&gt; --------------------------------------------</span></span>
-<span><span class="co">#&gt;  Repetitions: Total 100 Successful 100 </span></span>
+<span><span class="co">#&gt;  Repetitions: Total 20 Successful 20 </span></span>
 <span><span class="co">#&gt;  Chisq(28) = 9.481</span></span>
 <span><span class="co">#&gt;  P(&gt;Chisq): Analytical   = 0.9996 </span></span>
-<span><span class="co">#&gt;             Bootstrapped = 0.7800</span></span>
+<span><span class="co">#&gt;             Bootstrapped = 0.8000</span></span>
 <span><span class="co">#&gt; --------------------------------------------</span></span>
 <span></span>
-<span><span class="fu"><a href="../reference/IMtest.html">IMtest</a></span><span class="op">(</span><span class="va">fit_gam</span>, method <span class="op">=</span> <span class="st">"boot_opg"</span>, repetitions <span class="op">=</span> <span class="fl">100</span><span class="op">)</span></span>
+<span><span class="fu"><a href="../reference/IMtest.html">IMtest</a></span><span class="op">(</span><span class="va">fit_gam</span>, method <span class="op">=</span> <span class="st">"boot_opg"</span>, repetitions <span class="op">=</span> <span class="fl">20</span>, seed <span class="op">=</span> <span class="fl">123</span><span class="op">)</span></span>
 <span><span class="co">#&gt; Information Matrix Test</span></span>
 <span><span class="co">#&gt;  Method: Chesher/Lancaster OPG + Model-based bootstrap </span></span>
 <span><span class="co">#&gt;  Model:  Homoskedastic Gamma Model </span></span>
 <span><span class="co">#&gt; --------------------------------------------</span></span>
-<span><span class="co">#&gt;  Repetitions: Total 100 Successful 100 </span></span>
+<span><span class="co">#&gt;  Repetitions: Total 20 Successful 20 </span></span>
 <span><span class="co">#&gt;  Chisq(28) = 81.513</span></span>
 <span><span class="co">#&gt;  P(&gt;Chisq): Analytical   = 0.0000 </span></span>
-<span><span class="co">#&gt;             Bootstrapped = 0.9800</span></span>
+<span><span class="co">#&gt;             Bootstrapped = 0.9500</span></span>
 <span><span class="co">#&gt; --------------------------------------------</span></span></code></pre></div>
 <p>We did the bootstrapped versions of the tests, because they allow us
 to see the analytical result and the bootstrapped <em>p</em>-values. The
@@ -246,7 +247,7 @@ problem).</p>
 clearer. They both fail to reject that the model is well specified. But
 look at how much more reasonable the bootstrapped <em>p</em>-value for
 the quadratic orthogonalized model is with respect to its analytical
-counterpart (0.78 versus 0.9996).</p>
+counterpart (0.80 versus 0.9996).</p>
 <p>In this case you’re probably safe to proceed with <code>oim</code>
 standard errors, but you may want to check the results with
 <code>robust</code> ones as well, to see if there are major differences
@@ -343,18 +344,18 @@ unrestricted and the restricted (nested) model, and do the test.</li>
 <strong>Wald</strong> test – You only estimate the unrestricted
 model, and the tests are tests restrictions of the coefficients.</li>
 </ul>
-<p>As you can see, we present Wald test(s) in our estimation results,
+<p>As you can see, in our estimation results we present Wald test(s),
 not likelihood-ratio test(s), of significance. The reason is that the
 <strong>likelihood-ratio test is not robust</strong> to the information
 matrix equality not holding, whereas the <strong>Wald test is</strong>,
 when it uses the variance that is robust to that equality not holding.
 Our <code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code> function uses either the type of variance you
 set in the <code>vcov.type</code> argument, which defaults to
-<code>oim</code>, or the variance matrix you pass through the
-<code>vcov</code> argument, to produce the standard errors of the
-coefficients and to do the Wald test(s). That way it produces consistent
-and robust tests, as long a you specify an asymptotically consistent
-type of variance for the model.</p>
+<code>oim</code> when you don’t set it, or the variance matrix you pass
+through the <code>vcov</code> argument, to produce the standard errors
+of the coefficients and to do the Wald test(s). That way it produces
+consistent and robust tests, as long a you specify an asymptotically
+consistent type of variance for the model.</p>
 <p>The limitation of the likelihood-ratio test is an indication that you
 should use the insights provided by the information matrix test to guide
 you in selecting what type of test to do with nested models.</p>
@@ -515,9 +516,9 @@ them this is the same as
 this to include all other parameters (including
 <code>scale::lnnu</code>) adding them but pre-multiplied by zero. So
 that means that the coefficients for all other parameters are zero, for
-age it’s 1 and for educ it’s -1. Then all you have to do is form the row
-vector in matrix form with the coefficients for the parameters in
-place:</p>
+<code>age</code> it’s 1 and for <code>educ</code> it’s -1. Then all you
+have to do is form the row vector in matrix form with the coefficients
+for the parameters in place:</p>
 <div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># One restriction, one row in the matrix with the vector.</span></span>
 <span><span class="va">R</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/cbind.html" class="external-link">rbind</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">1</span>, <span class="fl">0</span>, <span class="fl">0</span>, <span class="op">-</span><span class="fl">1</span>, <span class="fl">0</span>, <span class="fl">0</span>, <span class="fl">0</span>, <span class="fl">0</span><span class="op">)</span><span class="op">)</span></span>
@@ -554,6 +555,10 @@ place:</p>
 two last tests, since there is only one restriction tested, is the
 squared of the <em>z</em> statistic you would get for that same test.
 The <em>p</em>-value is identical, since it’s the same test.</p>
+<p>Notice, also, how the test statistic and <em>p</em>-value of the
+second test are both identical to those of the test that both those
+coefficients were equal to 0.05. That is because, the two tests are
+testing exactly the same.</p>
 <p>Now we illustrate how to replicate the Wald test of joint
 significance of the parameters in the value equation:</p>
 <div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
@@ -624,15 +629,15 @@ value function as that of the linear model.</p>
 <code class="sourceCode R"><span><span class="va">fit_ln</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/ml_lm.html">ml_lm</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Log.html" class="external-link">log</a></span><span class="op">(</span><span class="va">incthou</span><span class="op">)</span> <span class="op">~</span> <span class="va">age</span> <span class="op">+</span> <span class="fu"><a href="https://rdrr.io/r/base/AsIs.html" class="external-link">I</a></span><span class="op">(</span><span class="va">age</span><span class="op">^</span><span class="fl">2</span><span class="op">)</span> <span class="op">+</span> <span class="va">huswage</span> <span class="op">+</span> <span class="va">educ</span> <span class="op">+</span> <span class="va">unem</span>, </span>
 <span>             data <span class="op">=</span> <span class="va">mroz</span><span class="op">)</span></span>
 <span></span>
-<span><span class="fu"><a href="../reference/IMtest.html">IMtest</a></span><span class="op">(</span><span class="va">fit_ln</span>, method <span class="op">=</span> <span class="st">"boot_quad"</span>, repetitions <span class="op">=</span> <span class="fl">100</span><span class="op">)</span></span>
+<span><span class="fu"><a href="../reference/IMtest.html">IMtest</a></span><span class="op">(</span><span class="va">fit_ln</span>, method <span class="op">=</span> <span class="st">"boot_quad"</span>, repetitions <span class="op">=</span> <span class="fl">20</span>, seed <span class="op">=</span> <span class="fl">123</span><span class="op">)</span></span>
 <span><span class="co">#&gt; Information Matrix Test</span></span>
 <span><span class="co">#&gt;  Method: Orthogonalized Quadratic Form + Model-based bootstrap </span></span>
 <span><span class="co">#&gt;  Model:  Homoskedastic Lognormal Model </span></span>
 <span><span class="co">#&gt; --------------------------------------------</span></span>
-<span><span class="co">#&gt;  Repetitions: Total 100 Successful 97 </span></span>
+<span><span class="co">#&gt;  Repetitions: Total 20 Successful 20 </span></span>
 <span><span class="co">#&gt;  Chisq(28) = 26.141</span></span>
 <span><span class="co">#&gt;  P(&gt;Chisq): Analytical   = 0.5653 </span></span>
-<span><span class="co">#&gt;             Bootstrapped = 0.6907</span></span>
+<span><span class="co">#&gt;             Bootstrapped = 0.7500</span></span>
 <span><span class="co">#&gt; --------------------------------------------</span></span>
 <span></span>
 <span><span class="fu"><a href="../reference/vuongtest.html">vuongtest</a></span><span class="op">(</span><span class="va">fit_gam</span>, <span class="va">fit_ln</span><span class="op">)</span></span>

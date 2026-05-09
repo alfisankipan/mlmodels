@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">mlmodels</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.1.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.1.2</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -41,8 +41,18 @@
     </div>
 
     <div class="section level2">
+<h2 class="pkg-version" data-toc-text="0.1.2" id="mlmodels-012">mlmodels 0.1.2<a class="anchor" aria-label="anchor" href="#mlmodels-012"></a></h2><p class="text-muted">CRAN release: 2026-05-08</p>
+<ul><li>Added return values in the documentation of exported functions that were missing them.</li>
+<li>Added references to implemented methods in the description.</li>
+</ul></div>
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="0.1.1" id="mlmodels-011">mlmodels 0.1.1<a class="anchor" aria-label="anchor" href="#mlmodels-011"></a></h2>
+<ul><li>Fixed weighted log-likelihood calculation in <code><a href="../reference/ml_logit.html">ml_logit()</a></code> (both homoskedastic and heteroskedastic versions). This bug previously caused incorrect log-likelihood, AIC, BIC, and convergence issues in weighted logit models.</li>
+<li>All other models were already handling weights correctly.</li>
+</ul></div>
+    <div class="section level2">
 <h2 class="pkg-version" data-toc-text="0.1.0" id="mlmodels-010">mlmodels 0.1.0<a class="anchor" aria-label="anchor" href="#mlmodels-010"></a></h2>
-<ul><li>First public release.</li>
+<ul><li>First public release - Initial CRAN submission</li>
 <li>Provides maximum likelihood estimation for Gaussian (linear and log-normal), logit, probit, Poisson, negative binomial (NB1 and NB2), gamma, and beta models.</li>
 <li>Consistent S3 interface with support for modeling scale parameters.</li>
 <li>Multiple variance-covariance estimators (OIM, OPG, robust, cluster-robust, bootstrap, jackknife).</li>
@@ -50,7 +60,8 @@
 <li>Compatible with <code>marginaleffects</code> for marginal effects and predictions.</li>
 <li>Comprehensive vignettes covering main model families and diagnostics.</li>
 </ul></div>
-  </main></div>
+  </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
+    </nav></aside></div>
 
 
     <footer><div class="pkgdown-footer-left">

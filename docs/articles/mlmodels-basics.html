@@ -25,7 +25,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">mlmodels</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.1.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.1.2</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -185,8 +185,8 @@ of the standard deviation, in this case.</p>
 <code>scale::</code> to the names of the coefficients in the
 corresponding equation. The purpose is twofold:</p>
 <ul>
-<li><p>It avoids naming the coefficients equally if you entered the same
-variable as a predictor in both equations.</p></li>
+<li><p>It avoids naming conflicts if you entered the same variable as a
+predictor in both equations.</p></li>
 <li><p>It points immediately to which equation the coefficient belongs
 to, giving you an easy way to select just the coefficients of a given
 equation, in case you’d like to separate them.</p></li>
@@ -297,6 +297,11 @@ was of a homoskedastic normal model, the prediction is if
 <span><span class="co">#&gt; [1] 15.20265 21.47112 15.38632 14.98368 27.26299 21.92135</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">pred</span><span class="op">$</span><span class="va">se.fit</span><span class="op">)</span>   <span class="co"># Standard errors</span></span>
 <span><span class="co">#&gt; [1] 0.5987687 0.7375031 0.5413427 0.5557155 0.7622242 0.5022675</span></span></code></pre></div>
+<p>It returns a list with the prediction you requested in its
+<code>fit</code> element. If you set <code>se.fit = TRUE</code> it
+returns the standard errors of the predictions in its
+<code>se.fit</code> element, calculated via the <strong>delta method,
+using analytical gradients</strong>.</p>
 </div>
 <div class="section level2">
 <h2 id="modeling-heteroskedasticity">Modeling Heteroskedasticity<a class="anchor" aria-label="anchor" href="#modeling-heteroskedasticity"></a>
@@ -358,14 +363,14 @@ predictors for that equation.</p>
 homoskedastic case. The main differences are that now:</p>
 <ul>
 <li>The joint significance tests include one for the parameters of the
-value equation, and another for the parameters of the scale equation, in
-addition to the overall one.</li>
+value (mean) equation, and another for the parameters of the scale
+equation, in addition to the overall one.</li>
 <li>At the bottom we present summary statistics of the predicted
 standard deviation, instead of the single value.</li>
 </ul>
 <p>This allows you to immediately identify if there is
-heteroskedasticity present, and how much the standard deviation varies
-within the sample used in the estimation.</p>
+heteroskedasticity present, and how much the standard deviation, in this
+case, varies within the sample used in the estimation.</p>
 <p>The real benefit becomes clear when you make predictions:</p>
 <div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span>  <span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/predict.html" class="external-link">predict</a></span><span class="op">(</span><span class="va">fit_het</span>, type <span class="op">=</span> <span class="st">"variance"</span><span class="op">)</span><span class="op">$</span><span class="va">fit</span><span class="op">)</span></span>
@@ -374,8 +379,9 @@ within the sample used in the estimation.</p>
 that the variance was the same for every observation. Modeling the scale
 parameter allows the uncertainty to vary realistically across
 individuals.</p>
-<p>To get the partial effects on the standard deviation, you can use the
-functions from the <code>marginaleffects</code> package:</p>
+<p>To get the partial effects on the standard deviation, instead of the
+slopes on the log of the standard deviation, you can use the functions
+from the <code>marginaleffects</code> package:</p>
 <div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># AMEs for the standard deviation using robust standard errors</span></span>
 <span><span class="fu"><a href="https://rdrr.io/pkg/marginaleffects/man/slopes.html" class="external-link">avg_slopes</a></span><span class="op">(</span><span class="va">fit_het</span>, variables <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"educ"</span>, <span class="st">"exper"</span><span class="op">)</span>, type <span class="op">=</span> <span class="st">"sigma"</span>, vcov <span class="op">=</span> <span class="st">"robust"</span><span class="op">)</span></span>
@@ -398,7 +404,7 @@ fully determined by its mean, as is its variance.</p>
 <p>All <code>mlmodels</code> estimating functions allow you to
 explicitly control whether an intercept is included in the
 <code>value</code> (mean) equation and/or the <code>scale</code>
-equation. This is done through the dedicated arguments
+equation, when present. This is done through the dedicated arguments
 <code>noint_value</code> and <code>noint_scale</code>. Trying to do it
 through the formulas in the <code>value</code> and/or <code>scale</code>
 arguments will throw an error and abort the estimation.</p>
@@ -495,9 +501,16 @@ equation (when present)</li>
 </ul>
 </li>
 <li>
-<code><a href="../reference/ml_poisson.html">ml_poisson()</a></code> only has noint_value (its proability
-doesn’t have a scale parameter).</li>
+<code><a href="../reference/ml_poisson.html">ml_poisson()</a></code>, <code><a href="../reference/ml_logit.html">ml_logit()</a></code>, and
+<code><a href="../reference/ml_probit.html">ml_probit()</a></code> only have <code>noint_value</code>.</li>
 </ul>
+<p>The reason <code><a href="../reference/ml_poisson.html">ml_poisson()</a></code> doesn’t have the
+<code>noint_scale</code> argument, is that you can’t model a dispersion
+parameter in a poisson model. The reason for <code><a href="../reference/ml_logit.html">ml_logit()</a></code> and
+<code><a href="../reference/ml_probit.html">ml_probit()</a></code> don’t have the <code>noint_scale</code>
+argument, is that in those models the overall scale is unidentified, so
+the sale equation is <strong>always estimated without an
+intercept</strong>.</p>
 <p><strong>Why this design?</strong></p>
 <p>Our models use <code>hardhat</code> blueprints for consistent and
 safe formula handling. The <code>noint_*</code> arguments give you
@@ -595,6 +608,9 @@ already binary (0/1).</p>
 models are identical in structure to the linear case. The same pattern
 works for <code><a href="../reference/ml_probit.html">ml_probit()</a></code>, <code><a href="../reference/ml_negbin.html">ml_negbin()</a></code>,
 <code><a href="../reference/ml_gamma.html">ml_gamma()</a></code>, and <code><a href="../reference/ml_beta.html">ml_beta()</a></code>.</p>
+<p>You can also see how what we said about logit and probit models’
+scale equations always being estimated without an intercept is true,
+since the scale equation doesn’t have one.</p>
 <p>For a deeper discussion of the different models see the dedicated
 vignettes to the topics that involve them.</p>
 </div>
@@ -658,16 +674,10 @@ started with maximum likelihood modeling in R.</p>
 <div class="section level2">
 <h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a>
 </h2>
-<p>Cameron, A. C., &amp; Trivedi, P. K. (2022). <em>Microeconometrics
-Using Stata: Volumes I and II</em> (2nd ed.). Stata Press.</p>
 <p>Henningsen, A., &amp; Toomet, O. (2011). “maxLik: A package for
 maximum likelihood estimation in R.” <em>Computational Statistics</em>,
 26(3), 443–458. <a href="https://doi.org/10.1007/s00180-010-0217-1" class="external-link uri">https://doi.org/10.1007/s00180-010-0217-1</a> (Also
 available as the R package <code>maxLik</code> on CRAN: <a href="https://cran.r-project.org/package=maxLik" class="external-link uri">https://cran.r-project.org/package=maxLik</a>)</p>
-<p>Papke, L. E., &amp; Wooldridge, J. M. (1996). “Econometric methods
-for fractional response variables with an application to 401(k) plan
-participation rates.” <em>Journal of Applied Econometrics</em>, 11(6),
-619–632. <a href="https://doi.org/10.1002/(SICI)1099-1255(199611)11:6%3C619::AID-JAE418%3E3.0.CO;2-1" class="external-link">https://doi.org/10.1002/(SICI)1099-1255(199611)11:6&lt;619::AID-JAE418&gt;3.0.CO;2-1</a></p>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside>

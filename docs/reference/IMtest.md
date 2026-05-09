@@ -124,15 +124,15 @@ IMtest(fit, method = "opg")
 #> --------------------------------------------
 
 # Bootstrap p-value (quadratic form)
-IMtest(fit, method = "boot_quad", repetitions = 100, seed = 123)
+IMtest(fit, method = "boot_quad", repetitions = 50, seed = 123)
 #> Information Matrix Test
 #>  Method: Orthogonalized Quadratic Form + Model-based bootstrap 
 #>  Model:  Homoskedastic Linear Model 
 #> --------------------------------------------
-#>  Repetitions: Total 100 Successful 100 
+#>  Repetitions: Total 50 Successful 50 
 #>  Chisq(28) = 122.732
 #>  P(>Chisq): Analytical   = 0.0000 
-#>             Bootstrapped = 0.7700
+#>             Bootstrapped = 0.7800
 #> --------------------------------------------
 
 # Heteroskedastic model

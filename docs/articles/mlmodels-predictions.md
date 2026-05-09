@@ -410,13 +410,13 @@ bootstrapped variance-covariance matrix with
 
 ## 1st approach (Bootstrapped variance)
 # pre-compute the variance on the linear model (low number of repetitions to make it fast)
-v_boot <- vcov(fit, type = "boot", repetitions = 200, seed = 123, progress = FALSE)
+v_boot <- vcov(fit, type = "boot", repetitions = 20, progress = FALSE)
 # use it with predictions()
 boot_delta <- predictions(fit, vcov = v_boot)
 
 ## 2nd approach (Bootstrapped prediction)
 boot_pred <- predictions(fit) |>
-  inferences(method = "boot", R = 200) # Inferences allows you to set the repetitions.
+  inferences(method = "boot", R = 20) # Inferences allows you to set the repetitions.
 
 # The estimate is the same in both methods
 comp <- data.frame(
@@ -430,22 +430,26 @@ comp <- data.frame(
 
 comp
 #>   obs Estimate Delta_Low Delta_High Pred_Low Pred_High
-#> 1   1 19.74355  17.74283   21.74428 17.68970  22.15990
-#> 2   2 18.70671  16.80978   20.60364 16.94558  20.72125
-#> 3   3 21.28132  19.35007   23.21257 19.26963  23.44030
-#> 4   4 20.98756  19.79893   22.17619 19.74013  22.31944
-#> 5   5 23.15382  20.90551   25.40214 21.10759  25.54654
-#> 6   6 23.17217  21.69891   24.64542 21.69350  24.67788
-#> 7   7 30.29423  28.14842   32.44003 28.38837  32.41074
-#> 8   8 23.17217  21.69891   24.64542 21.69350  24.67788
+#> 1   1 19.74355  17.74885   21.73825 18.03809  21.62272
+#> 2   2 18.70671  16.48955   20.92387 17.16532  20.74261
+#> 3   3 21.28132  19.25051   23.31213 19.51117  23.93240
+#> 4   4 20.98756  19.63304   22.34208 20.08004  21.93223
+#> 5   5 23.15382  20.71326   25.59439 21.45097  24.52777
+#> 6   6 23.17217  21.92974   24.41460 21.66176  24.54116
+#> 7   7 30.29423  28.61080   31.97765 28.48795  32.79090
+#> 8   8 23.17217  21.92974   24.41460 21.66176  24.54116
 ```
 
-In this example the confidence intervals from both methods are very
-similar. In general, however, the full bootstrap approach (bootstrapping
-the predictions themselves) is more robust when the distributional
-assumptions of your model may not hold perfectly. This extra robustness
-comes at the cost of higher computational time compared to using a
-bootstrapped variance matrix with the delta method.
+In the example we have used 20 repetitions, to speed up the
+illustration, and its building to satisfy CRAN’s requirements. But you
+should use at least 500 repetitions, in your actual work.
+
+We see that the confidence intervals from both methods are very similar.
+In general, the full bootstrap approach (bootstrapping the predictions
+themselves) is more robust when the distributional assumptions of your
+model may not hold perfectly. This extra robustness comes at the cost of
+higher computational time compared to using a bootstrapped variance
+matrix with the delta method.
 
 `marginaleffects` gives you the flexibility to choose whichever approach
 best suits your needs and computational budget.

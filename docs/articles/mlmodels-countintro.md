@@ -213,12 +213,12 @@ specifications (highly significant t-statistics for both NB1 and NB2).
 This confirms two important points:
 
 - If you are only interested in inference about the **mean** parameters,
-  using robust standard errors with the Poisson model is usually
-  sufficient.
+  using robust standard errors with this Poisson model is sufficient,
+  and needed.
 - However, if you also care about correctly modeling the **variance** or
   making accurate **probability predictions** (e.g., P(Y=0), P(Y=k),
-  etc.), the Poisson model is inadequate. In such cases, moving to a
-  negative binomial model is more appropriate.
+  etc.), this Poisson model is inadequate. If this is the case, moving
+  to a negative binomial model is more appropriate.
 
 ## Average Marginal Effects
 
@@ -252,7 +252,7 @@ exactly.
 
 You can also see how `marginaleffects` automatically identifies discrete
 variables (showing contrast `1 - 0`) versus continuous variables
-(showing contrast `dy/dx`).
+(showing contrast `dY/dX`).
 
 For more information about predictions and our integration with
 `marginaleffects`, see the dedicated vignette: **[Predictions and
@@ -816,6 +816,8 @@ The `mlmodels` package offers several practical advantages:
 
 We hope this introduction helps you explore count data modeling more
 flexibly and transparently in R.
+
+Happy modeling!
 
 ## References
 
