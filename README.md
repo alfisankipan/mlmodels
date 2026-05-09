@@ -21,6 +21,12 @@ We are currently working on:
 - Implementing bootstrapping in Vuong's and Clarke's test.
 - Improvements to estimation, and displaying statistics with weighted models.
 
+## Documentation
+
+- [Getting started](https://alfisankipan.github.io/mlmodels/articles/mlmodels-basics.html) — basic usage, model specification, and examples.
+- [Reference manual](https://alfisankipan.github.io/mlmodels/reference/index.html) — complete function documentation.
+- [NEWS](https://alfisankipan.github.io/mlmodels/news/index.html) — changelog.
+
 ## Installation
 
 ```r
