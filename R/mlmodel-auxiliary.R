@@ -23,7 +23,7 @@
   defaults[[name]]
 }
 
-## Format Coefficient Matrix ===================================================
+## FORMAT COEFFICENT MATRIX ===================================================
 # Internal helper: Smart formatting of coefficient matrices
 # Decides number of decimal places based on the magnitude of the values
 .format_coef_matrix <- function(coef_mat, 
@@ -52,7 +52,7 @@
   return(coef_mat)
 }
 
-## Is Invertible ===============================================================
+## IS INVERTIBLE ===============================================================
 # Internal function to detect if a matrix is invertible.
 # 
 # Argument: matrix - The matrix you want to check
@@ -68,9 +68,200 @@
   }, error = function(e) FALSE)
 }
 
-# POST-MOLD UTILITIES ==========================================================
+## POST-ESTIMATION UTILITIES ===================================================
+# --- Fractional Response Alert (logit/probit) ---------------------------------
+# Checks if the estimation is of a fractional response outcome and the variance
+# used for inference is oim or opg, to thrown an alert.
+#' @keywords internal
+.fractional_response_inference_alert <- function(object, vcov)
+{
+  
+  if (!inherits(object, c("ml_logit", "ml_probit")) || isTRUE(object$model$is_binary)) {
+    return(invisible(TRUE))
+  }
+  
+  vcov_type <- attr(vcov, "vcov.type") %||% "user-supplied"
+  
+  # Checking for fractional response estimation, and variance
+  if (!object$model$is_binary) {
+    if (vcov_type %in% c("oim", "opg")) {
+      cli::cli_warn(
+        c("Outcome appears to be fractional (values strictly between 0 and 1).",
+          "i" = "Estimation is quasi-maximum likelihood (QMLE).",
+          "i" = "Variance type `'{vcov_type}'` is not appropriate in this case.",
+          "i" = "It is strongly recommended to use robust standard errors.",
+          "i" = "Consider setting `vcov.type = \"robust\"` or `vcov.type = \"boot\"`.")
+      )
+    } 
+    else if (vcov_type == "user-supplied") {
+      cli::cli_warn(
+        c("Outcome appears to be fractional (values strictly between 0 and 1).",
+          "i" = "Estimation is quasi-maximum likelihood (QMLE).",
+          "i" = "Could not determine the type of variance matrix used.",
+          "i" = "It is strongly recommended to use robust standard errors.",
+          "i" = "Consider using `vcov.type = \"robust\"` or `vcov.type = \"boot\"`.")
+      )
+    }
+  }
+  
+  invisible(TRUE)
+}
 
-# Factor mapping ---------------------------------------------------------------
+# -- Generate Weight Information -----------------------------------------------
+# Pulls the weight information used in an object, and other information for the
+# summary functions.
+#'@keywords internal
+.generate_weight_info <- function(object)
+{
+  if(!inherits(object, "mlmodel"))
+    cli::cli_abort("`object` must be of class 'mlmodel'")
+  
+  # Weights are already reduced to used dimensions.
+  used_weights <- object$model$weights %||% rep(1, nobs(object))
+  
+  # If all weights are 1 (or very close), treat as unweighted
+  if (all(abs(used_weights - 1) < 1e-8)) {
+    return(list(is_weighted = FALSE))
+  }
+  
+  # logLik(), AIC(), and BIC() now return the right statistics.
+  # logLik() also returns all the statistics we need except for the summary
+  # of the weights in its attributes.
+  ll_scaled <- logLik(object, scaled = TRUE)
+  aic_scaled <- AIC(object, scaled = TRUE)
+  bic_scaled <- BIC(object, scaled = TRUE)
+  
+  list(
+    is_weighted     = TRUE,
+    n_used          = attr(ll_scaled, "nobs"),
+    sum_weights     = attr(ll_scaled, "nobs_effective"),
+    scale_factor    = attr(ll_scaled, "scale_factor"),
+    weight_summary  = summary(used_weights),
+    # Scaled versions for comparability
+    loglik_scaled   = as.numeric(ll_scaled),
+    aic_scaled      = as.numeric(aic_scaled),
+    bic_scaled      = as.numeric(bic_scaled)
+  )
+}
+
+# -- Print Information Criteria ------------------------------------------------
+# Prints the AIC and BIC for the print.summary functions, checking if estimation
+# was with weights, to diplay just the regular ones or both the weighted and scaled.
+.print_information_criteria <- function(x, digits = max(3L, getOption("digits") - 3L))
+{
+  if(!inherits(x, "summary.mlmodel"))
+    cli::cli_abort("`x` must be of class 'summary.mlmodel'")
+  
+  cat("\n  Information Criteria:\n")
+  if(x$weight_info$is_weighted)
+  {
+    cat("    AIC:  ", format(x$AIC, nsmall = 2, digits = digits + 1),
+        " (",
+        format(x$weight_info$aic_scaled, nsmall = 2, digits = digits + 1),
+        " scaled)",
+        "\n    BIC:  ", format(x$BIC, nsmall = 2, digits = digits + 1),
+        " (",
+        format(x$weight_info$bic_scaled, nsmall = 2, digits = digits + 1),
+        " scaled)",
+        "\n",
+        sep = "")
+  }
+  else
+  {
+    cat("     AIC:", format(x$AIC, nsmall = 2, digits = digits + 1),
+        "\n     BIC:", format(x$BIC, nsmall = 2, digits = digits + 1), "\n")
+  }
+  
+  invisible(TRUE)
+}
+
+# -- Print Wald Tests ----------------------------------------------------------
+# Prints wald tests in the print.sumary header.
+#' @keywords internal
+.print_wald_tests <- function(x,  digits = max(3L, getOption("digits") - 3L))
+{
+  if (!inherits(x, "summary.mlmodel"))
+    cli::cli_abort("`x` must be of class 'summary.mlmodel'")
+  
+  tests <- x$significance
+  if (is.null(tests) || length(tests) == 0) {
+    cat("Wald significance tests:\n  (none computed)\n")
+    return(invisible(TRUE))
+  }
+  
+  cat("Wald significance tests:\n")
+  
+  # Filter valid tests
+  valid_tests <- tests[!sapply(tests, function(t) 
+    is.null(t) || isTRUE(t$singular) || !is.finite(t$pval))]
+  
+  if (length(valid_tests) == 0) {
+    cat("  Tests were not computable (singular or not finite variance).\n")
+    return(invisible(TRUE))
+  }
+  
+  names <- names(valid_tests)
+  max_name_width <- max(nchar(names))
+  
+  # Build statistic strings for alignment
+  stat_strings <- sapply(valid_tests, function(w) {
+    sprintf("Chisq(%d) = %8.3f", w$df, w$waldstat)
+  })
+  max_stat_width <- max(nchar(stat_strings))
+  
+  for (i in seq_along(names)) {
+    nm   <- tools::toTitleCase(names[i])
+    stat <- stat_strings[i]
+    pval <- format.pval(valid_tests[[i]]$pval, digits = 4, eps = 1e-8)
+    
+    cat(sprintf("  %-*s - %-*s  Pr(>Chisq) = %s\n",
+                max_name_width, nm,
+                max_stat_width, stat,
+                pval))
+  }
+  
+  invisible(TRUE)
+}
+
+# -- Print Weight Info and Loglikelihood Header --------------------------------
+# For print.summary functions, it prints the header part of the weight information
+# if weighted estimation, and the log-likelihood.
+#' @keywords internal
+.print_weight_loglik <- function(x, digits = max(3L, getOption("digits") - 3L))
+{
+  if(!inherits(x, "summary.mlmodel"))
+    cli::cli_abort("`x` must be of class 'summary.mlmodel'")
+  
+  # If weighted estimation, we report info about weights and two log-likelihoods.
+  if(x$weight_info$is_weighted)
+  {
+    labels <- c("Sum of weights:", "Scaling Factor:")
+    width <- max(nchar(labels)) + 1
+    
+    cat(sprintf("Weighted Estimation (%d observations):", x$weight_info$n_used),
+        sprintf("  %-*s %s", width, "Sum of Weights:",
+                format(x$weight_info$sum_w, digits = digits)),
+        sprintf("  %-*s %s", width, "Scaling Factor:",
+                format(x$weight_info$scale_factor, nsmall = 2, digits = digits)),
+        "\n  Distribution of weights:",
+        sep = "\n")
+    
+    w_summary <- paste0("    ",
+                        capture.output(print(x$weight_info$weight_summary, digits = 2)))
+    
+    cat(w_summary, sep = "\n")
+    cat("\nLog-Likelihood: ", format(x$logLik, nsmall = 2, digits = digits + 1),
+        " (", format(x$weight_info$loglik_scaled, nsmall = 2, digits = digits + 1),
+        " scaled)\n\n", sep = "")
+  }
+  else
+    cat("Log-Likelihood:", format(x$logLik, nsmall = 2, digits = digits + 1), "\n\n")
+  
+  invisible(TRUE)
+}
+
+## POST-MOLD UTILITIES =========================================================
+# -- Factor mapping ------------------------------------------------------------
 # Build factor mapping for a single equation
 #
 # Internal function. Creates a mapping of factor variables to their
@@ -722,7 +913,7 @@
   # Make a working copy
   b1 <- b
   attr(b1, "feasible") <- FALSE
-
+  
   # Check feasibility
   if (any(!is.finite(ll))) {
     cli::cli_alert_info("Log-likelihood infeasible at initial values. Searching for feasible start...")
@@ -802,8 +993,8 @@
 
     # Apply scaling iteratively if it improves the likelihood
     if (scale != 1) {
-      cli::cli_alert_info("Improving initial values by scaling (factor = {scale}).")
-      cli::cli_alert_info("Initial log-likelihood: {round(ll0, 3)}")
+      # cli::cli_alert_info("Improving initial values by scaling (factor = {scale}).")
+      # cli::cli_alert_info("Initial average log-likelihood: {round(ll0, 6)}")
       for (i in 1:20) {   # safety limit
         b2 <- b1 * scale
         ll2 <- sum(fn(b2, ...))
@@ -811,7 +1002,7 @@
         b1 <- b2
         ll0 <- ll2
       }
-      cli::cli_alert_info("Final scaled log-likelihood: {round(ll0, 3)}")
+      # cli::cli_alert_info("Final scaled average log-likelihood: {round(ll0, 6)}")
     }
   }
 
@@ -879,43 +1070,6 @@
   }
   
   data
-}
-
-## FRACTIONAL RESPONSE INFERENCE ===============================================
-# --- Logit/Probit check for fractional response
-#' @keywords internal
-.fractional_response_inference_alert <- function(object, vcov)
-{
-  
-  if (!inherits(object, c("ml_logit", "ml_probit")) || isTRUE(object$model$is_binary)) {
-    return(invisible(TRUE))
-  }
-  
-  vcov_type <- attr(vcov, "vcov.type") %||% "user-supplied"
-  
-  # Checking for fractional response estimation, and variance
-  if (!object$model$is_binary) {
-    if (vcov_type %in% c("oim", "opg")) {
-      cli::cli_warn(
-        c("Outcome appears to be fractional (values strictly between 0 and 1).",
-          "i" = "Estimation is quasi-maximum likelihood (QMLE).",
-          "i" = "Variance type `'{vcov_type}'` is not appropriate in this case.",
-          "i" = "It is strongly recommended to use robust standard errors.",
-          "i" = "Consider setting `vcov.type = \"robust\"` or `vcov.type = \"boot\"`.")
-      )
-    } 
-    else if (vcov_type == "user-supplied") {
-      cli::cli_warn(
-        c("Outcome appears to be fractional (values strictly between 0 and 1).",
-          "i" = "Estimation is quasi-maximum likelihood (QMLE).",
-          "i" = "Could not determine the type of variance matrix used.",
-          "i" = "It is strongly recommended to use robust standard errors.",
-          "i" = "Consider using `vcov.type = \"robust\"` or `vcov.type = \"boot\"`.")
-      )
-    }
-  }
-  
-  invisible(TRUE)
 }
 
 ## PREDICTION HELPERS ==========================================================
@@ -1148,6 +1302,176 @@
               idx = subset_idx)
   
   return(res)
+}
+
+## TEST HELPERS ================================================================
+# -- Clarke Stats --------------------------------------------------------------
+# Computes the test stat and p-value for a given difference vector for the Clarke
+# test.
+.clarke_stats <- function(d) {
+  
+  # Remove exact zeros (standard Clarke practice)
+  d_nozero <- d[d != 0]
+  n <- length(d)
+  n_eff    <- length(d_nozero)
+  
+  out <- list(
+    binomial = list(
+      teststat     = NA_real_,
+      p.value      = NA_real_
+    ),
+    signedrank = list(
+      teststat     = NA_real_,
+      p.value      = NA_real_
+    )
+  )
+  
+  # ====================== BINOMIAL / SIGN TEST ==========================
+  if (n > 0) {
+    B <- sum(d > 0)
+    bin_test <- binom.test(B, n, p = 0.5, alternative = "two.sided")
+    out$binomial$teststat <- B
+    out$binomial$p.value  <- bin_test$p.value
+  }
+  
+  # ====================== SIGNED-RANK (WILCOXON) ========================
+  if (n_eff >= 2) {
+    wilcox <- wilcox.test(d_nozero, 
+                          alternative = "two.sided",
+                          exact = (n_eff <= 50),
+                          correct = TRUE)
+    out$signedrank$teststat <- wilcox$statistic
+    out$signedrank$p.value  <- wilcox$p.value
+  }
+  
+  out
+}
+
+# -- Create restriction matrix from linear constraints -------------------------
+#' @keywords internal
+.make_restriction_matrix <- function(object, constraints)
+{
+  coef_names <- names(coef(object))
+  k <- length(coef_names)
+  
+  R <- matrix(0, nrow = length(constraints), ncol = k)
+  colnames(R) <- coef_names
+  
+  # Safe names for environment
+  safe_names <- gsub("::", "_", coef_names)
+  safe_names <- gsub("I\\(([^)]+)\\)", "\\1", safe_names)
+  safe_names <- gsub("[()^:]", "_", safe_names)
+  
+  # Environment with base operators
+  env <- new.env(parent = baseenv())
+  
+  ident <- diag(k)
+  for (i in seq_along(coef_names)) {
+    assign(safe_names[i], ident[i, ], envir = env)
+  }
+  
+  on.exit(rm(list = ls(env), envir = env), add = TRUE)
+  
+  for (i in seq_along(constraints)) {
+    orig <- constraints[i]
+    safe_expr <- gsub("::", "_", orig)
+    safe_expr <- gsub("I\\(([^)]+)\\)", "\\1", safe_expr)
+    safe_expr <- gsub("[()^:]", "_", safe_expr)
+    
+    tryCatch({
+      parsed <- parse(text = safe_expr)
+      row <- eval(parsed, envir = env)
+      
+      if (!is.numeric(row) || length(row) != k) {
+        cli::cli_abort("Constraint {.val {orig}} did not evaluate to a numeric vector of length {k}.")
+      }
+      
+      # NEW: Prevent non-linear terms (e.g. age * educ)
+      if (all(row == 0)) {
+        cli::cli_abort(c(
+          paste0("Constraint {.val ", orig, "} evaluates to a row of zeros."),
+          "i" = "Only linear combinations of coefficients are supported."
+        ))
+      }
+      
+      R[i, ] <- row
+      
+    }, error = function(e) {
+      cli::cli_abort(c(
+        paste0("Failed to parse constraint {.val ", orig, "}."),
+        "i" = "Make sure you are writing the name of the coefficiently exactly."
+      ))
+    })
+  }
+  
+  R
+}
+
+# -- Matching Datsets and/or Samples -------------------------------------------
+# Checks whether the samples used in two models are compatible.
+#
+# To help in tests (Vuong, Clarke...) that compare statistics at the observation
+# level between to estimated samples. We check whether the sample logical vectors
+# stored in the objects are identical, and abort if they aren't
+#
+# Arguments:
+#   * model_1:  An `mlmodel` object.
+#   * model_2:  An `mlmodel` object.
+#
+# Returns: TRUE invisibly if the test passes
+#' @keywords internal
+.compare_estimation_samples <- function(model_1, model_2) {
+  
+  if (!inherits(model_1, "mlmodel") || !inherits(model_2, "mlmodel")) {
+    cli::cli_abort("Both arguments must be objects of class 'mlmodel'.")
+  }
+  
+  sample_1 <- model_1$model$sample %||% rep(TRUE, nobs(model_1))
+  sample_2 <- model_2$model$sample %||% rep(TRUE, nobs(model_2))
+  
+  if (!identical(sample_1, sample_2)) {
+    cli::cli_abort(c(
+      "!" = "Models were not fitted on exactly the same observations in the same order.",
+      "i" = "The logical sample vectors differ.",
+      "i" = "This test (including bootstrap version) requires identical samples."
+    ))
+  }
+  
+  # Check weights
+  w1 <- model_1$model$weights %||% rep(1, nobs(model_1))
+  w2 <- model_2$model$weights %||% rep(1, nobs(model_2))
+  
+  if (!identical(w1, w2)) {
+    cli::cli_abort(c(
+      "!" = "Models were fitted using different weights.",
+      "i" = "The test requires identical weights across models."
+    ))
+  }
+  
+  invisible(TRUE)
+}
+
+# -- Vuong Stats ---------------------------------------------------------------
+# Internal helper for Vuong test
+#' @keywords internal
+.vuong_stats <- function(d) {
+  
+  n <- length(d)
+  
+  if (n == 0) {
+    return(list(statistic = NA_real_, p.value = NA_real_))
+  }
+  
+  m_bar <- mean(d)
+  
+  # Use divide-by-n (asymptotic version) for consistency with Vuong (1989)
+  s <- sd(d) * sqrt((n - 1) / n)   # equivalent to sqrt( sum((d - m_bar)^2) / n )
+  
+  z <- sqrt(n) * m_bar / s
+  
+  pval <- 2 * pnorm(-abs(z))
+  
+  list(statistic = z, p.value = pval)
 }
 
 ## VARIANCE HELPERS ============================================================

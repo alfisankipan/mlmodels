@@ -254,15 +254,26 @@ ml_poisson <- function(value,
     }
   }
   
-  # -- 9. Fitting the model with maxLik ----------------------
+  # -- 9. Fitting the model with maxLik ----------------------------------------
+  
+  # -- 9a. Scaling the weights to ease optimization ----------------------------
+  sc_factor <- sum(wts_clean)
+  w_scaled <- wts_clean / sc_factor
+  
+  #-- 9b. Calling the fit function with scaled weights -------------------------
   ml <- .ml_poisson.fit(y = y,
                         x = x,
-                        w = wts_clean,
+                        w = w_scaled,
                         constraints = parsed_constraints$maxLik,
                         start = start,
                         method = method,
                         control = control,
                         ...)
+  
+  # -- 9c. Scaling the log-likelihood, scores and hessian back -----------------
+  ml$hessian <- ml$hessian * sc_factor
+  ml$gradientObs <- ml$gradientObs * sc_factor
+  ml$maximum <- ml$maximum * sc_factor
   
   # -- 10. Forming the dataset name ------------------------------
   # Safely get a readable name for the dataset (for printing/storage)
@@ -400,6 +411,9 @@ new_ml_poisson <- function(object, ...) {
     
     start <- .initial_values.mlmodel(.ml_poisson_ll, b0,
                                      y = y, x = x, w = w)
+    if(isFALSE(attr(start, "feasible")))
+      cli::cli_abort("Couldn't find feasible initial values.",
+                     call = NULL)
   }
   
   maxLik::maxLik(.ml_poisson_ll,

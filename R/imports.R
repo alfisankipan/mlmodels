@@ -10,11 +10,13 @@
 #'
 #' @importFrom stats AIC
 #' @importFrom stats BIC
+#' @importFrom stats binom.test
 #' @importFrom stats coef
 #' @importFrom stats complete.cases
 #' @importFrom stats cor
 #' @importFrom stats cov
 #' @importFrom stats cov2cor
+#' @importFrom stats qlogis
 #' @importFrom stats dlogis
 #' @importFrom stats dnorm
 #' @importFrom stats dnbinom
@@ -42,4 +44,5 @@
 #' @importFrom stats update.formula
 #' @importFrom stats var
 #' @importFrom stats vcov
+#' @importFrom stats wilcox.test
 NULL

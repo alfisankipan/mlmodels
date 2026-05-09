@@ -246,25 +246,11 @@ print.summary.ml_probit <- function(x, digits = max(3L, getOption("digits") - 3L
     cat("WARNING: Model did NOT converge!\n")
     cat("Convergence code:", x$code %||% "???", "-", x$message %||% "", "\n\n")
   } else {
-    # Log-Likelihood + Joint tests (only when converged)
-    cat("Log-Likelihood:", format(x$logLik, nsmall = 2, digits = digits + 1), "\n\n")
-    cat("Wald significance tests:\n")
+    # Use helper function to print the weight/loglikelihood part of the header
+    .print_weight_loglik(x, digits = digits)
     
-    any_test_printed <- FALSE
-    for (test in c("all", "mean", "scale")) {
-      w <- x$significance[[test]]
-      if (is.null(w) || isTRUE(w$singular) || !is.finite(w$pval)) {
-        next   # skip silently (happens in homoskedastic case or useless variance)
-      }
-      any_test_printed <- TRUE
-      p_str <- if (w$pval < 1e-8) "< 1e-8" else sprintf("%.4f", w$pval)
-      cat(sprintf(" %s: Chisq(%d) = %.3f, Pr(>Chisq) = %s\n",
-                  tools::toTitleCase(test), w$df, w$waldstat, p_str))
-    }
-    
-    if (!any_test_printed) {
-      cat(" Tests were not computable (singular or not finite variance).\n")
-    }
+    # Wald Tests
+    .print_wald_tests(x, digits = digits)
   }
   
   cat("\nVariance type:", x$var_description)
@@ -317,15 +303,34 @@ print.summary.ml_probit <- function(x, digits = max(3L, getOption("digits") - 3L
   
   if (x$converged) {
     cat("---\n")
-    cat("Number of observations:", x$nobs, 
-        " (Successes: ", x$n_success, ", Failures: ", x$n_failure, ")\n", sep = "")
-    cat("Pseudo R-squared - Cor.Sq.: ",
-        format(x$r.squared$cor, digits = digits),
-        " McKelvey & Zavoina: ", format(x$r.squared$mczav, digits = digits),
-        "\n",
-        sep = "")
-    cat("AIC:", format(x$AIC, nsmall = 2, digits = digits + 1),
-        " BIC:", format(x$BIC, nsmall = 2, digits = digits + 1), "\n")
+    
+    sample_obs <- c(Total = x$nobs, Success = x$n_success, Failure = x$n_failure)
+    if(x$weight_info$is_weighted)
+    {
+      eff_obs <- c(Total = x$weight_info$sum_weights,
+                   Success = x$n_eff_success,
+                   Faiulre = x$n_eff_failure)
+      obs_mat <- rbind(Sample = sample_obs,
+                       `Effective  ` = eff_obs)
+    }
+    else
+      obs_mat <- matrix(sample_obs, nrow = 1, dimnames = list("Sample  ", names(sample_obs)))
+    
+    cat("Observations:")
+    cap_obs <- capture.output(print(as.data.frame(obs_mat)))
+    cat("  ", cap_obs, sep = "\n  ")
+    
+    cat("\nGoodness of Fit:",
+        "  Pseudo R-Squared:", sep = "\n")
+    
+    labels <- c("Cor.Sq.:", "McKelvey & Zavoina:")
+    width <- max(nchar(labels)) + 1
+    cat(sprintf("    %-*s %.4f", width, "Cor.Sq.:", x$r.squared$cor),
+        sprintf("    %-*s %.4f", width, "McKelvey & Zavoina:", x$r.squared$mczav),
+        sep = "\n")
+    # Call helper to print the AIC and BIC with or without scaling
+    .print_information_criteria(x, digits)
+    
     if(x$is_heteroskedastic)
     {
       cat("\nDistribution of Std. Deviation (sigma):",
@@ -403,9 +408,22 @@ summary.ml_probit <- function(object,
   s$call          <- object$call
   s$formula       <- object$model$formula
   s$scale_formula <- object$model$scale_formula
+  # Weight Information (from helper)
+  s$weight_info   <- .generate_weight_info(object)
   s$nobs          <- n
   s$n_success     <- n1
   s$n_failure     <- n0
+  # Effective (weighted) successes and failures
+  if (isTRUE(s$weight_info$is_weighted)) {
+    w <- object$model$weights
+    
+    s$n_eff_success <- sum(w * y, na.rm = TRUE)
+    s$n_eff_failure <- s$weight_info$sum_weights - s$n_eff_success
+  }
+  else {
+    s$n_eff_success <- n1
+    s$n_eff_failure <- n0
+  }
   s$converged     <- converged
   s$is_heteroskedastic <- is_heteroskedastic
   
@@ -429,21 +447,19 @@ summary.ml_probit <- function(object,
   if (converged) {
     # y was pulled at the beginning to calculate the number of successes and
     # failures.
-    ll <- s$logLik
-    s$AIC            <- -2 * ll + 2 * k_total
-    s$BIC            <- -2 * ll + log(n) * k_total
-    
     yhat <- object$model$fitted.values
     xb <- as.vector(as.matrix(object$model$value$predictors) %*% coef(object)[1:k_mean])
     
+    s$AIC <- AIC(object, scaled = FALSE)
+    s$BIC <- BIC(object, scaled = FALSE)
+    
     sig <- object$model$sigma
+    s$sigma <- summary(sig)
     
     s$r.squared <- list(
       cor = cor(y, yhat)^2,
       mczav = var(xb / sig) / (1 + var(xb / sig))
     )
-    
-    s$sigma <- summary(object$model$sigma)
     
     if(usable_vcov)
     {
@@ -456,14 +472,14 @@ summary.ml_probit <- function(object,
           idx_scale <- (k_mean + 1):k_total
           
           s$significance <- list(
-            all  = waldtest(object, indices = c(idx_mean, idx_scale), vcov = vcov_mat),
-            mean = waldtest(object, indices = idx_mean, vcov = vcov_mat),
-            scale = waldtest(object, indices = idx_scale, vcov = vcov_mat)
+            overall  = waldtest(object, constraints = c(idx_mean, idx_scale), vcov = vcov_mat),
+            value = waldtest(object, constraints = idx_mean, vcov = vcov_mat),
+            scale = waldtest(object, constraints = idx_scale, vcov = vcov_mat)
           )
         } else {
           s$significance <- list(
-            all  = waldtest(object, indices = idx_mean, vcov = vcov_mat),
-            mean = NULL,
+            overall  = waldtest(object, constraints = idx_mean, vcov = vcov_mat),
+            value = NULL,
             scale = NULL
           )
         }
@@ -473,8 +489,8 @@ summary.ml_probit <- function(object,
     else
     {
       s$significance <- list(
-        all  = NULL,
-        mean = NULL,
+        overall  = NULL,
+        value = NULL,
         scale = NULL
       )
     }

@@ -131,7 +131,7 @@ test_that("waldtest works on ml_lm", {
   data(mroz)
   fit <- ml_lm(incthou ~ age + I(age^2) + huswage + educ + unem, data = mroz)
   
-  wt <- waldtest(fit, indices = 5, rhs = 1)   # educ coefficient = 1
+  wt <- waldtest(fit, constraints = 5, rhs = 1)   # educ coefficient = 1
   expect_s3_class(wt, "waldtest.mlmodel")
 })
 

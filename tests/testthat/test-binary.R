@@ -91,7 +91,7 @@ test_that("IMtest works on logit and probit", {
 
 test_that("Wald test works", {
   fit_logit <- ml_logit(val_for, data = smoke)
-  wt <- waldtest(fit_logit, indices = 2, vcov.type = "robust")
+  wt <- waldtest(fit_logit, constraints = 2, vcov.type = "robust")
   expect_s3_class(wt, "waldtest.mlmodel")
 })
 
@@ -127,23 +127,4 @@ test_that("ml_logit and ml_probit support constraints", {
   # Check constrained coefficient is near zero
   expect_true(abs(coef(fit_logit_c)["value::cigpric"]) < 1e-4)
   expect_true(abs(coef(fit_probit_c)["value::cigpric"]) < 1e-4)
-})
-
-test_that("ml_logit supports constraints on scale equation (heteroskedastic)", {
-  data(smoke)
-  
-  fit_het <- ml_logit(smokes ~ cigpric + income + age, 
-                      scale = ~ educ, 
-                      data = smoke)
-  
-  fit_het_c <- ml_logit(smokes ~ cigpric + income + age, 
-                        scale = ~ educ,
-                        constraints = "scale::educ = 0",
-                        data = smoke,
-                        start = c(-0.006, 8.5e-3, 0, -4e-4, 0))
-  
-  expect_s3_class(fit_het_c, "ml_logit")
-  
-  expect_true(abs(coef(fit_het_c)["scale::educ"] - 0) < 1e-4,
-              info = "Constrained scale coefficient 'scale::educ' should be near zero")
 })

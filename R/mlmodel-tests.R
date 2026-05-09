@@ -2,6 +2,419 @@
 # mlmodels: Hypothesis testing functions (exported)
 # =============================================================================
 
+## CLARKE's TEST ---------------------------------------------------------------
+# -- Generic -------------------------------------------------------------------
+#' Clarke test for non-nested model comparison
+#' 
+#' @description
+#' Performs a distribution-free (Clarke) test for comparing two non-nested
+#' maximum likelihood models. The test is based on the per-observation
+#' log-likelihood differences and is more robust to heavy tails than Vuong's
+#' test.
+#' 
+#' @returns
+#' An object of class `"clarketest"` containing:
+#' * `results`: A nested list with test statistics and p-values for both
+#'   variants (`binomial` and `signedrank`) and all three penalties
+#'   (`none`, `akaike`, `schwarz`).
+#' * Analytical p-values and (if requested) bootstrap p-values.
+#' * Model information, number of observations, and bootstrap diagnostics.
+#' 
+#' @seealso [lrtest()], [waldtest()], [IMtest()] [vuongtest()]
+#' 
+#' @references
+#' Clarke, K. A. (2007). A Simple Distribution-Free Test for Nonnested Model 
+#' Selection. *Political Analysis*, 15(3), 347–363. 
+#' \doi{10.1093/pan/mpm004}
+#'
+#' Clarke, K. A., & Signorino, C. S. (2010). Discriminating Methods: Tests for 
+#' Non-Nested Discrete Choice Models. *Political Studies*, 58(2), 368–388.
+#' \doi{10.1111/j.1467-9248.2009.00813.x}
+#'
+#' Sayyareh, A. (2014). Linear Signed Rank Test for Model Selection. 
+#' *Communications in Statistics - Theory and Methods*, 43(5), 1013–1025.
+#' \doi{10.1080/03610926.2012.717662}
+#' 
+#' @export
+clarketest <- function(object_1, object_2, ...) UseMethod("clarketest")
+
+# -- mlmodel -------------------------------------------------------------------
+#' @param object_1,object_2 Estimated objects of class 'mlmodel'
+#' @param boot Should bootstrapped p-values be calculated? Defaults to FALSE.
+#' @param repetitions Number of iterations for the bootstrap method. Defaults to
+#'                    999. Only relevant if `boot = TRUE`.
+#' @param seed Integer with a seed to use for the random sampling for the
+#'             bootstrapping. Only relevant if `boot = TRUE`. If none supplied
+#'             a random one will be generated.
+#' @param ... Further arguments passed to methods (currently not used).
+#'
+#' @examples
+#' 
+#' # Linear models example (lognormal vs gamma)
+#' data(mroz)
+#' mroz$incthou <- mroz$faminc / 1000
+#' 
+#' fit_lognormal <- ml_lm(log(incthou) ~ age + I(age^2) + huswage + educ + unem,
+#'                        data = mroz)
+#' 
+#' fit_gamma <- ml_gamma(incthou ~ age + I(age^2) + huswage + educ + unem,
+#'                       data = mroz)
+#' 
+#' 
+#' clarketest(fit_lognormal, fit_gamma)
+#' 
+#' # Count models example
+#' 
+#' fit_poi <- ml_poisson(docvis ~ private + medicaid + age + I(age^2) + educyr +
+#'                           actlim + totchr,
+#'                       data = docvis)
+#' 
+#' fit_nb1 <- ml_negbin(docvis ~ private + medicaid + age + I(age^2) + educyr +
+#'                           actlim + totchr,
+#'                       data = docvis,
+#'                       dispersion = "NB1")
+#' 
+#' fit_nb2 <- ml_negbin(docvis ~ private + medicaid + age + I(age^2) + educyr +
+#'                           actlim + totchr,
+#'                       data = docvis)
+#'                       
+#' # Poisson vs. NB1
+#' clarketest(fit_poi, fit_nb1)
+#' 
+#' # NB1 vs. NB2 (bootstrapped, low repetitions for speed)
+#' clarketest(fit_nb1, fit_nb2, boot = TRUE, repetitions = 10)
+#' 
+#' # Binary models example
+#' data(smoke)
+#' smoke$smokes <- smoke$cigs > 0
+#' 
+#' fit_logit <- ml_logit(smokes ~ cigpric + income + age, data = smoke)
+#' fit_probit <- ml_probit(smokes ~ cigpric + income + age, data = smoke)
+#' 
+#' clarketest(fit_logit, fit_probit)
+#' 
+#' @rdname clarketest
+#' @export
+clarketest.mlmodel <- function(object_1, object_2,
+                               boot = FALSE,
+                               repetitions = 999,
+                               seed = NULL,
+                               ...)
+{
+  if (!inherits(object_1, "mlmodel") || !inherits(object_2, "mlmodel"))
+    cli::cli_abort("Both `object_1` and `object_2` must inherit from 'mlmodel'.")
+  
+  # -- 1. Check that models were estimated on compatible samples/weights -------
+  .compare_estimation_samples(object_1, object_2)
+  
+  # -- 3. Analytical Clarke Test ------------------------------------------------
+  # Scale weights so test statistic is valid
+  w1 <- object_1$model$weights %||% rep(1, nobs(object_1))
+  w2 <- object_2$model$weights %||% rep(1, nobs(object_2))
+  
+  w1_scaled <- w1 / sum(w1) * length(w1)
+  w2_scaled <- w2 / sum(w2) * length(w2)
+  
+  # Temporary objects with scaled weights
+  temp1 <- object_1
+  temp2 <- object_2
+  temp1$model$weights <- w1_scaled
+  temp2$model$weights <- w2_scaled
+  
+  # Penalty parameters
+  k1 <- length(coef(object_1))
+  k2 <- length(coef(object_2))
+  n <- nobs(object_1) # Both have the same number of observations.
+  
+  # -- Raw per-observation log-likelihoods (scaled weights) -------------------
+  ll1_raw <- object_1$model$functions$loglikeObs(temp1)
+  ll2_raw <- object_2$model$functions$loglikeObs(temp2)
+  
+  # -- Initialize results structure -------------------------------------------
+  penalties <- c("none", "akaike", "schwarz")
+  results <- list(
+    binomial   = setNames(vector("list", 3), penalties),
+    signedrank = setNames(vector("list", 3), penalties)
+  )
+  
+  diff_list <- setNames(vector("list", 3), penalties)
+  
+  for(p in penalties)
+  {
+    pen1 <- switch(p,
+                   "none" = 0,
+                   "akaike" = k1 / n,
+                   "schwarz" = k1 * log(n) / (2 * n))
+    pen2 <- switch(p,
+                   "none" = 0,
+                   "akaike" = k2 / n,
+                   "schwarz" = k2 * log(n) / (2 * n))
+    
+    d <- (ll1_raw - pen1) - (ll2_raw - pen2)
+    d <- as.numeric(d)
+    diff_list[[p]] <- d
+    
+    stats <- .clarke_stats(d)
+    
+    results$binomial[[p]] <- stats$binomial
+    results$signedrank[[p]] <- stats$signedrank
+  }
+  
+  # -- 4. Bootstrap Version (if requested) -------------------------------------
+  if (boot) {
+    if (is.null(seed)) seed <- sample.int(1e6, 1)
+    set.seed(seed)
+    
+    data_orig <- object_1$model$data
+    sample_idx <- object_1$model$sample
+    n_used <- sum(sample_idx)
+    used_data <- data_orig[sample_idx, , drop = FALSE]
+    w_used <- object_1$model$weights %||% rep(1, nobs(object_1))
+    
+    # penalties was defined before for the anlytical.
+    boot_stats <- list(
+      binomial   = setNames(vector("list", 3), penalties),
+      signedrank = setNames(vector("list", 3), penalties)
+    )
+    
+    for(p in penalties)
+    {
+      boot_stats$binomial[[p]] <- numeric(repetitions)
+      boot_stats$signedrank[[p]] <- numeric(repetitions)
+    }
+    
+    n_success <- 0
+    
+    for (r in seq_len(repetitions)) {
+      idx <- sample.int(n_used, n_used, replace = TRUE)
+      d_boot <- used_data[idx, , drop = FALSE]
+      w_boot <- w_used[idx]
+      
+      # Scale weights for this bootstrap sample
+      w_boot <- w_boot / sum(w_boot) * length(w_boot)
+      
+      suppressMessages({
+        boot1 <- tryCatch(update(object_1, data = d_boot, weights = w_boot), error = function(e) NULL)
+        boot2 <- tryCatch(update(object_2, data = d_boot, weights = w_boot), error = function(e) NULL)
+      })
+      
+      if (is.null(boot1) || is.null(boot2) || 
+          !boot1$code %in% c(0L, 1L, 2L, 8L) || 
+          !boot2$code %in% c(0L, 1L, 2L, 8L)) {
+        next
+      }
+      
+      # Scaled log-likelihoods for this bootstrap sample
+      ll1b <- object_1$model$functions$loglikeObs(boot1)
+      ll2b <- object_2$model$functions$loglikeObs(boot2)
+      
+      diffb <- ll1b - ll2b
+      for (p in penalties) {
+        
+        pen1 <- switch(p,
+                       "none"    = 0,
+                       "akaike"  = k1 / n,
+                       "schwarz" = k1 * log(n) / (2 * n)
+        )
+        pen2 <- switch(p,
+                       "none"    = 0,
+                       "akaike"  = k2 / n,
+                       "schwarz" = k2 * log(n) / (2 * n)
+        )
+        
+        d_boot <- (ll1b - pen1) - (ll2b - pen2)
+        
+        stats_boot <- .clarke_stats(d_boot)
+        
+        boot_stats$binomial[[p]][r]   <- stats_boot$binomial$teststat
+        boot_stats$signedrank[[p]][r] <- stats_boot$signedrank$teststat
+      }
+    
+      n_success <- n_success + 1
+    }
+    
+    # ------------------- Compute bootstrap p-values -------------------------
+    for (p in penalties) {
+      # Binomial variant
+      obs_B <- results$binomial[[p]]$teststat
+      boot_B <- boot_stats$binomial[[p]]
+      results$binomial[[p]]$boot.p.value <- mean(boot_B >= obs_B, na.rm = TRUE)
+      
+      # Signed-rank variant
+      obs_W <- results$signedrank[[p]]$teststat
+      boot_W <- boot_stats$signedrank[[p]]
+      results$signedrank[[p]]$boot.p.value <- mean(boot_W >= obs_W, na.rm = TRUE)
+    }
+  }
+  
+  # -- Construct return object ------------------------------------------------
+  res <- list(
+    call        = match.call(),
+    n           = n,
+    k1          = k1,
+    k2          = k2,
+    models      = c(Model1 = object_1$model$description,
+                    Model2 = object_2$model$description),
+    results     = results,
+    # Extra info for bootstrap
+    boot        = boot,
+    repetitions = if (boot) repetitions else NULL,
+    n_success   = if (boot) n_success else NULL,
+    seed        = if (boot) seed else NULL,
+    diff        = diff_list
+  )
+  
+  class(res) <- "clarketest.mlmodel"
+  
+  res
+}
+
+# -- Print mlmodel -------------------------------------------------------------
+#' @export
+print.clarketest.mlmodel <- function(x, digits = 4, ...) {
+  
+  cat("Clarke Test for Non-Nested Models\n")
+  cat(strrep("-", 60 + (x$boot * 15)), "\n")
+  
+  cat(sprintf("Model 1: %s\n", x$models["Model1"]))
+  cat(sprintf("Model 2: %s\n", x$models["Model2"]))
+  cat(strrep("-", 60 + (x$boot * 15)), "\n")
+  cat(sprintf("  Observations: %d    Parameters: %d vs %d\n", 
+              x$n, x$k1, x$k2))
+  
+  if (x$boot) {
+    cat(sprintf("  Bootstrap of %d repetitions (%d successful)\n", 
+                x$repetitions, x$n_success))
+  }
+  cat("\n")
+  
+  # Table organized by Variant -> Penalties
+  cat("Variant      Penalty      Statistic     p-value")
+  if (x$boot) cat("     boot p-value")
+  cat("\n")
+  cat(strrep("-", 60 + (x$boot * 15)), "\n")
+  
+  for (v in c("binomial", "signedrank")) {
+    for (p in c("none", "akaike", "schwarz")) {
+      stat <- x$results[[v]][[p]]$teststat
+      pval <- x$results[[v]][[p]]$p.value
+      bootp <- x$results[[v]][[p]]$boot.p.value
+      
+      tlab <- if(v == "binomial") "Binomial" else "Signed-rank"
+      
+      cat(sprintf("%-12s %-10s %10.1f   %8.4f",
+                  tlab, tools::toTitleCase(p),
+                  stat, pval))
+      
+      if (x$boot && !is.na(bootp)) {
+        cat(sprintf("     %8.4f", bootp))
+      }
+      cat("\n")
+    }
+    if(v == "binomial")
+      cat("---",
+          sprintf("  Expected Binomial Stat.: %.2f\n", x$n/2),
+          sep = "\n")
+  }
+  n_eff <- sum(x$diff$none != 0)
+  wilc_ref <- n_eff * (n_eff + 1) / 4
+  cat("---",
+      sprintf("  Signed-rank Ref. Stat.: %.1f\n", wilc_ref),
+      sep = "\n")
+  
+  # --- Conclusion ---------------------------------------------------------
+  
+  count <- list(
+    binomial   = list(analytical = 0L, boot = 0L),
+    signedrank = list(analytical = 0L, boot = 0L)
+  )
+  
+  for (p in c("none", "akaike", "schwarz")) {
+    # Analytical
+    if (x$results$binomial[[p]]$p.value < 0.05)
+      count$binomial$analytical <- count$binomial$analytical + 1
+    if (x$results$signedrank[[p]]$p.value < 0.05)
+      count$signedrank$analytical <- count$signedrank$analytical + 1
+    
+    # Bootstrap
+    if (x$boot) {
+      if (x$results$binomial[[p]]$boot.p.value < 0.05)
+        count$binomial$boot <- count$binomial$boot + 1
+      if (x$results$signedrank[[p]]$boot.p.value < 0.05)
+        count$signedrank$boot <- count$signedrank$boot + 1
+    }
+  }
+  
+  cat("P-value Analysis:\n")
+  
+  B <- x$results$binomial$none$teststat
+  winner <- if (B > x$n / 2) x$models["Model1"] else if(B < x$n / 2) x$models["Model2"] else "None"
+  
+  if(x$boot)
+  {
+    cat(sprintf("  Binomial     :  %d/3 analytical and %d/3 bootstrapped significant\n", 
+                count$binomial$analytical, count$binomial$boot))
+    cat(sprintf("  Signed-rank  :  %d/3 analytical and %d/3 bootstrapped significant\n", 
+                count$signedrank$analytical, count$signedrank$boot))
+  }
+  else
+  {
+    cat(sprintf("  Binomial      : %d/3 tests significant\n", 
+                count$binomial$analytical))
+    cat(sprintf("  Signed-rank   : %d/3 tests significant\n", 
+                count$signedrank$analytical))
+  }
+  
+  # Total significant results across both variants
+  total_sig <- count$binomial$analytical + count$signedrank$analytical
+  
+  # How dominant is the signed-rank evidence?
+  wilc_share <- if (total_sig > 0) 
+    count$signedrank$analytical / total_sig 
+  else 0
+  
+  if (count$signedrank$analytical >= 2 || total_sig >= 4) {
+    strength <- "Strong"
+    basis    <- if (wilc_share > 0.6) "signed-rank test" else "both variants"
+  } else if (total_sig >= 3) {
+    strength <- "Moderate"
+    basis    <- if (wilc_share > 0.6) "signed-rank test" else "both variants"
+  } else if (total_sig > 1) {
+    strength <- "Weak"
+    basis    <- if (wilc_share > 0.5) "signed-rank test" else "sign test"
+  } else {
+    strength <- "No"
+    basis    <- "either test"
+  }
+  
+  # Overall verdict
+  cat("\nConclusion:",
+      sprintf("  %s analytical preference for %s, based on %s.", 
+              strength, winner, basis),
+      sep = "\n")
+  
+  if (x$boot) {
+    b_sig_total   <- count$signedrank$boot + count$binomial$boot
+    b_sig_signed  <- count$signedrank$boot
+    
+    if (b_sig_signed == 0 && b_sig_total < 2) {
+      cat("  Warning: Bootstrap shows results are not robust to sampling variation.\n")
+    } else if (b_sig_signed <= 1) {
+      cat("  Note: Bootstrap support is very weak.\n")
+    } else if (b_sig_total <= 3) {
+      cat("  Note: Bootstrap support is weak.\n")
+    } else {
+      cat("  Bootstrap results are reasonably robust to sampling variation.\n")
+    }
+  }
+  
+  invisible(x)
+}
+
+
+
+
+
 ## LR TEST ---------------------------------------------------------------------
 #' Likelihood Ratio Test for Nested mlmodel Objects
 #'
@@ -75,9 +488,23 @@ lrtest.mlmodel <- function(object_1, object_2, ...)
                      "A likelihood ratio test is not meaningful in this case."),
                    call = NULL)
   }
-
-  ll1 <- as.numeric(logLik(object_1))
-  ll2 <- as.numeric(logLik(object_2))
+  
+  # -- 1. Check that models were estimated on compatible samples/weights -------
+  .compare_estimation_samples(object_1, object_2)
+  
+  ll1 <- as.numeric(logLik(object_1, scaled = TRUE))
+  ll2 <- as.numeric(logLik(object_2, scaled = TRUE))
+  
+  ll1_us <- as.numeric(logLik(object_1))
+  
+  # If they are NOT the same (difference > epsilon), it's a weighted model
+  if(abs(ll1 - ll1_us) > 1e-8) {
+    cli::cli_warn(c(
+      "!" = "Estimations were done using weights. Likelihood-ratio test may be inappropriate.",
+      "i" = "Using log-likelihoods scaled to the sample size (N = {.val {nobs(object_1)}}).",
+      "i" = "We strongly recommend using `waldtest()` instead with robust standard errors."
+    ))
+  }
 
   # Determine which is the restricted (smaller) model
   if (k1 < k2) {
@@ -239,7 +666,11 @@ IMtest.mlmodel <- function(object,
   if (is.null(object$model$functions$hessianObs))
     cli::cli_abort("No `hessianObs` function found in model$functions.", call = NULL)
 
-  S <- object$gradientObs
+  # Get weights for scaling inside the loop
+  weights <- object$model$weights %||% rep(1, nobs(object))
+  sc_factor <- length(weights) / sum(weights, na.rm = TRUE)
+  
+  S <- object$gradientObs * sc_factor # Overall scaling for later use
   n <- nrow(S)
   k <- ncol(S)
   m <- k * (k + 1) / 2
@@ -253,7 +684,7 @@ IMtest.mlmodel <- function(object,
     start <- (i-1)*k + 1
     end   <- i*k
     si <- S[i, , drop = FALSE]
-    Hi <- H_per_obs[start:end, , drop = FALSE]
+    Hi <- H_per_obs[start:end, , drop = FALSE] * sc_factor
     ID[i, ] <- matrixcalc::vech(Hi + crossprod(si))
   }
 
@@ -277,8 +708,6 @@ IMtest.mlmodel <- function(object,
       boot_stats <- numeric(repetitions)
       n_success  <- 0
 
-      w <- object$model$weights
-
       if (!is.null(object$model$data) && is.data.frame(object$model$data)) {
         orig_data <- object$model$data[object$model$sample, , drop = FALSE]
       } else if (!is.null(object$model$d_name) && object$model$d_name != "<unknown data>") {
@@ -300,17 +729,20 @@ IMtest.mlmodel <- function(object,
             update(
               object,
               data   = orig_data[idx, , drop = FALSE],
-              weights = w[idx]
+              weights = weights[idx]
             )
           }, error = function(e) NULL)
         )
 
-        if (is.null(boot_obj) || !(boot_obj$code %in% c(1L, 2L, 8L))) {
+        if (is.null(boot_obj) || !(boot_obj$code %in% c(0L, 1L, 2L, 8L))) {
           boot_stats[r] <- NA_real_
           next
         }
         
-        S_r <- boot_obj$gradientObs
+        w_r <- boot_obj$model$weights
+        sc_r <- length(w_r) / sum(w_r, na.rm = TRUE)
+        
+        S_r <- boot_obj$gradientObs * sc_r
         H_r <- boot_obj$model$functions$hessianObs(boot_obj)
 
         ID_r <- matrix(0, nrow = n, ncol = m)
@@ -318,7 +750,7 @@ IMtest.mlmodel <- function(object,
           start <- (i-1)*k + 1
           end   <- i*k
           si <- S_r[i, , drop = FALSE]
-          Hi <- H_r[start:end, , drop = FALSE]
+          Hi <- H_r[start:end, , drop = FALSE] * sc_r
           ID_r[i, ] <- matrixcalc::vech(Hi + crossprod(si))
         }
 
@@ -361,8 +793,6 @@ IMtest.mlmodel <- function(object,
       boot_stats <- numeric(repetitions)
       n_success  <- 0
       
-      w <- object$model$weights
-      
       if (!is.null(object$model$data) && is.data.frame(object$model$data)) {
         orig_data <- object$model$data[object$model$sample, , drop = FALSE]
       } else if (!is.null(object$model$d_name) && object$model$d_name != "<unknown data>") {
@@ -385,17 +815,20 @@ IMtest.mlmodel <- function(object,
             update(
               object,
               data   = orig_data[idx, , drop = FALSE],
-              weights = w[idx]
+              weights = weights[idx]
             )
           }, error = function(e) NULL)
         )
         
-        if (is.null(boot_obj) || !(boot_obj$code %in% c(1L, 2L, 8L))) {
+        if (is.null(boot_obj) || !(boot_obj$code %in% c(0L, 1L, 2L, 8L))) {
           boot_stats[r] <- NA_real_
           next
         }
         
-        S_r <- boot_obj$gradientObs
+        w_r <- boot_obj$model$weights
+        sc_r <- length(w_r) / sum(w_r, na.rm = TRUE)
+        
+        S_r <- boot_obj$gradientObs * sc_r
         H_r <- boot_obj$model$functions$hessianObs(boot_obj)
         
         ID_r <- matrix(0, nrow = n, ncol = m)
@@ -403,7 +836,7 @@ IMtest.mlmodel <- function(object,
           start <- (i-1)*k + 1
           end   <- i*k
           si <- S_r[i, , drop = FALSE]
-          Hi <- H_r[start:end, , drop = FALSE]
+          Hi <- H_r[start:end, , drop = FALSE] * sc_r
           ID_r[i, ] <- matrixcalc::vech(Hi + crossprod(si))
         }
         
@@ -476,6 +909,12 @@ print.IMtest.mlmodel <- function(x, digits = 4, ...)
 #'
 #' @param object_1 A fitted model object inheriting from `"mlmodel"`.
 #' @param object_2 A fitted model object inheriting from `"mlmodel"`.
+#' @param boot Should bootstrapped p-values be calculated?
+#' @param repetitions Number of iterations for the bootstrap method. Defaults to
+#'                    999. Only relevant if `boot = TRUE`.
+#' @param seed Integer with a seed to use for the random sampling for the
+#'             bootstrapping. Only relevant if `boot = TRUE`. If none supplied
+#'             a random one will be generated.
 #' @param ... Further arguments passed to methods (currently not used).
 #'
 #' @details
@@ -498,7 +937,7 @@ print.IMtest.mlmodel <- function(x, digits = 4, ...)
 #' Hypotheses.' *Econometrica*, 57(2), 307-333. 
 #' \doi{10.2307/1912557}
 #'
-#' @seealso [lrtest()], [waldtest()], [IMtest()]
+#' @seealso [lrtest()], [waldtest()], [IMtest()] [clarketest()]
 #'
 #' @examples
 #' 
@@ -533,8 +972,8 @@ print.IMtest.mlmodel <- function(x, digits = 4, ...)
 #' # Poisson vs. NB1
 #' vuongtest(fit_poi, fit_nb1)
 #' 
-#' # NB1 vs. NB2
-#' vuongtest(fit_nb1, fit_nb2)
+#' # NB1 vs. NB2 (bootstrapped, low repetitions for speed)
+#' vuongtest(fit_nb1, fit_nb2, boot = TRUE, repetitions = 10)
 #' 
 #' # Binary models example
 #' data(smoke)
@@ -550,36 +989,157 @@ vuongtest <- function(object_1, object_2, ...) UseMethod("vuongtest")
 
 #' @rdname vuongtest
 #' @export
-vuongtest.mlmodel <- function(object_1, object_2, ...)
+vuongtest.mlmodel <- function(object_1, object_2,
+                              boot = FALSE,
+                              repetitions = 999,
+                              seed = NULL,
+                              ...)
 {
-  if(!inherits(object_1, "mlmodel") || !inherits(object_2, "mlmodel"))
-    cli::cli_abort("Both `object_1` and `object_2` must inherit from `mlmodel`.")
+  if (!inherits(object_1, "mlmodel") || !inherits(object_2, "mlmodel"))
+    cli::cli_abort("Both `object_1` and `object_2` must inherit from 'mlmodel'.")
   
-  # -- 1. Extract log-likelihoods and check same length ------------------------
-  ll_1 <- object_1$model$functions$loglikeObs(object_1)
-  ll_2 <- object_2$model$functions$loglikeObs(object_2)
+  # -- 1. Check that models were estimated on compatible samples/weights -------
+  .compare_estimation_samples(object_1, object_2)
   
-  if(length(ll_1) != length(ll_2))
-    cli::cli_abort("Different number of observations. `object_1`: {.val {length(ll_1)}} `object_2`: {.val {length(ll_2)}}")
+  # -- 2. Analytical Vuong Test ------------------------------------------------
+  # Scale weights so test statistic is valid
+  w1 <- object_1$model$weights %||% rep(1, nobs(object_1))
+  w2 <- object_2$model$weights %||% rep(1, nobs(object_2))
   
-  # -- 2. Calculate difference vector ------------------------------------------
-  diff <- ll_1 - ll_2 # If negative ll_2 has higher log-likelihood, if positive it's ll_1 (So later we can decide which one's better)
-  n <- length(diff)
+  w1_scaled <- w1 / sum(w1) * length(w1)
+  w2_scaled <- w2 / sum(w2) * length(w2)
   
-  # -- 3. Do the test ----------------------------------------------------------
-  v_stat <- (sqrt(n) * mean(diff)) / sd(diff)
-  p_val <- 2 * pnorm(abs(v_stat), lower.tail = FALSE)
+  # Temporary objects with scaled weights
+  temp1 <- object_1
+  temp2 <- object_2
+  temp1$model$weights <- w1_scaled
+  temp2$model$weights <- w2_scaled
   
-  # -- 4. Create list ----------------------------------------------------------
+  # Penalty parameters
+  k1 <- length(coef(object_1))
+  k2 <- length(coef(object_2))
+  n <- nobs(object_1) # Both have the same number of observations.
+  
+  # -- Raw per-observation log-likelihoods (scaled weights) -------------------
+  ll1_raw <- object_1$model$functions$loglikeObs(temp1)
+  ll2_raw <- object_2$model$functions$loglikeObs(temp2)
+  
+  # -- Initialize results structure -------------------------------------------
+  penalties <- c("none", "akaike", "schwarz")
+  results <- setNames(vector("list", 3), penalties)
+  diff_list <- setNames(vector("list", 3), penalties)
+  
+  for(p in penalties)
+  {
+    pen <- switch(p,
+                  "none" = 0,
+                  "akaike" = (k1 - k2) / n,
+                  "schwarz" = (k1 - k2) * log(n) / (2 * n))
+    
+    d <- ll1_raw - ll2_raw - pen
+    d <- as.numeric(d)
+    diff_list[[p]] <- d
+    results[[p]] <- .vuong_stats(d)
+  }
+  
+  # -- 4. Bootstrap Version (if requested) -------------------------------------
+  if (boot) {
+    if (is.null(seed)) seed <- sample.int(1e6, 1)
+    set.seed(seed)
+    
+    data_orig <- object_1$model$data
+    sample_idx <- object_1$model$sample
+    n_used <- sum(sample_idx)
+    used_data <- data_orig[sample_idx, , drop = FALSE]
+    w_used <- object_1$model$weights %||% rep(1, nobs(object_1))
+    
+    # penalties was defined before for the anlytical.
+    boot_stats <- setNames(vector("list", 3), penalties)
+    
+    for(p in penalties)
+    {
+      boot_stats[[p]] <- numeric(repetitions)
+    }
+    
+    n_success <- 0
+    
+    for (r in seq_len(repetitions)) {
+      idx <- sample.int(n_used, n_used, replace = TRUE)
+      d_boot <- used_data[idx, , drop = FALSE]
+      w_boot <- w_used[idx]
+      
+      # Scale weights for this bootstrap sample
+      w_boot <- w_boot / sum(w_boot) * length(w_boot)
+      
+      # Estimation with scaled weights
+      suppressMessages({
+        boot1 <- tryCatch(update(object_1, data = d_boot, weights = w_boot), error = function(e) NULL)
+        boot2 <- tryCatch(update(object_2, data = d_boot, weights = w_boot), error = function(e) NULL)
+      })
+      
+      if (is.null(boot1) || is.null(boot2) || 
+          !boot1$code %in% c(0L, 1L, 2L, 8L) || 
+          !boot2$code %in% c(0L, 1L, 2L, 8L)) {
+        next
+      }
+      
+      # Scaled log-likelihoods for this bootstrap sample
+      ll1b <- object_1$model$functions$loglikeObs(boot1)
+      ll2b <- object_2$model$functions$loglikeObs(boot2)
+      
+      diffb <- ll1b - ll2b
+      for (p in penalties) {
+        pen <- switch(p,
+                      "none"    = 0,
+                      "akaike" = (k1 - k2) / n,
+                      "schwarz" = (k1 - k2) * log(n) / (2 * n)
+        )
+        
+        d_boot <- diffb - pen
+        d_boot <- as.numeric(d_boot)
+        
+        stats_boot <- .vuong_stats(d_boot)
+        boot_stats[[p]][r]   <- stats_boot$statistic
+      }
+      
+      n_success <- n_success + 1
+    }
+    
+    # ------------------- Compute bootstrap p-values -------------------------
+    for (p in penalties) {
+      obs <- results[[p]]$statistic
+      boot_vals <- boot_stats[[p]]
+      
+      # p-value computed on the relevant tail
+      if (is.na(obs) || length(boot_vals) == 0) {
+        results[[p]]$boot.p.value <- NA_real_
+      } else if (obs >= 0) {
+        results[[p]]$boot.p.value <- mean(boot_vals >= obs, na.rm = TRUE)
+      } else {
+        results[[p]]$boot.p.value <- mean(boot_vals <= obs, na.rm = TRUE)
+      }
+    }
+  }
+  
+  # -- Construct return object ------------------------------------------------
   res <- list(
-    teststat = v_stat,
-    pval = p_val,
-    models = c(object_1$model$description, object_2$model$description)
+    call        = match.call(),
+    n           = n,
+    k1          = k1,
+    k2          = k2,
+    models      = c(Model1 = object_1$model$description,
+                    Model2 = object_2$model$description),
+    results     = results,
+    # Extra info for bootstrap
+    boot        = boot,
+    repetitions = if (boot) repetitions else NULL,
+    n_success   = if (boot) n_success else NULL,
+    seed        = if (boot) seed else NULL,
+    diff        = diff_list
   )
   
-  # -- 5. Set Class and return
   class(res) <- "vuongtest.mlmodel"
-  return(res)
+  res
 }
 
 #' @export
@@ -589,21 +1149,71 @@ print.vuongtest.mlmodel <- function(x, digits = 4, ...)
     cli::cli_abort("`x` needs to be an object of class `vuongtest.mlmodel`")
   
   cat("\nVuong's (1989) Test\n")
-  cat("--------------------------------------------------\n")
-  cat("  Model 1:", x$models[1], "\n")
-  cat("  Model 2:", x$models[2], "\n")
-  cat("--------------------------------------------------\n")
-  cat(sprintf("  z-stat:  %.3f\n",
-              x$teststat))
-  cat(sprintf("  p-value: %.4f\n",
-              x$pval))
-  cat("--------------------------------------------------\n")
-  # Decision Logic
-  if(x$pval < 0.1) {
-    winner <- if(x$teststat < 0) x$models[2] else x$models[1]
-    cat(" ", winner, "seems to be preferred.\n")
+  cat(strrep("-", 55 + (x$boot * 10)), "\n")
+  
+  cat(sprintf("Model 1: %s\n", x$models["Model1"]))
+  cat(sprintf("Model 2: %s\n", x$models["Model2"]))
+  cat(strrep("-", 55 + (x$boot * 10)), "\n")
+  cat(sprintf("  Observations: %d    Parameters: %d vs %d\n", 
+              x$n, x$k1, x$k2))
+  
+  if (x$boot) {
+    cat(sprintf("  Bootstrap of %d repetitions (%d successful)\n", 
+                x$repetitions, x$n_success))
+  }
+  cat("\n")
+  
+  cat("Penalty      Statistic     p-value")
+  if (x$boot) cat("     boot p-value")
+  cat("\n")
+  cat(strrep("-", 55 + (x$boot * 10)), "\n")
+  
+  count_strong <- 0
+  count_mod <- 0
+  count_weak <- 0
+  count_boot <- 0
+  
+  for (p in c("none", "akaike", "schwarz")) {
+    stat <- x$results[[p]]$statistic
+    pval <- x$results[[p]]$p.value
+    bootp <- x$results[[p]]$boot.p.value
+    
+    if(pval < 0.01) count_strong <- count_strong + 1
+    else if (pval < 0.05) count_mod <- count_mod + 1
+    else if (pval < 0.1) count_weak <- count_weak + 1
+    
+    cat(sprintf("%-11s %10.2f   %8.4f",
+                tools::toTitleCase(p),
+                stat, pval))
+    if (x$boot && !is.na(bootp)) {
+      cat(sprintf("     %8.4f", bootp))
+      if (bootp < 0.05) count_boot <- count_boot + 1
+    }
+    cat("\n")
+  }
+  cat(strrep("-", 55 + (x$boot * 10)), "\n")
+  
+  winner <- if(x$results[[1]]$statistic > 0)
+    x$models[1] else x$models[2]
+  
+  if (count_strong >= 2 || (count_strong + count_mod) == 3) {
+    cat(sprintf("  Strong analytical preference for %s.\n", winner))
+  } else if (count_strong + count_mod >= 2 || count_weak == 3) {
+    cat(sprintf("  Moderate analytical preference for %s.\n", winner))
+  } else if (count_strong + count_mod + count_weak >= 2) {
+    cat(sprintf("  Weak analytical preference for %s.\n", winner))
   } else {
-    cat(" Inconclusive test: neither model is preferred.\n")
+    cat("  No clear analytical preference between the models.\n")
+  }
+  
+  if (x$boot) {
+    if (count_boot >= 2) {
+      cat("  Bootstrap results support the analytical conclusion.\n")
+    } else if (count_boot == 1) {
+      cat("  Note: Bootstrap support is weak.\n")
+    } else {
+      cat("  Warning: Bootstrap shows results are not robust to sampling variation.\n")
+    }
   }
   
   invisible(x)
@@ -616,9 +1226,14 @@ print.vuongtest.mlmodel <- function(x, digits = 4, ...)
 #' `mlmodel` object.
 #'
 #' @param object An object of class `"mlmodel"`.
-#' @param indices Integer vector. Positions of the coefficients to be tested.
-#' @param coef_names Character vector. Names of the coefficients to test.
-#' @param rest_matrix Numeric matrix. A q × k restriction matrix (advanced use).
+#' @param constraints Specification of the linear constraints to test. 
+#'   Can be one of the following:
+#'   * An **integer vector** with the positions (indices) of the coefficients 
+#'     to test (e.g. `2:5` or `c(1, 3, 7)`).
+#'   * A **character vector** with coefficient names or linear combinations 
+#'     on the left-hand side (e.g. `c("value::age", "value::educ + value::huswage")`).
+#'   * A **numeric matrix** containing the full restriction matrix `R` 
+#'     (advanced use).
 #' @param rhs Numeric vector. Value(s) the linear combination(s) should equal.
 #'   Default is 0.
 #' @param vcov Optional user-supplied variance-covariance matrix.
@@ -635,18 +1250,28 @@ print.vuongtest.mlmodel <- function(x, digits = 4, ...)
 #'
 #' @details
 #' The Wald test evaluates linear restrictions of the form \eqn{R\beta = r}.
+#'
+#' The `constraints` argument specifies the left-hand side of the linear
+#' restrictions (without the equality sign). The right-hand side values are
+#' controlled separately with the `rhs` argument.
 #' 
-#' Three convenient interfaces are provided:
-#' 
-#' - `indices` or `coef_names`: Test individual coefficients (or groups of 
-#'   coefficients) against the value(s) in `rhs` (defaults to 0, which is 
-#'   useful for joint significance tests).
-#' - `rest_matrix` + `rhs`: Test general linear combinations of coefficients 
-#'   (advanced use).
+#' `rhs` can be:
+#' * A single number — all constraints are tested against this value (default is `0`).
+#' * A vector of the same length as the number of constraints — each constraint
+#'   is tested against its corresponding value.
 #'
 #' The test statistic follows a \eqn{\chi^2} distribution with degrees of 
 #' freedom equal to the number of restrictions under the null hypothesis.
 #'
+#' Internally, the test always computes a chi-squared statistic. However, when
+#' there is only **one restriction** (`df = 1`), the printed output shows the
+#' equivalent **z-statistic** (`|z| = \sqrt{\text{Chisq(1)}}`) instead. 
+#' 
+#' This is because a \eqn{\chi^2(1)} random variable is the square of a standard
+#' normal (\eqn{z}) random variable. Reporting the absolute value of the
+#' z-statistic in this case is conventional, but both distributions are
+#' equivalent in that case.
+#' 
 #' @return An object of class `"waldtest.mlmodel"`.
 #'
 #' @seealso [lrtest()], [IMtest()], [confint.mlmodel()]
@@ -659,21 +1284,20 @@ print.vuongtest.mlmodel <- function(x, digits = 4, ...)
 #' fit <- ml_lm(incthou ~ age + I(age^2) + huswage + educ + unem, 
 #'              data = mroz)
 #' 
-#' # 1. Test single coefficients using indices (default OIM)
-#' waldtest(fit, indices = c(2, 5))
+#' # 1. Joint sginificance using positions (OIM variance)
+#' waldtest(fit, constraints = c(2, 5))
 #' 
-#' # 2. Test using coefficient names and robust standard errors
-#' waldtest(fit, coef_names = c("value::educ", "value::unem"), 
-#'          vcov.type = "robust")
+#' # 2. Different magnitudes for different coefficients using names (robust variance)
+#' waldtest(fit, constraints = c("value::educ", "value::unem"),
+#'          rhs = c(1,0), vcov.type = "robust")
 #'          
-#' # 3. Test explicit constraints
-#' waldtest(fit, coef_names = "value::educ", rhs = 1, vcov.type = "robust")
+#' # 3. Linear combination: educ + huswage = 3
+#' waldtest(fit, constraints = "value::educ + value::huswage", rhs = 3,
+#'          vcov.type = "robust")
 #' 
-#' # 4. Test a linear combination of two coefficients using a restriction matrix
-#' # H0: educ + huswage = 3
+#' # 4. Same test using the restriction matrix.
 #' R <- matrix(c(0, 0, 0, 1, 1, 0, 0), nrow = 1)
-#' waldtest(fit, rest_matrix = R, rhs = 3, vcov.type = "boot", 
-#'          repetitions = 100, seed = 123)
+#' waldtest(fit, constraints = R, rhs = 3, vcov.type = "robust")
 #' 
 #' @author Alfonso Sanchez-Penalver
 #'
@@ -684,15 +1308,15 @@ waldtest <- function(object,
   UseMethod("waldtest")
 }
 
-
 #' @rdname waldtest
 #' @export
 waldtest.mlmodel <- function(object,
-                             indices = NULL,
-                             coef_names = NULL,
-                             rest_matrix = NULL,
+                             # indices = NULL,
+                             # coef_names = NULL,
+                             # rest_matrix = NULL,
+                             constraints = NULL,
                              rhs = 0,
-                             vcov = NULL,        # User-supplied variance matrix
+                             vcov = NULL,
                              vcov.type = "oim",
                              cl_var = NULL,
                              repetitions = 999,
@@ -703,15 +1327,21 @@ waldtest.mlmodel <- function(object,
   if (!inherits(object, "mlmodel"))
     cli::cli_abort("`object` must be a model of class 'mlmodel'.",
                    call = NULL)
-
-  # Check that exactly one way of specifying restrictions is used
-  inputs <- sum(!is.null(indices), !is.null(coef_names), !is.null(rest_matrix))
-  if (inputs == 0)
-    cli::cli_abort("You must provide one of: `indices`, `coef_names`, or `rest_matrix`.",
+  if (is.null(constraints))
+    cli::cli_abort("`constraints` cannot be null.",
                    call = NULL)
-  if (inputs > 1)
-    cli::cli_abort("You can only specify one of `indices`, `coef_names`, or `rest_matrix`.",
-                   call = NULL)
+  
+  if (!(is.matrix(constraints) || is.numeric(constraints) || is.character(constraints))) {
+    cli::cli_abort(c(
+      "Invalid {.arg constraints} argument.",
+      "i" = "It must be one of:",
+      "*" = "Character vector (coefficient names or linear combinations);",
+      "*" = "Integer vector (indices of coefficients);",
+      "*" = "Matrix (full restriction matrix).",
+      " " = " ",
+      "x" = "You supplied an object of class {.cls {class(constraints)[1]}}."
+    ))
+  }
 
   b <- coef(object)
   k <- length(b)
@@ -725,7 +1355,7 @@ waldtest.mlmodel <- function(object,
                      seed        = seed,
                      progress    = progress)
 
-  # ── Check for unusable variance ────────────────────────────────
+  # -- Check for unusable variance ---------------------------------------------
   if (any(!is.finite(V)) || any(is.na(V))) {
     cli::cli_abort(
       c("Cannot perform Wald test: variance matrix is unusable.",
@@ -743,31 +1373,62 @@ waldtest.mlmodel <- function(object,
   .fractional_response_inference_alert(object, V)
   
   # Build restriction matrix R
-  if (!is.null(indices))
+  if (is.matrix(constraints))
   {
-    if (any(indices < 1 | indices > k))
-      cli::cli_abort("`indices` must be between 1 and {k}.",
-                     call = NULL)
-    R <- diag(k)[indices, , drop = FALSE]
-
+    # Restriction matrix.
+    if (ncol(constraints) != k) {
+      cli::cli_abort(c(
+        "Invalid restriction matrix.",
+        "x" = "It has {.val {ncol(constraints)}} columns.",
+        "i" = "It must have exactly {.val {k}} columns (one per parameter)."
+      ))
+    }
+    
+    if (nrow(constraints) > k - 1) {
+      cli::cli_abort(c(
+        "Too many restrictions.",
+        "x" = "You provided {.val {nrow(constraints)}} restrictions.",
+        "i" = "The maximum allowed is {.val {k-1}} (otherwise the restriction matrix is singular)."
+      ))
+    }
+    
+    R <- constraints
   }
-  else if (!is.null(coef_names))
+  else if (is.character(constraints))
   {
-    if (!all(coef_names %in% names(b)))
-      cli::cli_abort("Some coefficient names were not found.",
-                     call = NULL)
-    idx <- match(coef_names, names(b))
-    R <- diag(k)[idx, , drop = FALSE]
-
+    if (length(constraints) > k - 1) {
+      cli::cli_abort(c(
+        "Too many restrictions.",
+        "x" = "You provided {.val {nrow(constraints)}} restrictions.",
+        "i" = "The maximum allowed is {.val {k-1}} (otherwise the restriction matrix is singular)."
+      ))
+    }
+    
+    R <- .make_restriction_matrix(object, constraints)
   }
   else
-  {  # rest_matrix
-    if (ncol(rest_matrix) != k)
-      cli::cli_abort("`rest_matrix` must have {k} columns (one per parameter).",
-                     call = NULL)
-    if (nrow(rest_matrix) >= k)
-      cli::cli_abort("Number of restrictions cannot be greater than or equal to number of parameters.")
-    R <- rest_matrix
+  {
+    # Indices
+    if (!all(floor(constraints) == constraints)) {
+      cli::cli_abort("Coefficient indices must be integers.", call = NULL)
+    }
+    
+    if (any(constraints < 1 | constraints > k)) {
+      cli::cli_abort(c(
+        "Coefficient indices out of range.",
+        "i" = "They must be between {.val 1} and {.val {k}}."
+      ))
+    }
+    
+    if (length(constraints) > k - 1) {
+      cli::cli_abort(c(
+        "Too many restrictions.",
+        "x" = "You provided {.val {length(constraints)}} constraints.",
+        "i" = "The maximum allowed is {.val {k-1}}."
+      ))
+    }
+    
+    R <- diag(k)[constraints, , drop = FALSE]
   }
 
   # Handle rhs
@@ -884,10 +1545,21 @@ print.waldtest.mlmodel <- function(x, digits = 3, ...)
     cat("Wald statistic could not be computed (singular matrix).\n")
     cat("See warning message for details.\n")
   } else {
-    p_str <- if (x$pval < 1e-8) "< 1e-8" else format.pval(x$pval, digits = 4)
-
-    cat(sprintf("Chisq(%d) = %.3f    Pr(>Chisq) = %s\n",
-                x$df, x$waldstat, p_str))
+    
+    chisq <- x$waldstat
+    df    <- x$df
+    pval  <- x$pval
+    
+    if(df == 1)
+    {
+      # Single restriction z-statistic
+      zstat <- sqrt(chisq)
+      cat(sprintf("z = %.3f    Pr(>|z|) = %s\n",
+                  zstat, format.pval(pval, digits = 4, eps = 1e-8)))
+    }
+    else
+      cat(sprintf("Chisq(%d) = %.3f    Pr(>Chisq) = %s\n",
+                  df, chisq, format.pval(pval, digits = 4, eps = 1e-8)))
   }
 
   cat("--------------------------------------------\n\n")

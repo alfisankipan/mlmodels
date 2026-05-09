@@ -4,6 +4,10 @@
 #' Extract AIC from mlmodel objects
 #'
 #' @param object An object of class `"mlmodel"` or `"summary.mlmodel"`.
+#' @param scaled Logical that indicates whether you want the scaled (to sample
+#'    size) AIC, or not (weighted). It defaults to FALSE. Only relevant if the
+#'    estimation was weighted. In unweighted estimations the AIC is the same if
+#'    `weighted' or not.
 #' @param k Numeric. The penalty per parameter. Default is `k = 2` 
 #'   (standard AIC). See [stats::AIC()] for details.
 #' @param ... Further arguments passed to methods.
@@ -14,29 +18,37 @@
 #' For `summary.mlmodel` objects, the pre-computed AIC (with `k = 2`) is 
 #' returned; the `k` argument is accepted for compatibility but ignored.
 #'
-#' @return A numeric value with the AIC.
+#' @returns A numeric value with the AIC. It has the logical attribute 'scaled',
+#'    that will be `TRUE` if the estimation was weighted and `scaled = TRUE`. If
+#'    estimation was unweighted or `scaled = FALSE`, the attribute will be `FALSE`.
 #'
 #' @method AIC mlmodel
 #' @export
-AIC.mlmodel <- function(object, ..., k = 2)
+AIC.mlmodel <- function(object, scaled = FALSE, ..., k = 2)
 {
   if (!inherits(object, "mlmodel"))
-    cli::cli_abort("`object` must inherit from class 'mlmodel'.", call = NULL)
+    cli::cli_abort("`object` must inherit from class 'mlmodel'.")
   
-  if (!(object$code %in% c(0L, 1L, 2L, 8L))) {
-    cli::cli_abort("AIC is not available (model did not converge).", call = NULL)
-  }
+  if (!(object$code %in% c(0L, 1L, 2L, 8L)))
+    cli::cli_abort("AIC is not available (model did not converge).")
   
-  ll <- logLik(object)
+  # Get (possibly scaled) log-likelihood
+  ll <- logLik(object, scaled = scaled)
+  
   npar <- attr(ll, "df") %||% length(coef(object))
   
-  -2 * as.numeric(ll) + k * npar
+  aic <- -2 * as.numeric(ll) + k * npar
+  
+  # Add attribute for transparency
+  attr(aic, "scaled") <- attr(ll, "scaled")
+  
+  aic
 }
 
 # --- summary.mlmodel ----------------------------------------------------------
 #' @rdname AIC.mlmodel
 #' @export
-AIC.summary.mlmodel <- function(object, ..., k = 2)
+AIC.summary.mlmodel <- function(object, scaled = FALSE, ..., k = 2)
 {
   if (!inherits(object, "summary.mlmodel"))
     cli::cli_abort("`object` must inherit from class 'summary.mlmodel'.", call = NULL)
@@ -44,43 +56,81 @@ AIC.summary.mlmodel <- function(object, ..., k = 2)
   if (is.null(object$AIC) || !isTRUE(object$converged))
     cli::cli_abort("AIC is not available (model did not converge).", call = NULL)
   
+  w_info <- object$weight_info
+  if(scaled && w_info$is_weighted)
+  {
+    # Weighted and scaled, we pull it from w_info.
+    aic <- w_info$aic_scaled
+    attr(aic, "scaled") <- TRUE
+  }
+  else
+  {
+    # Not scaled, we return the original log-likelihood and scaled is false.
+    aic <- object$AIC
+    attr(aic, "scaled") <- FALSE
+  }
+  
   # Note: we ignore the `k` argument for summary objects because we already computed AIC with k=2
-  object$AIC
+  aic
 }
 
 ## BIC =========================================================================
 #' Extract BIC from mlmodel objects
 #'
 #' @param object An object of class `"mlmodel"` or `"summary.mlmodel"`.
+#' @param scaled Logical that indicates whether you want the scaled (to sample
+#'    size) BIC, or not (weighted). It defaults to FALSE. Only relevant if the
+#'    estimation was weighted. In unweighted estimations the BIC is the same if
+#'    `weighted' or not.
 #' @param ... Further arguments passed to methods.
 #'
 #' @details
 #' BIC is computed as `-2 * logLik(object) + log(nobs) * npar`.
 #'
-#' @return A numeric value with the BIC.
+#' @returns A numeric value with the BIC. It has the logical attribute 'scaled',
+#'    that will be `TRUE` if the estimation was weighted and `scaled = TRUE`. If
+#'    estimation was unweighted or `scaled = FALSE`, the attribute will be `FALSE`.
 #'
 #' @method BIC mlmodel
 #' @export
-BIC.mlmodel <- function(object, ...)
+BIC.mlmodel <- function(object, scaled = FALSE, ...)
 {
   if (!inherits(object, "mlmodel"))
     cli::cli_abort("`object` must inherit from class 'mlmodel'.", call = NULL)
   
   if (!(object$code %in% c(0L, 1L, 2L, 8L))) {
-    cli::cli_abort("AIC is not available (model did not converge).", call = NULL)
+    cli::cli_abort("BIC is not available (model did not converge).", call = NULL)
   }
   
-  ll <- logLik(object)
+  # This will hold whether scaled is true and it was weighed in its 'scaled' attribute.
+  ll <- logLik(object, scaled = scaled)
+  # These are always the same
   npar <- attr(ll, "df") %||% length(coef(object))
-  nobs <- attr(ll, "nobs") %||% object$model$n_used
+  if(attr(ll, "scaled"))
+  {
+    # We want the scaled BIC, so the actual number of observations is nobs(object)
+    n <- attr(ll, "nobs") %||% nobs(object)
+  }
+  else
+  {
+    # Either the estimation was unweighted or it was weighted and scaled = FALSE.
+    # In either case N is the sum of the weights, because in an unweighted estimation
+    # the weights are a vector of ones.
+    weights <- object$model$weights %||% rep(1, nobs(object))
+    n <- sum(weights)
+  }
+
+  bic <- -2 * as.numeric(ll) + log(n) * npar
   
-  -2 * as.numeric(ll) + log(nobs) * npar
+  attr(bic, "scaled") <- attr(ll, "scaled")
+  
+  bic
 }
 
 # --- summary.mlmodel ----------------------------------------------------------
 #' @rdname BIC.mlmodel
 #' @export
-BIC.summary.mlmodel <- function(object, ...)
+BIC.summary.mlmodel <- function(object, scaled = FALSE, ...)
 {
   if (!inherits(object, "summary.mlmodel"))
     cli::cli_abort("`object` must inherit from class 'summary.mlmodel'.", call = NULL)
@@ -88,7 +138,21 @@ BIC.summary.mlmodel <- function(object, ...)
   if (is.null(object$BIC))
     cli::cli_abort("BIC is not available (model did not converge).", call = NULL)
   
-  object$BIC
+  w_info <- object$weight_info
+  if(scaled && w_info$is_weighted)
+  {
+    # Weighted and scaled, we pull it from w_info.
+    bic <- w_info$bic_scaled
+    attr(bic, "scaled") <- TRUE
+  }
+  else
+  {
+    # Not scaled, we return the original log-likelihood and scaled is false.
+    bic <- object$BIC
+    attr(bic, "scaled") <- FALSE
+  }
+  
+  bic
 }
 
 ## COEFFICIENTS ================================================================
@@ -288,26 +352,37 @@ formula.mlmodel <- function(x, ...) {
 }
 
 ## LOGLIK ======================================================================
-# --- General ------------------------------------------------------------------
+# --- mlmodel ------------------------------------------------------------------
 #' Extract Log-Likelihood from mlmodel objects
 #'
 #' @param object An object of class `mlmodel` or `summary.mlmodel`.
+#' @param scaled Logical that indicates whether you want the scaled (to sample
+#'    size) log-likelihood, or not (weighted). It defaults to FALSE. Only
+#'    relevant if the estimation was weighted. In unweighted estimations the
+#'    log-likelihood is unique.
 #' @param ... Additional arguments passed to methods.
 #'
 #' @details
-#' The returned object is of class `"logLik"` and has two important attributes:
+#' The returned object is of class `"logLik"` and the following attributes:
 #' 
 #' * `nobs`: number of observations used in estimation.
 #' * `df`: number of estimated parameters (usually called *K*), 
 #'   computed as `length(coef(object))`. This includes coefficients from both 
 #'   the location (mean/value) and scale equations when present.
-#'
+#' * `scaled`: logical if the log-likelihood has been scaled to sample size.
+#' 
+#' When the estimation was weighted and `scaled` is `TRUE`, it also has the
+#' following attributes:
+#' 
+#' * `scale_factor`: The scalar used to scale the log-liklihood (nobs / sum(weights))
+#' * `nobs_effective`: sum(weights).
+#' 
 #' @return An object of class `"logLik"` with the log-likelihood value and the 
 #'   attributes `nobs` and `df`.
 #'
 #' @method logLik mlmodel
 #' @export
-logLik.mlmodel <- function(object, ...)
+logLik.mlmodel <- function(object, scaled = FALSE, ...)
 {
   if (!inherits(object, "mlmodel"))
     cli::cli_abort("`object` must inherit from class 'mlmodel'.",
@@ -315,9 +390,28 @@ logLik.mlmodel <- function(object, ...)
   
   ll <- object$maximum
   
-  # Attach useful attributes
-  attr(ll, "nobs") <- object$model$n_used
-  attr(ll, "df")   <- length(coef(object))   # number of free parameters
+  # Basic attributes
+  attr(ll, "nobs") <- object$model$n_used %||% nobs(object)
+  attr(ll, "df")   <- length(coef(object))
+  attr(ll, "class") <- "logLik"
+  
+  # Scaling, if weighted and requested.
+  
+  weights <- object$model$weights %||% rep(1, nobs(object))
+  
+  if (scaled && !all(abs(weights - 1) < 1e-8)) {
+    n_used    <- length(weights)
+    sum_w     <- sum(weights, na.rm = TRUE)
+    scale_factor <- n_used / sum_w
+    
+    ll <- ll * scale_factor
+    
+    attr(ll, "scaled")       <- TRUE
+    attr(ll, "scale_factor") <- scale_factor
+    attr(ll, "nobs_effective") <- sum_w
+  } else {
+    attr(ll, "scaled") <- FALSE
+  }
   
   ll
 }
@@ -325,20 +419,33 @@ logLik.mlmodel <- function(object, ...)
 # --- summary.mlmodel ----------------------------------------------------------
 #' @rdname logLik.mlmodel
 #' @export
-logLik.summary.mlmodel <- function(object, ...)
+logLik.summary.mlmodel <- function(object, scaled = FALSE, ...)
 {
   if(!inherits(object, "summary.mlmodel"))
-    cli::cli_abort("`object` must inerit from class `summary.mlmodel`.",
+    cli::cli_abort("`object` must inherit from class `summary.mlmodel`.",
                    call = NULL)
-  if (is.null(object$logLik) || is.na(object$logLik)) {
-    cli::cli_warn("Log-likelihood value is not available.")
-    return(NA_real_)
+  
+  # In a summary model we have all the weight info stored in weight_info
+  w_info <- object$weight_info
+  if(scaled && w_info$is_weighted)
+  {
+    # Weighted and scaled, we pull it from w_info.
+    ll <- w_info$loglik_scaled
+    attr(ll, "scaled") <- TRUE
+    attr(ll, "scale_factor") <- w_info$scale_factor
+    attr(ll, "nobs_effective") <- w_info$sum_w
+  }
+  else
+  {
+    # Not scaled, we return the original log-likelihood and scaled is false.
+    ll <- object$logLik
+    attr(ll, "scaled") <- FALSE
   }
   
-  ll <- object$logLik
-  
+  # These two we can get from the same source for both cases.
   attr(ll, "nobs") <- object$nobs
   attr(ll, "df") <- nrow(object$coefficients)
+  attr(ll, "class") <- "logLik"
   
   ll
 }
@@ -962,11 +1069,11 @@ vcov.mlmodel <- function(object,
                          progress = TRUE,
                          ...)
 {
-  # 1. Inheritance check - must be first
+  # 1. Inheritance check - must be first ---------------------------------------
   if (!inherits(object, "mlmodel"))
     cli::cli_abort("`object` must be a model of class 'mlmodel'.", call = NULL)
 
-  # 2. Validate and normalize type
+  # 2. Validate and normalize type ---------------------------------------------
   type <- rlang::arg_match(type, c("oim", "robust", "opg", "cluster", "boot", "jack", "jackknife"))
 
   if(type == "cluster" && is.null(cl_var))
@@ -979,14 +1086,14 @@ vcov.mlmodel <- function(object,
   # jackknife is an alias for jack
   if (type %in% c("jack", "jackknife")) type <- "jack"
 
-  # 3. Early validation for cl_var
+  # 3. Early validation for cl_var ---------------------------------------------
   if (!is.null(cl_var) && !(type %in% c("robust", "boot", "jack")))
     cli::cli_abort(
       "`cl_var` can only be used when `type` is 'cluster', 'robust', 'boot', or 'jack'.",
       call = NULL
     )
 
-  # 4. Process clustering variable if provided
+  # 4. Process clustering variable if provided ---------------------------------
   if (!is.null(cl_var)) {
     if (is.character(cl_var)) {
       # Retrieve data (new primary path first, then old d_name fallback)
@@ -1030,7 +1137,7 @@ vcov.mlmodel <- function(object,
     }
   }
 
-  # -- 5. Now, we're ready to select the method.
+  # -- 5. Now, we're ready to select the method. -------------------------------
   if (type == "boot")
   {
     vcov_mat <- .vcov_boot(object,
@@ -1126,6 +1233,11 @@ vcov.mlmodel <- function(object,
 
   V <- chol2inv(chol(-H))
   G <- object$gradientObs
+  
+  w <- object$model$weights %||% rep(1, nobs(object))
+  
+  V <- sum(w) / length(w) * V
+  G <- G * length(w) / sum(w)
 
   # Compute variance
   if (!is.null(cl_var)) {

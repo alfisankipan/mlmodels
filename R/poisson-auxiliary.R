@@ -186,14 +186,16 @@
       
       y_boot <- y[boot_idx]
       x_boot <- x[boot_idx, , drop = FALSE]
-      
       w_boot <- w[boot_idx]
+      
+      # Scaling for estimation to protect from large weights
+      w_b_scaled <- w_boot / sum(w_boot)
       
       suppressMessages({
         # Fit on bootstrap sample using internal fit function
         updated <- .ml_poisson.fit(y = y_boot,
                                    x = x_boot,
-                                   w = w_boot,
+                                   w = w_b_scaled,
                                    constraints = object$model$constraints$maxLik,
                                    start       = object$model$start,
                                    method      = object$model$method,
@@ -312,10 +314,13 @@
         w_jack <- w[-i]
       }
       
+      # Scaling for estimation to protect from large weights
+      w_j_scaled <- w_jack / sum(w_jack)
+      
       suppressMessages({
         updated <- .ml_poisson.fit(y = y_jack,
                                    x = x_jack,
-                                   w = w_jack,
+                                   w = w_j_scaled,
                                    constraints = object$model$constraints$maxLik,
                                    start       = object$model$start,
                                    method      = object$model$method,

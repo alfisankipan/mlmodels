@@ -9,9 +9,7 @@ waldtest(object, ...)
 
 \method{waldtest}{mlmodel}(
   object,
-  indices = NULL,
-  coef_names = NULL,
-  rest_matrix = NULL,
+  constraints = NULL,
   rhs = 0,
   vcov = NULL,
   vcov.type = "oim",
@@ -27,11 +25,16 @@ waldtest(object, ...)
 
 \item{...}{Further arguments passed to methods.}
 
-\item{indices}{Integer vector. Positions of the coefficients to be tested.}
-
-\item{coef_names}{Character vector. Names of the coefficients to test.}
-
-\item{rest_matrix}{Numeric matrix. A q × k restriction matrix (advanced use).}
+\item{constraints}{Specification of the linear constraints to test.
+Can be one of the following:
+\itemize{
+\item An \strong{integer vector} with the positions (indices) of the coefficients
+to test (e.g. \code{2:5} or \code{c(1, 3, 7)}).
+\item A \strong{character vector} with coefficient names or linear combinations
+on the left-hand side (e.g. \code{c("value::age", "value::educ + value::huswage")}).
+\item A \strong{numeric matrix} containing the full restriction matrix \code{R}
+(advanced use).
+}}
 
 \item{rhs}{Numeric vector. Value(s) the linear combination(s) should equal.
 Default is 0.}
@@ -62,17 +65,28 @@ Performs a Wald test of linear restrictions on the parameters of an
 \details{
 The Wald test evaluates linear restrictions of the form \eqn{R\beta = r}.
 
-Three convenient interfaces are provided:
+The \code{constraints} argument specifies the left-hand side of the linear
+restrictions (without the equality sign). The right-hand side values are
+controlled separately with the \code{rhs} argument.
+
+\code{rhs} can be:
 \itemize{
-\item \code{indices} or \code{coef_names}: Test individual coefficients (or groups of
-coefficients) against the value(s) in \code{rhs} (defaults to 0, which is
-useful for joint significance tests).
-\item \code{rest_matrix} + \code{rhs}: Test general linear combinations of coefficients
-(advanced use).
+\item A single number — all constraints are tested against this value (default is \code{0}).
+\item A vector of the same length as the number of constraints — each constraint
+is tested against its corresponding value.
 }
 
 The test statistic follows a \eqn{\chi^2} distribution with degrees of
 freedom equal to the number of restrictions under the null hypothesis.
+
+Internally, the test always computes a chi-squared statistic. However, when
+there is only \strong{one restriction} (\code{df = 1}), the printed output shows the
+equivalent \strong{z-statistic} (\verb{|z| = \\sqrt\{\\text\{Chisq(1)\}\}}) instead.
+
+This is because a \eqn{\chi^2(1)} random variable is the square of a standard
+normal (\eqn{z}) random variable. Reporting the absolute value of the
+z-statistic in this case is conventional, but both distributions are
+equivalent in that case.
 }
 \examples{
 
@@ -82,21 +96,20 @@ mroz$incthou <- mroz$faminc / 1000
 fit <- ml_lm(incthou ~ age + I(age^2) + huswage + educ + unem, 
              data = mroz)
 
-# 1. Test single coefficients using indices (default OIM)
-waldtest(fit, indices = c(2, 5))
+# 1. Joint sginificance using positions (OIM variance)
+waldtest(fit, constraints = c(2, 5))
 
-# 2. Test using coefficient names and robust standard errors
-waldtest(fit, coef_names = c("value::educ", "value::unem"), 
-         vcov.type = "robust")
+# 2. Different magnitudes for different coefficients using names (robust variance)
+waldtest(fit, constraints = c("value::educ", "value::unem"),
+         rhs = c(1,0), vcov.type = "robust")
          
-# 3. Test explicit constraints
-waldtest(fit, coef_names = "value::educ", rhs = 1, vcov.type = "robust")
+# 3. Linear combination: educ + huswage = 3
+waldtest(fit, constraints = "value::educ + value::huswage", rhs = 3,
+         vcov.type = "robust")
 
-# 4. Test a linear combination of two coefficients using a restriction matrix
-# H0: educ + huswage = 3
+# 4. Same test using the restriction matrix.
 R <- matrix(c(0, 0, 0, 1, 1, 0, 0), nrow = 1)
-waldtest(fit, rest_matrix = R, rhs = 3, vcov.type = "boot", 
-         repetitions = 100, seed = 123)
+waldtest(fit, constraints = R, rhs = 3, vcov.type = "robust")
 
 }
 \seealso{

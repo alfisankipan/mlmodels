@@ -1,3 +1,42 @@
+=======
+# mlmodels 0.2.0
+
+## New Features
+
+* **Clarke test** (`clarketest()`): Full implementation of Clarke's (2007) 
+  distribution-free test for non-nested models. Includes both binomial/sign 
+  and signed-rank (Wilcoxon) variants, three penalty options 
+  (`none`, `akaike`, `schwarz`), model-based bootstrap, and an informative 
+  print method with expected values under the null and robustness notes.
+
+* **Vuong test** (`vuongtest()`): Now supports the same three penalty options 
+  (`none`, `akaike`, `schwarz`) for consistency with Clarke's test and 
+  Vuong (1989). Bootstrap functionality has been added and aligned with the 
+  rest of the test suite.
+
+* **Wald test** (`waldtest()`): Major upgrade — new `constraints` argument 
+  (replaces `coef_names`) that supports arbitrary linear combinations of 
+  coefficients.
+
+## Improvements
+
+* Much better handling of weights across all tests and estimators. Statistics 
+  are now properly scaled to ensure correct asymptotic behavior.
+* Enhanced `logLik()`, `AIC()`, and `BIC()` methods to return effective or 
+  scaled statistics depending on user request.
+* Improved interaction with `maxLik` optimizer, leading to more reliable 
+  convergence in many models.
+* Enhanced print methods for hypothesis tests (clearer conclusions, reference 
+  values under the null, bootstrap robustness warnings).
+* Better print methods for summaries of weighted models, showing both 
+  effective and scaled (to sample size) measures where appropriate.
+* Updated documentation and examples for non-nested model comparison.
+
+## Bug fixes & minor changes
+
+* Fixed bootstrap storage (numeric vectors instead of character).
+* Various internal cleanups and consistency improvements across the test suite.
+
 # mlmodels 0.1.2
 
 * Added return values in the documentation of exported functions that were missing them.

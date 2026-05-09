@@ -326,16 +326,27 @@ ml_gamma <- function(value,
     }
   }
   
-  # -- 9. Fitting the model with maxLik ----------------------
+  # -- 9. Fitting the model with maxLik ----------------------------------------
+  
+  # -- 9a. Scaling the weights to ease optimization ----------------------------
+  sc_factor <- sum(wts_clean)
+  w_scaled <- wts_clean / sc_factor
+  
+  #-- 9b. Calling the fit function with scaled weights -------------------------
   ml <- .ml_gamma.fit(y = y,
                       x = x,
                       z = z,
-                      w = wts_clean,
+                      w = w_scaled,
                       constraints = parsed_constraints$maxLik,
                       start = start,
                       method = method,
                       control = control,
                       ...)
+  
+  # -- 9c. Scaling the log-likelihood, scores and hessian back -----------------
+  ml$hessian <- ml$hessian * sc_factor
+  ml$gradientObs <- ml$gradientObs * sc_factor
+  ml$maximum <- ml$maximum * sc_factor
   
   # -- 10. Forming the dataset name ------------------------------
   # Safely get a readable name for the dataset (for printing/storage)
@@ -418,9 +429,9 @@ ml_gamma <- function(value,
   colnames(z0) <- "lnnu"
   
   suppressMessages({
-    ml0 <- .ml_gamma.fit(y = y, x = x0, z = z0, w = wts_clean)
+    ml0 <- .ml_gamma.fit(y = y, x = x0, z = z0, w = w_scaled)
   })
-  model_list$ll0 <- ml0$maximum
+  model_list$ll0 <- ml0$maximum * sc_factor
   
   coefs <- coef(ml)
   
@@ -493,6 +504,9 @@ new_ml_gamma <- function(object, ...) {
     
     start <- .initial_values.mlmodel(.ml_gamma_ll, start,
                                      y = y, x = x, z = z, w = w)
+    if(isFALSE(attr(start, "feasible")))
+      cli::cli_abort("Couldn't find feasible initial values.",
+                     call = NULL)
   }
   maxLik::maxLik(.ml_gamma_ll,
                  start = start,

@@ -5,12 +5,17 @@
 \alias{logLik.summary.mlmodel}
 \title{Extract Log-Likelihood from mlmodel objects}
 \usage{
-\method{logLik}{mlmodel}(object, ...)
+\method{logLik}{mlmodel}(object, scaled = FALSE, ...)
 
-\method{logLik}{summary.mlmodel}(object, ...)
+\method{logLik}{summary.mlmodel}(object, scaled = FALSE, ...)
 }
 \arguments{
 \item{object}{An object of class \code{mlmodel} or \code{summary.mlmodel}.}
+
+\item{scaled}{Logical that indicates whether you want the scaled (to sample
+size) log-likelihood, or not (weighted). It defaults to FALSE. Only
+relevant if the estimation was weighted. In unweighted estimations the
+log-likelihood is unique.}
 
 \item{...}{Additional arguments passed to methods.}
 }
@@ -22,11 +27,19 @@ attributes \code{nobs} and \code{df}.
 Extract Log-Likelihood from mlmodel objects
 }
 \details{
-The returned object is of class \code{"logLik"} and has two important attributes:
+The returned object is of class \code{"logLik"} and the following attributes:
 \itemize{
 \item \code{nobs}: number of observations used in estimation.
 \item \code{df}: number of estimated parameters (usually called \emph{K}),
 computed as \code{length(coef(object))}. This includes coefficients from both
 the location (mean/value) and scale equations when present.
+\item \code{scaled}: logical if the log-likelihood has been scaled to sample size.
+}
+
+When the estimation was weighted and \code{scaled} is \code{TRUE}, it also has the
+following attributes:
+\itemize{
+\item \code{scale_factor}: The scalar used to scale the log-liklihood (nobs / sum(weights))
+\item \code{nobs_effective}: sum(weights).
 }
 }

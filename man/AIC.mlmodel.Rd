@@ -5,12 +5,17 @@
 \alias{AIC.summary.mlmodel}
 \title{Extract AIC from mlmodel objects}
 \usage{
-\method{AIC}{mlmodel}(object, ..., k = 2)
+\method{AIC}{mlmodel}(object, scaled = FALSE, ..., k = 2)
 
-\method{AIC}{summary.mlmodel}(object, ..., k = 2)
+\method{AIC}{summary.mlmodel}(object, scaled = FALSE, ..., k = 2)
 }
 \arguments{
 \item{object}{An object of class \code{"mlmodel"} or \code{"summary.mlmodel"}.}
+
+\item{scaled}{Logical that indicates whether you want the scaled (to sample
+size) AIC, or not (weighted). It defaults to FALSE. Only relevant if the
+estimation was weighted. In unweighted estimations the AIC is the same if
+`weighted' or not.}
 
 \item{...}{Further arguments passed to methods.}
 
@@ -18,7 +23,9 @@
 (standard AIC). See \code{\link[stats:AIC]{stats::AIC()}} for details.}
 }
 \value{
-A numeric value with the AIC.
+A numeric value with the AIC. It has the logical attribute 'scaled',
+that will be \code{TRUE} if the estimation was weighted and \code{scaled = TRUE}. If
+estimation was unweighted or \code{scaled = FALSE}, the attribute will be \code{FALSE}.
 }
 \description{
 Extract AIC from mlmodel objects

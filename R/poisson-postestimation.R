@@ -201,25 +201,11 @@ print.summary.ml_poisson <- function(x, digits = max(3L, getOption("digits") - 3
     cat("WARNING: Model did NOT converge!\n")
     cat("Convergence code:", x$code %||% "???", "-", x$message %||% "", "\n\n")
   } else {
-    # Log-Likelihood + Joint tests (only when converged)
-    cat("Log-Likelihood:", format(x$logLik, nsmall = 2, digits = digits + 1), "\n\n")
-    cat("Wald significance tests:\n")
+    # Use helper function to print the weight/loglikelihood part of the header
+    .print_weight_loglik(x, digits = digits)
     
-    any_test_printed <- FALSE
-    for (test in c("all", "mean", "scale")) {
-      w <- x$significance[[test]]
-      if (is.null(w) || isTRUE(w$singular) || !is.finite(w$pval)) {
-        next   # skip silently (happens in homoskedastic case or useless variance)
-      }
-      any_test_printed <- TRUE
-      p_str <- if (w$pval < 1e-8) "< 1e-8" else sprintf("%.4f", w$pval)
-      cat(sprintf(" %s: Chisq(%d) = %.3f, Pr(>Chisq) = %s\n",
-                  tools::toTitleCase(test), w$df, w$waldstat, p_str))
-    }
-    
-    if (!any_test_printed) {
-      cat(" Tests were not computable (singular or not finite variance).\n")
-    }
+    # Wald Tests
+    .print_wald_tests(x, digits = digits)
   }
   
   cat("\nVariance type:", x$var_description)
@@ -262,18 +248,49 @@ print.summary.ml_poisson <- function(x, digits = max(3L, getOption("digits") - 3
   
   if (x$converged) {
     cat("---\n")
-    cat("Number of observations:", x$nobs, 
-        " Deg. of freedom: ", x$df.residual, "\n", sep = "")
-    cat("Pseudo R-squared - Cor.Sq.: ",
-        format(x$r.squared$cor, digits = digits),
-        " McFadden: ", format(x$r.squared$mcfadden, digits = digits),
-        "\n",
-        sep = "")
-    cat("AIC:", format(x$AIC, nsmall = 2, digits = digits + 1),
-        " BIC:", format(x$BIC, nsmall = 2, digits = digits + 1), "\n")
+    
+    cat("Observations:\n")
+    labels <- c("Res. Deg. of Freedom:", "Sample:")
+    if(x$weight_info$is_weighted)
+    {
+      labels <- c(labels,
+                  "Effective (Sum Wts):")
+      width <- max(nchar(labels)) + 1
+      cat(sprintf("  %-*s %d", width, "Sample:", x$nobs),
+          sprintf("  %-*s %d", width, "Effective (Sum Wts):", x$weight_info$sum_weights),
+          sprintf("  %-*s %d", width, "Res. Deg. of Freedom:", x$df.residual),
+          sep = "\n")
+    }
+    else
+    {
+      width <- max(nchar(labels)) + 1
+      cat(sprintf("  %-*s %d", width, "Sample:", x$nobs),
+          sprintf("  %-*s %d", width, "Res. Deg. of Freedom:", x$df.residual),
+          sep = "\n")
+    }
+    
+    cat("\nGoodness of Fit:",
+        "  Pseudo R-Squared:", sep = "\n")
+    
+    labels <- c("Cor.Sq.:", "McFadden:")
+    width <- max(nchar(labels)) + 1
+    cat(sprintf("    %-*s %.4f", width, "Cor.Sq.:", x$r.squared$cor),
+        sprintf("    %-*s %.4f", width, "McFadden:", x$r.squared$mcfadden),
+        sep = "\n")
+    
+    # Call helper to print the AIC and BIC with or without scaling
+    .print_information_criteria(x, digits)
+    
     cat("\nCount Diagnostics:\n")
-    cat("  Dispersion Ratio (Pearson):", format(x$ov, nsmall = 2, digits = digits + 1), "\n")
-    cat("  Zeros - Observed:", x$zero$count, "Predicted:", round(x$zero$pred, 2), "\n")
+    labels <- c("Observed:",
+                "Predicted:")
+    
+    width <- max(nchar(labels)) + 1
+    cat(sprintf("  Dispersion Ratio (Pearson):  %.2f", x$ov),
+        "  Zeros:",
+        sprintf("    %-*s %d", width, "Observed:", x$zero$count),
+        sprintf("    %-*s %.2f", width, "Predicted:", x$zero$pred),
+        sep = "\n")
   } else {
     cat("\nGoodness-of-fit statistics not available (model did not converge).\n")
   }
@@ -341,8 +358,13 @@ summary.ml_poisson <- function(object,
   s$logLik <- as.numeric(object$maximum %||% NA_real_)
   s$call           <- object$call                    # <- Now using root-level call
   s$formula        <- object$model$formula
+  s$weight_info    <- .generate_weight_info(object)
   s$nobs           <- n
-  s$df.residual    <- n - k_total
+  if(s$weight_info$is_weighted)
+    n_w <- s$weight_info$sum_weights
+  else
+    n_w <- n
+  s$df.residual    <- n_w - k_total
   s$converged      <- converged
   
   # Coefficient table
@@ -360,27 +382,32 @@ summary.ml_poisson <- function(object,
     y <- object$model$value$outcomes[[1]]
     yhat <- object$model$fitted.values
     
-    ll <- s$logLik
-    s$AIC            <- -2 * ll + 2 * k_total
-    s$BIC            <- -2 * ll + log(n) * k_total
+    s$AIC <- AIC(object, scaled = FALSE)
+    s$BIC <- BIC(object, scaled = FALSE)
+    
+    # Weights vector: real weights or 1s for unweighted case
+    w <- object$model$weights %||% rep(1, n)   # n = actual number of obs
     
     # overdispersion
-    s$ov <- sum((y - yhat)^2 / yhat) / (n - k_total)
+    s$ov <- sum(w * (y - yhat)^2 / yhat, na.rm = TRUE) / (n_w - k_total)
+    
+    s$zero <- list(
+      count = sum(w[y == 0], na.rm = TRUE),
+      pred = sum(w * exp(-yhat), na.rm = TRUE)
+    )
     
     # Null logLik
+    ll <- s$logLik
     y_bar <- mean(y)
-    ll0 <- sum(y * log(y_bar) - y_bar - lfactorial(y))
+    ll0 <- sum(w * (y * log(y_bar) - y_bar - lfactorial(y)), na.rm = TRUE)
     
     s$r.squared <- list(
       cor = cor(y, yhat)^2,
       mcfadden = 1 - ll / ll0
     )
     
-    s$zero <- list(
-      count = sum(y == 0),
-      pred = sum(exp(-yhat))
-    )
-    
+    # Weight Information (from helper)
+    s$weight_info <- .generate_weight_info(object)
     
     if(usable_vcov)
     {
@@ -388,7 +415,7 @@ summary.ml_poisson <- function(object,
       idx_mean <- if (object$model$value$blueprint$intercept) 2:k_mean else 1:k_mean
       
       s$significance <- list(
-        all  = waldtest(object, indices = idx_mean, vcov = vcov_mat),
+        overall  = waldtest(object, constraints = idx_mean, vcov = vcov_mat),
         mean = NULL,
         scale = NULL
       )
@@ -396,14 +423,14 @@ summary.ml_poisson <- function(object,
     else
     {
       s$significance <- list(
-        all  = NULL,
+        overall  = NULL,
         mean = NULL,
         scale = NULL
       )
     }
     
   } else {
-    s$r.squared <- s$AIC <- s$BIC <- s$ov <- s$zero <- s$significance <- NULL
+    s$r.squared <- s$AIC <- s$BIC <- s$ov <- s$zero <- s$significance <- s$weight_info <- NULL
   }
   
   

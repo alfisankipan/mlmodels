@@ -291,25 +291,11 @@ print.summary.ml_lm <- function(x, digits = max(3L, getOption("digits") - 3L), .
     cat("WARNING: Model did NOT converge!\n")
     cat("Convergence code:", x$code %||% "???", "-", x$message %||% "", "\n\n")
   } else {
-    # Log-Likelihood + Joint tests (only when converged)
-    cat("Log-Likelihood:", format(x$logLik, nsmall = 2, digits = digits + 1), "\n\n")
-    cat("Wald significance tests:\n")
+    # Use helper function to print the weight/loglikelihood part of the header
+    .print_weight_loglik(x, digits = digits)
     
-    any_test_printed <- FALSE
-    for (test in c("all", "mean", "scale")) {
-      w <- x$significance[[test]]
-      if (is.null(w) || isTRUE(w$singular) || !is.finite(w$pval)) {
-        next   # skip silently (happens in homoskedastic case or useless variance)
-      }
-      any_test_printed <- TRUE
-      p_str <- if (w$pval < 1e-8) "< 1e-8" else sprintf("%.4f", w$pval)
-      cat(sprintf(" %s: Chisq(%d) = %.3f, Pr(>Chisq) = %s\n",
-                  tools::toTitleCase(test), w$df, w$waldstat, p_str))
-    }
-    
-    if (!any_test_printed) {
-      cat(" Tests were not computable (singular or not finite variance).\n")
-    }
+    # Wald Tests
+    .print_wald_tests(x, digits = digits)
   }
   
   cat("\nVariance type:", x$var_description)
@@ -356,13 +342,55 @@ print.summary.ml_lm <- function(x, digits = max(3L, getOption("digits") - 3L), .
   
   if (x$converged) {
     cat("---\n")
-    cat("Number of observations:", x$nobs, "\n")
-    if (!is.null(x$df.residual))
-      cat("Residual degrees of freedom:", x$df.residual, "\n")
-    cat("Multiple R-squared: ", format(x$r.squared, digits = digits),
-        " Adjusted R-squared: ", format(x$adj.r.squared, digits = digits), "\n", sep = "")
-    cat("AIC:", format(x$AIC, nsmall = 2, digits = digits + 1),
-        " BIC:", format(x$BIC, nsmall = 2, digits = digits + 1), "\n")
+    
+    cat("Observations:\n")
+    labels <- c("Res. Deg. of Freedom:", "Sample:")
+    if(x$weight_info$is_weighted)
+    {
+      labels <- c(labels,
+                  "Effective (Sum Wts):")
+      width <- max(nchar(labels)) + 1
+      cat(sprintf("  %-*s %d", width, "Sample:", x$nobs),
+          sprintf("  %-*s %d", width, "Effective (Sum Wts):", x$weight_info$sum_weights),
+          sprintf("  %-*s %d", width, "Res. Deg. of Freedom:", x$df.residual),
+          sep = "\n")
+    }
+    else
+    {
+      width <- max(nchar(labels)) + 1
+      cat(sprintf("  %-*s %d", width, "Sample:", x$nobs),
+          sprintf("  %-*s %d", width, "Res. Deg. of Freedom:", x$df.residual),
+          sep = "\n")
+    }
+    
+    cat("\nGoodness of Fit:\n")
+    cat("  R-squared:\n")
+    labels <- c("Multiple (Cor.Sq.):")
+    if(x$weight_info$is_weighted)
+    {
+      labels <- c(labels,
+                  "  Effective:",
+                  "  Scaled:")
+      width <- max(nchar(labels)) + 1
+      cat(sprintf("    %-*s %.4f", width, "Multiple (Cor.Sq.):", x$r.squared),
+          "    Adjusted:",
+          sprintf("    %-*s %.4f", width, "  Effective:", x$adj.r.squared$effective),
+          sprintf("    %-*s %.4f", width, "  Scaled:", x$adj.r.squared$sample),
+          sep = "\n")
+    }
+    else
+    {
+      labels <- c(labels,
+                  "Adjusted:")
+      width <- max(nchar(labels)) + 1
+      cat(sprintf("    %-*s %.4f", width, "Multiple (Cor.Sq.):", x$r.squared),
+          sprintf("    %-*s %.4f", width, "Adjusted:", x$adj.r.squared$sample),
+          sep = "\n")
+    }
+    
+    # Call helper to print the AIC and BIC with or without scaling
+    .print_information_criteria(x, digits)
+    
     if(x$is_heteroskedastic)
     {
       cat("\nDistribution of Std. Deviation (sigma):",
@@ -373,7 +401,7 @@ print.summary.ml_lm <- function(x, digits = max(3L, getOption("digits") - 3L), .
     }
     else
     {
-      cat("Residual standard error (sigma):", format(x$sigma[1], digits = digits), "\n")
+      cat("\nResidual standard error (sigma):", format(x$sigma[1], digits = digits), "\n")
     }
   } else {
     cat("\nGoodness-of-fit statistics not available (model did not converge).\n")
@@ -445,8 +473,13 @@ summary.ml_lm <- function(object,
   s$call           <- object$call                    # <- Now using root-level call
   s$formula        <- object$model$formula
   s$scale_formula  <- object$model$scale_formula
+  s$weight_info    <- .generate_weight_info(object)
   s$nobs           <- n
-  s$df.residual    <- n - k_mean
+  if(s$weight_info$is_weighted)
+    n_w <- s$weight_info$sum_weights
+  else
+    n_w <- n
+  s$df.residual    <- n_w - k_total
   s$converged      <- converged
   s$is_heteroskedastic <- is_heteroskedastic
 
@@ -462,18 +495,21 @@ summary.ml_lm <- function(object,
 
   # Stats if converged
   if (converged) {
+    # These are already in sample observations.
     y <- object$model$value$outcomes[[1]]
     yhat <- object$model$fitted.values
 
     s$r.squared      <- cor(y, yhat)^2
-    s$adj.r.squared  <- 1 - (1 - s$r.squared) * (n - 1) / (n - k_mean)
 
-    ll <- s$logLik
-    s$AIC            <- -2 * ll + 2 * k_total
-    s$BIC            <- -2 * ll + log(n) * k_total
+    # Unweighted Statistics
+    s$AIC <- AIC(object, scaled = FALSE)
+    s$BIC <- BIC(object, scaled = FALSE)
+    
+    # These two should be identical if unweighted. We store both.
+    s$adj.r.squared$effective  <- 1 - (1 - s$r.squared) * (n_w - 1) / (n_w - k_total)
+    s$adj.r.squared$sample     <- 1 - (1 - s$r.squared) * (n - 1) / (n - k_total)
 
     s$sigma <- summary(object$model$sigma)
-
 
     if(usable_vcov)
     {
@@ -485,14 +521,14 @@ summary.ml_lm <- function(object,
         else (k_mean + 1):k_total
 
         s$significance <- list(
-          all  = waldtest(object, indices = c(idx_mean, idx_scale), vcov = vcov_mat),
-          mean = waldtest(object, indices = idx_mean, vcov = vcov_mat),
-          scale = waldtest(object, indices = idx_scale, vcov = vcov_mat)
+          overall  = waldtest(object, constraints = c(idx_mean, idx_scale), vcov = vcov_mat),
+          value = waldtest(object, constraints = idx_mean, vcov = vcov_mat),
+          scale = waldtest(object, constraints = idx_scale, vcov = vcov_mat)
         )
       } else {
         s$significance <- list(
-          all  = waldtest(object, indices = idx_mean, vcov = vcov_mat),
-          mean = NULL,
+          overall  = waldtest(object, constraints = idx_mean, vcov = vcov_mat),
+          value = NULL,
           scale = NULL
         )
       }
@@ -500,14 +536,14 @@ summary.ml_lm <- function(object,
     else
     {
       s$significance <- list(
-        all  = NULL,
-        mean = NULL,
+        overall  = NULL,
+        value = NULL,
         scale = NULL
       )
     }
 
   } else {
-    s$r.squared <- s$adj.r.squared <- s$AIC <- s$BIC <- s$sigma <- s$significance <- NULL
+    s$r.squared <- s$adj.r.squared <- s$AIC <- s$BIC <- s$sigma <- s$significance <- s$weight_info <- NULL
   }
   
   

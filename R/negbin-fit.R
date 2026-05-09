@@ -310,17 +310,28 @@ ml_negbin <- function(value,
     }
   }
   
-  # -- 9. Fitting the model with maxLik ----------------------
+  # -- 9. Fitting the model with maxLik ----------------------------------------
+  
+  # -- 9a. Scaling the weights to ease optimization ----------------------------
+  sc_factor <- sum(wts_clean)
+  w_scaled <- wts_clean / sc_factor
+  
+  #-- 9b. Calling the fit function with scaled weights -------------------------
   ml <- .ml_negbin.fit(y = y,
                        x = x,
                        z = z,
-                       w = wts_clean,
+                       w = w_scaled,
                        constraints = parsed_constraints$maxLik,
                        start = start,
                        method = method,
                        control = control,
                        dispersion = dispersion, # NB1 or NB2
                        ...)
+  
+  # -- 9c. Scaling the log-likelihood, scores and hessian back -----------------
+  ml$hessian <- ml$hessian * sc_factor
+  ml$gradientObs <- ml$gradientObs * sc_factor
+  ml$maximum <- ml$maximum * sc_factor
   
   # -- 10. Forming the dataset name ------------------------------
   # Safely get a readable name for the dataset (for printing/storage)
@@ -403,9 +414,9 @@ ml_negbin <- function(value,
   colnames(x0) <- "(Intercept)"
   colnames(z0) <- "lnalpha"
   
-  ml0 <- .ml_negbin.fit(y = y, x = x0, z = z0, w = wts_clean,
+  ml0 <- .ml_negbin.fit(y = y, x = x0, z = z0, w = w_scaled,
                         dispersion = dispersion)
-  model_list$ll0 <- ml0$maximum
+  model_list$ll0 <- ml0$maximum * sc_factor
   
   
   coefs <- coef(ml)
@@ -517,6 +528,9 @@ new_ml_negbin <- function(object, ...) {
     
     start <- .initial_values.mlmodel(fun_ll, c(b0, g0),
                                      y = y, x = x, z = z, w = w)
+    if(isFALSE(attr(start, "feasible")))
+      cli::cli_abort("Couldn't find feasible initial values.",
+                     call = NULL)
   }
   
   maxLik::maxLik(fun_ll,
