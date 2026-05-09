@@ -1,54 +1,32 @@
-# mlmodels: Maximum Likelihood Models for R
+# mlmodels
 
-<!-- badges: start -->
-[![R-CMD-check](https://github.com/alfisankipan/mlmodels/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/alfisankipan/mlmodels/actions/workflows/R-CMD-check.yaml)
-<!-- badges: end -->
+**Maximum Likelihood Estimation with a Consistent S3 Interface**
 
-**mlmodels** provides a consistent and flexible framework for maximum likelihood estimation in R. It includes a wide range of models with a unified S3 interface, support for modeling scale parameters (heteroskedasticity), rich post-estimation tools, and excellent compatibility with the `marginaleffects` package.
+[![CRAN status](https://www.r-pkg.org/badges/version/mlmodels)](https://cran.r-project.org/package=mlmodels)
+[![CRAN downloads](https://cranlogs.r-pkg.org/badges/mlmodels)](https://cran.r-project.org/package=mlmodels)
 
-## Key Features
+## Current CRAN Version: 0.1.2
 
-- Consistent interface across models: `ml_lm()`, `ml_logit()`, `ml_probit()`, `ml_poisson()`, `ml_negbin()`, `ml_gamma()`, `ml_beta()`, etc.
-- Flexible modeling of the **scale parameter** (variance, dispersion, precision, or shape) alongside the mean.
-- Rich `predict()` method with many output types (response, mean, variance, probabilities, etc.).
-- Multiple variance-covariance estimators: OIM, OPG, robust, cluster-robust, bootstrap, and jackknife.
-- Comprehensive hypothesis testing: Wald, likelihood ratio, information matrix, Vuong, overdispersion, and goodness-of-fit tests.
-- Full compatibility with [`marginaleffects`](https://marginaleffects.com/) for marginal effects and predictions.
+The package is now available on CRAN (0.1.2). It includes:
+- A full suite of maximum likelihood estimators (Gaussian, logit, probit, Poisson, negative binomial, gamma, beta, etc.)
+- Flexible modeling of the scale/dispersion parameter
+- Multiple variance-covariance estimators
+- Hypothesis tests (Wald, LR, Information Matrix, Vuong)
+
+## Development Version (main branch)
+
+We are currently working on:
+- **Truncated models** (`ml_trunc_lm()`, `ml_trunc_poisson()`, etc.)
+- Further improvements to the test suite and documentation
+
+---
 
 ## Installation
 
-You can install the development version from GitHub:
-
 ```r
-# install.packages("devtools")
-devtools::install_github("alfisankipan/mlmodels")
+# From CRAN (stable)
+install.packages("mlmodels")
+
+# Latest development version
+remotes::install_github("alfisankipan/mlmodels")
 ```
-
-(The package will soon be available on CRAN.)
-
-## Documentation
-
-* [Getting Started](https://alfisankipan.github.io/mlmodels/articles/mlmodels-basics.html)
-* [Count Data Models](https://alfisankipan.github.io/mlmodels/articles/mlmodels-countintro.html)
-* [Diagnostic Tools](https://alfisankipan.github.io/mlmodels/articles/mlmodels-diagnostics.html)
-* [Fractional Response Outcomes](https://alfisankipan.github.io/mlmodels/articles/mlmodels-fractional.html)
-* [Gamma and Lognormal Models](https://alfisankipan.github.io/mlmodels/articles/mlmodels-gamma-lognormal.html)
-* [Predictions and Marginal Effects](https://alfisankipan.github.io/mlmodels/articles/mlmodels-predictions.html)
-* [Variance Estimators and Inference](https://alfisankipan.github.io/mlmodels/articles/mlmodels-variance.html)
-
-## Quick Example
-
-```r
-library(mlmodels)
-
-data("mroz")
-
-fit <- ml_logit(inlf ~ age + I(age^2) + huswage + educ + unem, 
-                data = mroz)
-
-summary(fit, vcov.type = "robust")
-```
-
-## Acknowledgements
-
-This package builds on the excellent [maxLik](https://github.com/arne-henningsen/maxLik) package by Arne Henningsen and others for the underlying optimization engine.
