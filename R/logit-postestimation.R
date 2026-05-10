@@ -448,12 +448,13 @@ summary.ml_logit <- function(object,
     s$AIC <- AIC(object, scaled = FALSE)
     s$BIC <- BIC(object, scaled = FALSE)
     
-    p_bar <- mean(y, na.rm = TRUE)
-    ll <- s$logLik
-    # Weighted ll0.
     w <- object$model$weights %||% rep(1, n)   # n = actual number of obs
-    ll0   <- sum(w, na.rm = TRUE) / length(w) * (sum(y, na.rm = TRUE) * log(p_bar) +
-                sum(1 - y, na.rm = TRUE) * log(1 - p_bar))
+    p_bar <- weighted.mean(y, w, na.rm = TRUE)
+    # unweight the log-likelihoods for mcfadden.
+    ll_vec <- object$model$functions$loglikeObs(object) / w
+    ll <- sum(ll_vec)
+    
+    ll0 <- sum(y * log(p_bar) + (1 - y) * log(1 - p_bar), na.rm = TRUE)
     
     s$r.squared <- list(
       cor = cor(y, yhat)^2,

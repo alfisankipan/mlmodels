@@ -370,8 +370,9 @@ summary.ml_gamma <- function(object,
     s$AIC <- AIC(object, scaled = FALSE)
     s$BIC <- BIC(object, scaled = FALSE)
     
-    y_bar <- mean(y)
-    ll <- s$logLik
+    # unweigth the log-likelihoods for mcfadden.
+    ll_vec <- object$model$functions$loglikeObs(object) / w
+    ll <- sum(ll_vec)
     ll0 <- object$model$ll0
     
     s$r.squared <- list(

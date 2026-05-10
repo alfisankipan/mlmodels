@@ -1,28 +1,6 @@
 ## Private files that get called from several mlmodels top level functions to
 ## do a specific task.
 
-## GLOBAL CONSTANTS ============================================================
-# -- 1. Setting defaults -------------------------------------------------------
-# General function where we set constants as defaults to use within other functions,
-# kind of a global constant setting.
-#' @keywords internal
-.mlmodels_defaults <- function() {
-  list(
-    scipen         = 2L,      # for coefficient tables
-    digits         = 3L,      # default digits in summary tables
-    signif_digits  = 4L,      # for p-values
-    repetitions    = 999L,    # default bootstrap repetitions
-    seed           = NULL
-  )
-}
-# -- 2. Getting defaults -------------------------------------------------------
-# Function to pull the default constant for a certain name.
-#' @keywords internal
-.mlmodels_get_default <- function(name) {
-  defaults <- .mlmodels_defaults()
-  defaults[[name]]
-}
-
 ## FORMAT COEFFICENT MATRIX ===================================================
 # Internal helper: Smart formatting of coefficient matrices
 # Decides number of decimal places based on the magnitude of the values
@@ -52,6 +30,28 @@
   return(coef_mat)
 }
 
+## GLOBAL CONSTANTS ============================================================
+# -- 1. Setting defaults -------------------------------------------------------
+# General function where we set constants as defaults to use within other functions,
+# kind of a global constant setting.
+#' @keywords internal
+.mlmodels_defaults <- function() {
+  list(
+    scipen         = 2L,      # for coefficient tables
+    digits         = 3L,      # default digits in summary tables
+    signif_digits  = 4L,      # for p-values
+    repetitions    = 999L,    # default bootstrap repetitions
+    seed           = NULL
+  )
+}
+# -- 2. Getting defaults -------------------------------------------------------
+# Function to pull the default constant for a certain name.
+#' @keywords internal
+.mlmodels_get_default <- function(name) {
+  defaults <- .mlmodels_defaults()
+  defaults[[name]]
+}
+
 ## IS INVERTIBLE ===============================================================
 # Internal function to detect if a matrix is invertible.
 # 
@@ -67,6 +67,100 @@
     TRUE
   }, error = function(e) FALSE)
 }
+
+## MODEL FRAME FUNCTION ========================================================
+#' @keywords internal
+# Internal helper: common model frame preprocessing
+.model_frame_mlmodel <- function(value,
+                                 scale = NULL,
+                                 data,
+                                 subset = NULL,
+                                 weights = NULL,
+                                 cl = NULL,          # ← original call from ml_*()
+                                 ...) {
+  
+  # If no call was passed, create one (fallback, but shouldn't happen)
+  if (is.null(cl)) {
+    cl <- match.call()
+  }
+  
+  # -- Formula validation -------------------------------------------------
+  if (!rlang::is_formula(value, lhs = TRUE)) {
+    cli::cli_abort("`value` must be a two-sided formula with an outcome variable on the left-hand side.",
+                   call = NULL)
+  }
+  if (!is.null(scale) && !rlang::is_formula(scale, lhs = FALSE)) {
+    cli::cli_abort("`scale` must be a one-sided formula (no outcome on the left-hand side).",
+                   call = NULL)
+  }
+  
+  # Store evaluated formulas in the call
+  cl$value <- eval(value)
+  if (!is.null(scale)) cl$scale <- eval(scale)
+  
+  # -- Basic setup --------------------------------------------------------
+  n_orig <- nrow(data)
+  keep   <- rep(TRUE, n_orig)
+  
+  data <- .convert_integers_to_double(data)
+  
+  # -- 1. Subset ----------------------------------------------------------
+  sub_res <- .process_subset(subset, data)          # subset is already a quosure
+  cl$subset <- sub_res$expr
+  keep <- keep & sub_res$idx
+  
+  # -- 2. Weights handling ------------------------------------------------
+  w_expr <- weights                                 # already a quosure from caller
+  if (!rlang::quo_is_null(w_expr)) {
+    w_name <- tryCatch(rlang::as_name(w_expr), error = function(e) NULL)
+    wts    <- rlang::eval_tidy(w_expr, data)
+  } else {
+    w_name <- NULL
+    wts    <- NULL
+  }
+  if (!is.null(w_name) && !w_name %in% names(data)) {
+    w_name <- NULL
+  }
+  
+  # -- 3. Complete cases --------------------------------------------------
+  if (is.null(scale)) {
+    vars_to_check <- all.vars(value)
+  } else {
+    vars_to_check <- unique(c(all.vars(value), all.vars(scale)))
+  }
+  if (!is.null(w_name)) {
+    vars_to_check <- unique(c(vars_to_check, w_name))
+  }
+  
+  usable_obs <- complete.cases(data[, vars_to_check, drop = FALSE])
+  
+  if (!is.null(wts) && is.null(w_name)) {
+    usable_obs <- usable_obs & complete.cases(wts)
+  }
+  
+  nas_dropped <- sum(keep & !usable_obs)
+  if (nas_dropped > 0) {
+    cli::cli_alert_info("Dropped {nas_dropped} observation{?s} due to missing values.")
+  }
+  
+  # -- 4. Final sample vector ---------------------------------------------
+  sample <- keep & usable_obs
+  
+  # Return everything the model functions need
+  list(
+    sample   = sample,
+    keep     = keep,
+    usable_obs = usable_obs,
+    data     = data,
+    value    = value,
+    scale    = scale,
+    weights  = wts,
+    w_name   = w_name,
+    cl       = cl,
+    n_orig   = n_orig
+  )
+}
+
 
 ## POST-ESTIMATION UTILITIES ===================================================
 # --- Fractional Response Alert (logit/probit) ---------------------------------

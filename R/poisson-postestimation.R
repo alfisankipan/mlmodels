@@ -397,9 +397,12 @@ summary.ml_poisson <- function(object,
     )
     
     # Null logLik
-    ll <- s$logLik
-    y_bar <- mean(y)
-    ll0 <- sum(w * (y * log(y_bar) - y_bar - lfactorial(y)), na.rm = TRUE)
+    # unweight the log-likelihoods for mcfadden.
+    ll_vec <- object$model$functions$loglikeObs(object) / w
+    ll <- sum(ll_vec)
+    # Weighted mean for the null model
+    y_bar <- weighted.mean(y, w, na.rm = TRUE)
+    ll0 <- sum(y * log(y_bar) - y_bar - lfactorial(y), na.rm = TRUE)
     
     s$r.squared <- list(
       cor = cor(y, yhat)^2,

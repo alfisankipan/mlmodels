@@ -45,6 +45,7 @@
   ## HESSIAN
   
   s_bb <- w* as.vector(wlam + lam^2 - 1)
+  
   s_bd <- w * as.vector(((a^2 - 1) * phi_a - (g^2 - 1) * phi_g) / (Phi_a - Phi_g) +
                       lam * wlam - 2 * z_y)
   

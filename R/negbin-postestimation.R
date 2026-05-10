@@ -563,9 +563,9 @@ summary.ml_negbin <- function(object,
       pred = pred_zero
     )
     
-    # Null logLik
-    ll <- s$logLik
-    y_bar <- mean(y)
+    # unweight the log-likelihoods for mcfadden.
+    ll_vec <- object$model$functions$loglikeObs(object) / w
+    ll <- sum(ll_vec)
     ll0 <- object$model$ll0
     
     s$r.squared <- list(

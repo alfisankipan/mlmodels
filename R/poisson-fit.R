@@ -88,71 +88,20 @@ ml_poisson <- function(value,
                        control = NULL,
                        ...)
 {
-  # -- Basic input validation ------------------------------------------
-  if (!rlang::is_formula(value, lhs = TRUE)) {
-    cli::cli_abort("`value` must be a two-sided formula with an outcome variable on the left-hand side.",
-                   call = NULL)
-  }
-  
   cl <- match.call()
+  # We call the helper to form the basic frame
+  mf <- .model_frame_mlmodel(value = value,
+                             weights = rlang::enquo(weights),
+                             data = data,
+                             subset = rlang::enquo(subset),
+                             cl = cl)
   
-  # Making sure we store the formulas in the call and not references to the
-  # formulas.
-  cl$value <- eval(value)
-  
-  # -- 0. Save original data dimensions and create keep vector ------------
-  n_orig <- nrow(data)
-  keep <- rep(TRUE, n_orig)          # Start with all observations kept
-  
-  data <- .convert_integers_to_double(data)
-  
-  # -- 1. Handle subset argument --------------------------------------
-  # 1.1. Process subset using the helper
-  sub_res <- .process_subset(rlang::enquo(subset), data)
-  
-  # 1.2. Update the call object for the summary
-  cl$subset <- sub_res$expr
-  
-  # 1.3. Apply the subset to the data
-  keep <- keep & sub_res$idx
-  
-  # -- 2. Weights handling ------------------------------------------
-  w_expr <- rlang::enquo(weights)
-  if (!rlang::quo_is_null(w_expr)) {
-    # Try to see if it looks like a column name
-    w_name <- tryCatch(rlang::as_name(w_expr), error = function(e) NULL)
-    wts    <- rlang::eval_tidy(w_expr, data)
-  } else {
-    w_name <- NULL
-    wts    <- NULL
-  }
-  
-  # Safety: if user passed a vector, w_name should not be treated as a column
-  if (!is.null(w_name) && !w_name %in% names(data)) {
-    w_name <- NULL   # it was a direct vector, not a column
-  }
-  
-  # -- 3. Identify usable observations on full data ----------------
-  cols_to_check <- all.vars(value)
-  if (!is.null(w_name)) {
-    cols_to_check <- unique(c(cols_to_check, w_name))
-  }
-  
-  usable_obs <- complete.cases(data[, cols_to_check, drop = FALSE])
-  
-  # Extra check if user passed a weights vector directly
-  if (!is.null(wts) && is.null(w_name)) {
-    usable_obs <- usable_obs & complete.cases(wts)
-  }
-  
-  # Count observations dropped due to missing values *within the subset*
-  nas_dropped <- sum(keep & !usable_obs)
-  if (nas_dropped > 0) {
-    cli::cli_alert_info("Dropped {nas_dropped} observations due to missing values.")
-  }
-  
-  # -- 4. Modify sample = subset and complete cases ----------------
-  sample <- keep & usable_obs
+  # Pull out different values that we use.
+  data <- mf$data
+  wts <- mf$weights
+  w_name <- mf$w_name
+  sample <- mf$sample
+  n_orig <- mf$n_orig
   
   # -- 5. Detect log transformation ------------------------------
   # We evaluate on the full data so invalid_idx has length = n_orig
@@ -317,8 +266,8 @@ ml_poisson <- function(value,
     weights       = wts_clean,
     w_name        = w_name,
     sample        = sample,
-    subset_sample = keep,
-    usable_sample = usable_obs,
+    subset_sample = mf$keep,
+    usable_sample = mf$usable_obs,
     data          = data,
     data_name     = d_name,
     functions     = functions,
@@ -355,7 +304,7 @@ ml_poisson <- function(value,
   
   # -- 13. Add the model to the maxLik object ----------------------
   ml$model <- model_list
-  ml$call <- cl
+  ml$call <- mf$cl
   
   # -- 14. Call the function to create tge class and return  ----------
   new_ml_poisson(ml)
