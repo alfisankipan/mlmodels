@@ -3,7 +3,8 @@
 **Maximum Likelihood Estimation with a Consistent S3 Interface**
 
 [![CRAN status](https://www.r-pkg.org/badges/version/mlmodels)](https://cran.r-project.org/package=mlmodels)
-[![CRAN downloads](https://cranlogs.r-pkg.org/badges/mlmodels)](https://cran.r-project.org/package=mlmodels)
+[![CRAN monthly downloads](https://cranlogs.r-pkg.org/badges/mlmodels)](https://cran.r-project.org/package=mlmodels)
+[![CRAN total downloads](https://cranlogs.r-pkg.org/badges/grand-total/mlmodels)](https://cran.r-project.org/package=mlmodels)
 
 ## Current CRAN Version: 0.1.2
 

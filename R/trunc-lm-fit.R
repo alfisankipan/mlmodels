@@ -425,9 +425,21 @@ ml_trunc_lm <- function(value,
   coefs <- coef(ml)
   
   beta <- coefs[1:ncol(x)]
-  yhat <- as.vector(x %*% beta)
+  xb <- as.vector(x %*% beta)
   delta <- coefs[(ncol(x) + 1):length(coefs)]
   sigma <- as.vector(exp(z %*% delta))
+  
+  a <- (left - xb) / sigma
+  g <- (right - xb) / sigma
+  denom <- pnorm(g) - pnorm(a)
+  if (is_lognormal)
+  {
+    yhat <- exp(xb + sigma^2 / 2) * (pnorm(g - sigma) - pnorm(a - sigma)) / denom
+  }
+  else
+  {
+    yhat<- xb + sigma * (dnorm(a) - dnorm(g)) / denom
+  }
   
   model_list$fitted.values <- yhat
   model_list$residuals     <- y - yhat
