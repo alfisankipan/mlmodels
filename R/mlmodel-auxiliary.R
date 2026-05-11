@@ -161,7 +161,6 @@
   )
 }
 
-
 ## POST-ESTIMATION UTILITIES ===================================================
 # --- Fractional Response Alert (logit/probit) ---------------------------------
 # Checks if the estimation is of a fractional response outcome and the variance
@@ -1566,6 +1565,59 @@
   pval <- 2 * pnorm(-abs(z))
   
   list(statistic = z, p.value = pval)
+}
+
+## TRUNCATION HELPERS ==========================================================
+# -- 1. Check and Expand the truncation arguments.
+#' @keywords internal
+# Internal helper: expand left/right truncation points
+.expand_trunc_point <- function(x, mf, name = "left") {
+  
+  if (is.null(x)) {
+    cli::cli_abort("`{name}` cannot be NULL", call = NULL)
+  }
+  
+  n_orig  <- mf$n_orig
+  n_final <- sum(mf$sample)
+  
+  # 1. If it's a quosure (bare name), evaluate it
+  if (rlang::is_quosure(x)) {
+    x <- rlang::eval_tidy(x, data = mf$data)
+  }
+  
+  # 2. Scalar number
+  if (length(x) == 1L && is.numeric(x)) {
+    return(rep(as.numeric(x), n_final))
+  }
+  
+  # 3. Character string → variable name
+  if (is.character(x) && length(x) == 1L) {
+    if (!x %in% names(mf$data)) {
+      cli::cli_abort("Variable `{x}` specified in `{name}` not found in data.",
+                     call = NULL)
+    }
+    val <- as.numeric(mf$data[[x]])
+    return(val[mf$sample])
+  }
+  
+  # 4. Numeric vector
+  if (is.numeric(x)) {
+    if (length(x) == n_final) {
+      return(as.numeric(x))
+    }
+    if (length(x) == n_orig) {
+      return(as.numeric(x[mf$sample]))
+    }
+  }
+  
+  # Invalid input
+  cli::cli_abort(c(
+    "`{name}` must be one of:",
+    "*" = "a single number",
+    "*" = "a bare variable name (unquoted)",
+    "*" = "a character string naming a variable in the data",
+    "*" = "a numeric vector of length equal to original data (`n_orig`) or final sample size (`n_final`)"
+  ), call = NULL)
 }
 
 ## VARIANCE HELPERS ============================================================

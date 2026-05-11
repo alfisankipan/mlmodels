@@ -26,12 +26,41 @@
   phi_g <- dnorm(g)
   Phi_a <- pnorm(a)
   Phi_g <- pnorm(g)
-  lam <- (phi_a - phi_g) / (Phi_a - Phi_g)
-  wlam <- (a * phi_a - g * phi_g)  / (Phi_a - Phi_g)
+  
+  denom <- Phi_g - Phi_a
+  
+  # Calculate components
+  g_phi_g <- g * phi_g
+  a_phi_a <- a * phi_a
+  g2_phi_g <- (g^2 - 1) * Phi_g
+  a2_phi_a <- (a^2 - 1) * Phi_a
+  g_g2_phi_g <- g * phi_g * (1 - g^2)
+  a_a2_phi_a <- a * phi_a * (1 - a^2)
+  
+  # Clean Inf * 0 cases
+  g_phi_g[is.infinite(g) & phi_g == 0] <- 0
+  a_phi_a[is.infinite(a) & phi_a == 0] <- 0
+  g2_phi_g[is.infinite(g) & phi_g == 0] <- 0
+  a2_phi_a[is.infinite(a) & phi_a == 0] <- 0
+  g_g2_phi_g[is.infinite(g) & phi_g == 0] <- 0
+  a_a2_phi_a[is.infinite(a) & phi_a == 0] <- 0
+  
+  # 1. Define the components for the ratios
+  num_lam  <- phi_g - phi_a
+  num_wlam <- g_phi_g - a_phi_a
+  num_bd   <- g2_phi_g - a2_phi_a
+  num_dd   <- g_g2_phi_g - a_a2_phi_a
+  
+  # 2. Calculate the ratios
+  lam      <- num_lam / denom
+  wlam     <- num_wlam / denom
+  ratio_bd <- num_bd / denom
+  ratio_dd <- num_dd / denom
+  
   xs <- x / s                                                                   # Standardized to use as matrix in gradient and Hessian
   
   ## LL
-  ll <- dnorm(z_y, log = TRUE) - zd - log(Phi_a - Phi_g)
+  ll <- dnorm(z_y, log = TRUE) - zd - log(denom)
   if(lognormal) ll <- ll - y                                                    # y because it's already log-transformed
   ll <- ll * w
   
@@ -44,13 +73,12 @@
   
   ## HESSIAN
   
-  s_bb <- w* as.vector(wlam + lam^2 - 1)
+  s_bb <- w * as.vector(wlam + lam^2 - 1)
   
-  s_bd <- w * as.vector(((a^2 - 1) * phi_a - (g^2 - 1) * phi_g) / (Phi_a - Phi_g) +
-                      lam * wlam - 2 * z_y)
+  s_bd <- w * as.vector(ratio_bd + lam * wlam - 2 * z_y)
   
-  s_dd <- w * as.vector(wlam^2 - 2 * z_y^2 - (a * phi_a * (1 - a^2) - g * phi_g *
-                                            (1 - g^2)) / (Phi_a - Phi_g))
+  s_dd <- w * as.vector(wlam^2 - 2 * z_y^2 - ratio_dd)
+  
   
   H_bb <- crossprod(xs * s_bb, xs)
   H_bd <- crossprod(xs * s_bd, z)

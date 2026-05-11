@@ -105,99 +105,21 @@ ml_trunc_lm <- function(value,
                         control = NULL,
                         ...)
 {
-  # -- Basic input validation ------------------------------------------
-  if (!rlang::is_formula(value, lhs = TRUE)) {
-    cli::cli_abort("`value` must be a two-sided formula with an outcome variable on the left-hand side.",
-                   call = NULL)
-  }
-  
-  if (!is.null(scale) && !rlang::is_formula(scale, lhs = FALSE)) {
-    cli::cli_abort("`scale` must be a one-sided formula (no outcome on the left-hand side).",
-                   call = NULL)
-  }
-  
-  # -- Truncation point validation --------------------------------------------
-  if (is.null(left) || is.null(right)) {
-    cli::cli_abort("Neither `left` nor `right` can be `NULL`",
-                   call = NULL)
-  }
-  
-  if (is.infinite(left) && is.infinite(right)) {
-    cli::cli_abort(c(
-      "x" = "`left` and `right` indicate no truncation.",
-      "i" = "Use {.fn ml_lm} for a standard (non-truncated) Gaussian model."
-    ))
-  }
-  
   cl <- match.call()
+  # We call the helper to form the basic frame
+  mf <- .model_frame_mlmodel(value = value,
+                             scale = scale,
+                             weights = rlang::enquo(weights),
+                             data = data,
+                             subset = rlang::enquo(subset),
+                             cl = cl)
   
-  # Making sure we store the formulas in the call and not references to the
-  # formulas.
-  cl$value <- eval(value)
-  
-  if(!is.null(scale))
-    cl$scale <- eval(scale)
-  
-  # -- 0. Save original data dimensions and create keep vector ------------
-  n_orig <- nrow(data)
-  keep <- rep(TRUE, n_orig)          # Start with all observations kept
-  
-  # Convert integers into double in the local data, for later predictions.
-  data <- .convert_integers_to_double(data)
-  
-  # -- 1. Handle subset argument --------------------------------------
-  # 1.1. Process subset using the helper
-  sub_res <- .process_subset(rlang::enquo(subset), data)
-  
-  # 1.2. Update the call object for the summary
-  cl$subset <- sub_res$expr
-  
-  # 1.3. Apply the subset to the data
-  keep <- keep & sub_res$idx
-  
-  # -- 2. Weights handling ------------------------------------------
-  w_expr <- rlang::enquo(weights)
-  if (!rlang::quo_is_null(w_expr)) {
-    # Try to see if it looks like a column name
-    w_name <- tryCatch(rlang::as_name(w_expr), error = function(e) NULL)
-    wts    <- rlang::eval_tidy(w_expr, data)
-  } else {
-    w_name <- NULL
-    wts    <- NULL
-  }
-  
-  # Safety: if user passed a vector, w_name should not be treated as a column
-  if (!is.null(w_name) && !w_name %in% names(data)) {
-    w_name <- NULL   # it was a direct vector, not a column
-  }
-  
-  # -- 3. Identify usable observations on full data ----------------
-  if (is.null(scale)) {
-    v_vars <- all.vars(value)
-  } else {
-    v_vars <- unique(c(all.vars(value), all.vars(scale)))
-  }
-  
-  cols_to_check <- v_vars
-  if (!is.null(w_name)) {
-    cols_to_check <- unique(c(cols_to_check, w_name))
-  }
-  
-  usable_obs <- complete.cases(data[, cols_to_check, drop = FALSE])
-  
-  # Extra check if user passed a weights vector directly
-  if (!is.null(wts) && is.null(w_name)) {
-    usable_obs <- usable_obs & complete.cases(wts)
-  }
-  
-  # Count observations dropped due to missing values *within the subset*
-  nas_dropped <- sum(keep & !usable_obs)
-  if (nas_dropped > 0) {
-    cli::cli_alert_info("Dropped {nas_dropped} observations due to missing values.")
-  }
-  
-  # -- 4. Modify sample = subset and complete cases ----------------
-  sample <- keep & usable_obs
+  # Pull out different values that we use.
+  data <- mf$data
+  wts <- mf$weights
+  w_name <- mf$w_name
+  sample <- mf$sample
+  n_orig <- mf$n_orig
   
   # -- 5. Detect log transformation ------------------------------
   # We evaluate on the full data so invalid_idx has length = n_orig
@@ -221,9 +143,75 @@ ml_trunc_lm <- function(value,
   # Add the actual dropped count to log_info for later use
   log_info$value$n_invalid_log <- n_invalid_log
   
+  # Expansion
+  mf$sample <- sample
+  left  <- .expand_trunc_point(left,  mf = mf, name = "left")
+  right <- .expand_trunc_point(right, mf = mf, name = "right")
+  
+  # -- Truncation point validation and log-transform -----------------------
+  is_lognormal <- log_info$value$is_log
+  
+  # 1. Universal check: left must be strictly less than right everywhere
+  if (any(left >= right - 1e-8, na.rm = TRUE)) {
+    cli::cli_abort(c(
+      "x" = "All left truncation points must be strictly less than right truncation points.",
+      "i" = "At least one observation has left >= right."
+    ))
+  }
+  
+  # 2. Lognormal-specific checks (on original scale)
+  if (is_lognormal) {
+    # Finite left values must be strictly positive
+    if (any(is.finite(left) & left <= 0, na.rm = TRUE)) {
+      cli::cli_abort(c(
+        "x" = "Left truncation point must be strictly positive when the outcome is log-transformed.",
+        "i" = "Some `left` values are ≤ 0."
+      ))
+    }
+    
+    # Finite right values must be strictly positive
+    if (any(is.finite(right) & right <= 0, na.rm = TRUE)) {
+      cli::cli_abort(c(
+        "x" = "Right truncation point must be strictly positive when the outcome is log-transformed.",
+        "i" = "Some `right` values are ≤ 0."
+      ))
+    }
+    
+    left  <- ifelse(is.finite(left),  log(left),  left)
+    right <- ifelse(is.finite(right), log(right), right)
+  }
+  
+  if (all(is.infinite(left)) && all(is.infinite(right))) {
+    cli::cli_abort(c(
+      "x" = "`left` and `right` indicate no truncation.",
+      "i" = "Use {.fn ml_lm} for a standard (non-truncated) Gaussian model."
+    ))
+  }
+  
+  # Check that observations fall between left and right
+  lhs_var <- rlang::f_lhs(value)
+  y_vec <- rlang::eval_tidy(lhs_var, data = data)
+  y_vec <- y_vec[sample]
+  valid_left <- y_vec >= left
+  valid_right <- y_vec <= right
+  valid <- valid_left & valid_right
+  trunc_info <- list(
+    left = left,
+    right = right,
+    n_before = sum(sample),
+    tr_left = sum(!valid_left),
+    tr_right = sum(!valid_right),
+    tr_total = sum(!valid),
+    left_is_constant  = length(unique(left))  == 1L,
+    right_is_constant = length(unique(right)) == 1L
+  )
+  sample <- sample & valid
+  
   # -- 6. Create clean dataset for modeling ----------------------
   data_clean <- data[sample, , drop = FALSE]
   wts_clean <- if (!is.null(wts)) wts[sample] else rep(1, sum(sample))
+  left <- left[sample]
+  right <- right[sample]
   
   # Add this safety check:
   if (length(wts_clean) != sum(sample) || any(is.na(wts_clean))) {
@@ -269,8 +257,7 @@ ml_trunc_lm <- function(value,
   default_NR <- list(tol = -1,
                      reltol = 1e-12,
                      gradtol = 1e-12,
-                     lambdatol = 1e-20,
-                     qac = "marquardt")
+                     lambdatol = 1e-20)
   
   default_BFGS <- list(reltol = 1e-8)
   default_NM <- list(reltol = 1e-8,
@@ -326,19 +313,22 @@ ml_trunc_lm <- function(value,
   w_scaled <- wts_clean / sc_factor
   
   #-- 9b. Calling the fit function with scaled weights -------------------------
-  ml <- .ml_lm.fit(y = y,
-                   x = x,
-                   z = z,
-                   w = w_scaled,
-                   lognormal = log_info$value$is_log,
-                   constraints = parsed_constraints$maxLik,
-                   start = start,
-                   method = method,
-                   control = control,
-                   ...)
+  ml <- .ml_trunc_lm.fit(y = y,
+                         x = x,
+                         z = z,
+                         left = left,
+                         right = right,
+                         w = w_scaled,
+                         lognormal = is_lognormal,
+                         constraints = parsed_constraints$maxLik,
+                         start = start,
+                         method = method,
+                         control = control,
+                         ...)
   
   # -- 9c. Scaling the log-likelihood, scores and hessian back -----------------
   ml$hessian <- ml$hessian * sc_factor
+  ml$gradient <- ml$gradient * sc_factor
   ml$gradientObs <- ml$gradientObs * sc_factor
   ml$maximum <- ml$maximum * sc_factor
   
@@ -367,12 +357,12 @@ ml_trunc_lm <- function(value,
   # -- 12.a. The functions list --------------------------------------
   
   functions <- list(
-    predict        = predict.ml_lm,
-    gradientObs    = .ml_lm_gradientObs,
-    hessianObs     = .ml_lm_hessianObs,
-    loglikeObs     = .ml_lm_loglikeObs,
-    loglik         = .ml_lm_ll,
-    fit            = .ml_lm.fit
+    # predict        = predict.ml_lm,
+    # gradientObs    = .ml_lm_gradientObs,
+    # hessianObs     = .ml_lm_hessianObs,
+    # loglikeObs     = .ml_lm_loglikeObs,
+    # loglik         = .ml_lm_ll,
+    # fit            = .ml_lm.fit
   )
   
   # -- 12.b. The common structure --------------------------------------
@@ -401,8 +391,8 @@ ml_trunc_lm <- function(value,
     weights       = wts_clean,
     w_name        = w_name,
     sample        = sample,
-    subset_sample = keep,
-    usable_sample = usable_obs,
+    subset_sample = mf$keep,
+    usable_sample = mf$usable_obs,
     data          = data,
     data_name     = d_name,
     functions     = functions,
@@ -413,7 +403,8 @@ ml_trunc_lm <- function(value,
     control       = control,
     constraints   = parsed_constraints,
     start         = start,
-    method        = method
+    method        = method,
+    trunc_info    = trunc_info
   )
   
   if (!(ml$code %in% c(0, 1, 2, 8))) {
@@ -444,40 +435,42 @@ ml_trunc_lm <- function(value,
   
   # -- 13. Add the model to the maxLik object ----------------------
   ml$model <- model_list
-  ml$call <- cl
+  ml$call <- mf$cl
   
   # -- 14. Call the function to create the class and return  ----------
-  new_ml_lm(ml)
+  new_ml_trunc_lm(ml)
 }
 
 # Hidden function to create the class and return the object.
-new_ml_lm <- function(object, ...) {
+new_ml_trunc_lm <- function(object, ...) {
   # object is the result from maxLik::maxLik()
   structure(
     object,
-    class = unique(c("ml_lm", "mlmodel", class(object)))
+    class = unique(c("ml_trunc_lm", "mlmodel", class(object)))
   )
 }
 
-# ML_LM FIT --------------------------------------------------------------
+# ML_TRUNC_LM FIT --------------------------------------------------------------
 #' @keywords internal
-.ml_lm.fit <- function(y, x, z, w = NULL,
-                       method = "NR",
-                       start = NULL,
-                       constraints = NULL,
-                       lognormal = FALSE,
-                       control = list(tol = -1,
-                                      reltol = 1e-12,
-                                      gradtol = 1e-12,
-                                      lambdatol = 1e-20,
-                                      qac = "marquardt"),
-                       ...)
+.ml_trunc_lm.fit <- function(y, x, z, w = NULL,
+                             left = -Inf,
+                             right = Inf,
+                             method = "NR",
+                             start = NULL,
+                             constraints = NULL,
+                             lognormal = FALSE,
+                             control = list(tol = -1,
+                                            reltol = 1e-12,
+                                            gradtol = 1e-12,
+                                            lambdatol = 1e-20),
+                             ...)
 {
   # At this point start has been checked and if supplied is numeric and
   # has the right dimension.
   if(!is.null(start))
   {
-    ll <- .ml_lm_ll(start,y,x,z,w)
+    ll <- .ml_trunc_lm_ll(start,y = y, x = x, z = z,
+                          left = left, right = right, w = w, lognormal = lognormal)
     
     if(any(!is.finite(ll)))
       cli::cli_abort("Infeasible log-likelihood value at supplied `start` vector.",
@@ -491,6 +484,7 @@ new_ml_lm <- function(object, ...) {
     # Beta starting values using low-level lm.fit()
     fit_beta <- .lm.fit(x, y)
     b0 <- fit_beta$coefficients
+    
     names(b0) <- paste0("value::", colnames(x))
     
     # Residuals
@@ -511,12 +505,22 @@ new_ml_lm <- function(object, ...) {
     names(g0) <- paste0("scale::", colnames(z))
     
     start <- c(b0, g0)
+    
+    start <- .initial_values.mlmodel(.ml_trunc_lm_ll, start,
+                                     y = y, x = x, z = z, w = w, left = left,
+                                     right = right,
+                                     lognormal = lognormal)
+    if(isFALSE(attr(start, "feasible")))
+      cli::cli_abort("Couldn't find feasible initial values.",
+                     call = NULL)
   }
-  maxLik::maxLik(.ml_lm_ll,
+  maxLik::maxLik(.ml_trunc_lm_ll,
                  start = start,
                  y = y,
                  x = x,
                  z = z,
+                 left = left,
+                 right = right,
                  w = w,
                  lognormal = lognormal,
                  constraints = constraints,

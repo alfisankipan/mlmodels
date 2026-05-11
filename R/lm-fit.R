@@ -257,6 +257,7 @@ ml_lm <- function(value,
   
   # -- 9c. Scaling the log-likelihood, scores and hessian back -----------------
   ml$hessian <- ml$hessian * sc_factor
+  ml$gradient <- ml$gradient * sc_factor
   ml$gradientObs <- ml$gradientObs * sc_factor
   ml$maximum <- ml$maximum * sc_factor
 
